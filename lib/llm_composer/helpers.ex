@@ -14,7 +14,6 @@ defmodule LlmComposer.Helpers do
 
   @type messages :: [term()]
   @type llmfunctions :: [Function.t()]
-  @type fcalls :: [FunctionCall.t()]
   @type action_result ::
           {:ok, LlmResponse.t()}
           | {:completion, LlmResponse.t(), llmfunctions()}
@@ -29,7 +28,7 @@ defmodule LlmComposer.Helpers do
     {:completion, res, results}
   end
 
-  @spec maybe_complete_chat(action_result(), messages(), fcalls()) :: action_result()
+  @spec maybe_complete_chat(action_result(), messages(), function()) :: action_result()
   def maybe_complete_chat({:ok, _} = res, _messages, _fcalls), do: res
 
   def maybe_complete_chat({:completion, oldres, results}, messages, run_completion_fn) do
