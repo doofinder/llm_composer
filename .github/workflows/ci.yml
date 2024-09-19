@@ -1,0 +1,93 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  consistency:
+    runs-on: ubuntu-24.04
+    name: OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    strategy:
+      matrix:
+        otp: ['26.0']
+        elixir: ['1.17.2']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+
+      - name: Cache dev
+        id: cache-dev
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build/dev
+            ~/.cache/rebar3
+            ~/.cache/rustler_precompiled
+          key: ${{ runner.os }}-DEV-cache-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-DEV-cache-
+
+      - name: Install Mix Dependencies
+        if: steps.cache-dev.outputs.cache-hit != 'true'
+        run: |
+          mix deps.get
+
+      - name: Check Formatting
+        run: mix format --check-formatted
+
+      - name: Run credo
+        run: mix credo --strict --ignore todo
+
+      - name: Run dialyzer
+        run: mix dialyzer
+
+  test:
+    runs-on: ubuntu-24.04
+    name: OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    strategy:
+      matrix:
+        otp: ['26.0', '27.0']
+        elixir: ['1.17.2']
+
+    env:
+      MIX_ENV: test
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+
+      - name: Cache test
+        id: cache-test
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build/test
+            ~/.cache/rebar3
+            ~/.cache/rustler_precompiled
+          key: ${{ runner.os }}-TEST-cache-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-TEST-cache-
+
+      - name: Install Mix Dependencies
+        if: steps.cache-test.outputs.cache-hit != 'true'
+        run: |
+          mix deps.get
+
+      - name: Compile test
+        if: steps.cache-test.outputs.cache-hit != 'true'
+        run: mix compile
+        env:
+          MIX_ENV: test
+
+      - name: Run Tests
+        run: mix test
