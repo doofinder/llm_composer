@@ -7,7 +7,13 @@ defmodule LlmComposer.MixProject do
       version: "0.1.0",
       elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      organization: "doofinder",
+      docs: [
+        main: "readme",
+        extras: ["README.md"]
+      ],
+      source_url: "https://github.com/doofinder/llm_composer"
     ]
   end
 
@@ -23,6 +29,7 @@ defmodule LlmComposer.MixProject do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:jason, "~> 1.4"},
       {:tesla, "~> 1.12"}
     ]
