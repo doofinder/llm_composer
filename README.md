@@ -60,7 +60,7 @@ LlmComposer also supports the Ollama backend, allowing interaction with models h
 Make sure to start the Ollama server first.
 
 
-```
+```elixir
 # default config if not provided
 # Application.put_env(:llm_caller, :ollama_uri, "http://localhost:11434")
 
@@ -76,7 +76,25 @@ end
 IO.inspect res.main_response
 ```
 
-No function calls support in ollama (for now)
+Example of execution:
+
+```
+mix run sample_ollama.ex
+
+17:08:34.271 [debug] input_tokens=, output_tokens=
+%LlmComposer.Message{
+  type: :assistant,
+  content: "How can I assist you today?",
+  metadata: %{
+    original: %{
+      "content" => "How can I assist you today?",
+      "role" => "assistant"
+    }
+  }
+}
+```
+
+No function calls support in Ollama (for now)
 
 
 ### Bot with external function call
