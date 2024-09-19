@@ -1,8 +1,8 @@
-defmodule LlmComposer.Caller.Helpers do
+defmodule LlmComposer.Helpers do
   @moduledoc """
   Function helpers for Caller macro module.
 
-  Functions that can be seen in a error stacktrace if something fails.
+  Functions that can be seen in a error stack trace if something fails.
   """
 
   alias LlmComposer.Function
