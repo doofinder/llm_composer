@@ -1,6 +1,8 @@
 defmodule LlmComposer.Settings do
   @moduledoc """
-  Settings for a Chat module.
+  Defines the settings for configuring chat interactions with a language model.
+
+  This module provides a struct that includes model configuration, prompt settings, and options for function execution, enabling fine control over the chat flow and behavior.
   """
 
   @enforce_keys [:model, :model_opts]

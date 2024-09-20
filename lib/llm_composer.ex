@@ -3,6 +3,42 @@ defmodule LlmComposer do
   `LlmComposer` is responsible for interacting with a language model to perform chat-related operations,
   such as running completions and executing functions based on the responses. The module provides 
   functionality to handle user messages, generate responses, and automatically execute functions as needed.
+
+  ## Example Usage
+
+  To use `LlmComposer` for creating a simple chat interaction with a language model, define a settings configuration and initiate a chat:
+
+  ```elixir
+  # Define the settings for your LlmComposer instance
+  settings = %LlmComposer.Settings{
+    model: LlmComposer.Models.OpenAI,
+    model_opts: [model: "gpt-4o-mini"],
+    system_prompt: "You are a helpful assistant.",
+    user_prompt_prefix: "",
+    auto_exec_functions: false,
+    functions: []
+  }
+
+  # Initiate a simple chat interaction with the defined settings
+  {:ok, response} = LlmComposer.simple_chat(settings, "Hello, how are you?")
+
+  # Print the main response from the assistant
+  IO.inspect(response.main_response)
+  ```
+
+  ### Output Example
+
+  Running this code might produce the following log and output:
+
+  ```
+  16:41:07.594 [debug] input_tokens=18, output_tokens=9
+  %LlmComposer.Message{
+    type: :assistant,
+    content: "Hello! How can I assist you today?"
+  }
+  ```
+
+  In this example, the simple_chat/2 function sends the user's message to the language model using the provided settings, and the response is displayed as the assistant's reply.
   """
 
   alias LlmComposer.Helpers
