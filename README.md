@@ -31,9 +31,7 @@ defmodule MyChat do
   @settings %LlmComposer.Settings{
     model: LlmComposer.Models.OpenAI,
     model_opts: [model: "gpt-4o-mini"],
-    system_prompt: "You are a helpful assistant.",
-    auto_exec_functions: false,
-    functions: []
+    system_prompt: "You are a helpful assistant."
   }
 
   def simple_chat(msg) do
@@ -77,9 +75,7 @@ defmodule MyChat do
   @settings %LlmComposer.Settings{
     model: LlmComposer.Models.Ollama,
     model_opts: [model: "llama3.1"],
-    system_prompt: "You are a helpful assistant.",
-    auto_exec_functions: false,
-    functions: []
+    system_prompt: "You are a helpful assistant."
   }
 
   def simple_chat(msg) do
