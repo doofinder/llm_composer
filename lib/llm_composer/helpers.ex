@@ -67,7 +67,6 @@ defmodule LlmComposer.Helpers do
     run_completion_fn.(new_messages)
   end
 
-  @doc false
   @spec exec_function(fcall :: FunctionCall.t(), functions :: llmfunctions()) :: FunctionCall.t()
   defp exec_function(%FunctionCall{} = fcall, functions) do
     [

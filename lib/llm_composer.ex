@@ -104,20 +104,17 @@ defmodule LlmComposer do
     end)
   end
 
-  @doc false
   @spec get_messages(Settings.t(), String.t(), messages(), map()) :: messages()
   defp get_messages(settings, current_message, old_messages, opts) do
     old_messages ++ [Message.new(:user, user_prompt(settings, current_message, opts))]
   end
 
-  @doc false
   @spec user_prompt(Settings.t(), String.t(), map()) :: String.t()
   defp user_prompt(settings, message, opts) do
     prompt = Map.get(opts, :user_prompt_prefix, settings.user_prompt_prefix)
     prompt <> message
   end
 
-  @doc false
   @spec maybe_run_functions(LlmResponse.t(), messages(), Settings.t()) :: Helpers.action_result()
   defp maybe_run_functions(res, messages, settings) do
     res
