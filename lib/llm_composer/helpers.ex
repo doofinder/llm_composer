@@ -1,8 +1,10 @@
-defmodule LlmComposer.Caller.Helpers do
+defmodule LlmComposer.Helpers do
   @moduledoc """
-  Function helpers for Caller macro module.
+  Provides helper functions for the `LlmComposer` module, particularly for managing
+  function calls and handling language model responses.
 
-  Functions that can be seen in a error stacktrace if something fails.
+  These helpers are designed to execute functions as part of the response processing pipeline,
+  manage completions, and log relevant information for debugging.
   """
 
   alias LlmComposer.Function
@@ -14,12 +16,22 @@ defmodule LlmComposer.Caller.Helpers do
 
   @type messages :: [term()]
   @type llmfunctions :: [Function.t()]
-  @type fcalls :: [FunctionCall.t()]
   @type action_result ::
           {:ok, LlmResponse.t()}
           | {:completion, LlmResponse.t(), llmfunctions()}
           | {:error, term()}
 
+  @doc """
+  Executes the functions specified in the language model response, if any.
+
+  ## Parameters
+    - `res`: The language model response containing actions to be executed.
+    - `llm_functions`: A list of functions available for execution.
+
+  ## Returns
+    - `{:ok, res}` if no actions are found in the response.
+    - `{:completion, res, results}` if actions are executed, returning the completion status and results.
+  """
   @spec maybe_exec_functions(LlmResponse.t(), llmfunctions()) :: action_result()
   def maybe_exec_functions(%{actions: []} = res, _functions), do: {:ok, res}
 
@@ -29,7 +41,18 @@ defmodule LlmComposer.Caller.Helpers do
     {:completion, res, results}
   end
 
-  @spec maybe_complete_chat(action_result(), messages(), fcalls()) :: action_result()
+  @doc """
+  Completes the chat flow by appending function results to the messages and re-running the completion process.
+
+  ## Parameters
+    - `action_result`: The result of a previous action or completion.
+    - `messages`: The list of messages exchanged so far.
+    - `run_completion_fn`: A function to re-run the completion with updated messages.
+
+  ## Returns
+    - The result of re-running the completion with the new set of messages and function results.
+  """
+  @spec maybe_complete_chat(action_result(), messages(), function()) :: action_result()
   def maybe_complete_chat({:ok, _} = res, _messages, _fcalls), do: res
 
   def maybe_complete_chat({:completion, oldres, results}, messages, run_completion_fn) do

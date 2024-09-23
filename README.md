@@ -27,15 +27,21 @@ To create a basic chatbot using LlmComposer, you need to define a module that us
 Application.put_env(:llm_caller, :openai_key, "<your api key>")
 
 defmodule MyChat do
-  use LlmComposer.Caller,
+
+  @settings %LlmComposer.Settings{
     model: LlmComposer.Models.OpenAI,
     model_opts: [model: "gpt-4o-mini"],
-    system_prompt: "you are a helpful assistant."
+    system_prompt: "You are a helpful assistant."
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
 end
 
 {:ok, res} = MyChat.simple_chat("hi")
 
-IO.inspect res.main_response
+IO.inspect(res.main_response)
 ```
 
 Example of execution:
@@ -61,19 +67,25 @@ Make sure to start the Ollama server first.
 
 
 ```elixir
-# default config if not provided
+# Set the Ollama URI in the application environment if not already configured
 # Application.put_env(:llm_caller, :ollama_uri, "http://localhost:11434")
 
 defmodule MyChat do
-  use LlmComposer.Caller,
+
+  @settings %LlmComposer.Settings{
     model: LlmComposer.Models.Ollama,
     model_opts: [model: "llama3.1"],
-    system_prompt: "you are a helpful assistant."
+    system_prompt: "You are a helpful assistant."
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
 end
 
 {:ok, res} = MyChat.simple_chat("hi")
 
-IO.inspect res.main_response
+IO.inspect(res.main_response)
 ```
 
 Example of execution:
@@ -106,17 +118,17 @@ You can enhance the bot's capabilities by adding support for external function e
 Application.put_env(:llm_caller, :openai_key, "<your api key>")
 
 defmodule MyChat do
-  use LlmComposer.Caller,
+
+  @settings %LlmComposer.Settings{
     model: LlmComposer.Models.OpenAI,
+    model_opts: [model: "gpt-4o-mini"],
+    system_prompt: "You are a helpful math assistant that assists with calculations.",
     auto_exec_functions: true,
-    model_opts: [
-      model: "gpt-4o-mini"
-    ],
     functions: [
       %LlmComposer.Function{
-        mf: {MyChat, :calculator},
+        mf: {__MODULE__, :calculator},
         name: "calculator",
-        description: "A calculator that accepts math expresions as strings, eg: '1 * (2 + 3) / 4', only support the operators ['+', '-', '*', '/'].",
+        description: "A calculator that accepts math expressions as strings, e.g., '1 * (2 + 3) / 4', supporting the operators ['+', '-', '*', '/'].",
         schema: %{
           type: "object",
           properties: %{
@@ -129,24 +141,23 @@ defmodule MyChat do
           required: ["expression"]
         }
       }
-    ],
-    system_prompt: "You are a helpful math assistant that assists with calculations."
+    ]
+  }
 
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
 
-  @doc """
-  Calculator executor.
-
-  Params:
-    * expression: A math expression to execute, eg: "1 + 2"
-  """
-  @spec calculator(map()) :: number()
+  @spec calculator(map()) :: number() | {:error, String.t()}
   def calculator(%{"expression" => expression}) do
-    # Avoid arbitrary execution of code, just accept math expressions
-    pattern = ~r/^\d+(\.\d+)?\s*[\+\-\*\/]\s*\d+(\.\d+)?$/
+    # Basic validation pattern to prevent arbitrary code execution
+    pattern = ~r/^[0-9\.\s\+\-\*\/\(\)]+$/
 
     if Regex.match?(pattern, expression) do
-      case Code.eval_string(expression) do
-        {result, _binding} when is_number(result) -> result
+      try do
+        {result, _binding} = Code.eval_string(expression)
+        result
+      rescue
         _ -> {:error, "Invalid expression"}
       end
     else
@@ -155,9 +166,9 @@ defmodule MyChat do
   end
 end
 
-{:ok, res} = MyChat.simple_chat("hi, how mutch is 1 + 2?")
+{:ok, res} = MyChat.simple_chat("hi, how much is 1 + 2?")
 
-IO.inspect res.main_response
+IO.inspect(res.main_response)
 ```
 
 Example of execution:
