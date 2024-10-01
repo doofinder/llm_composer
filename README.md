@@ -10,7 +10,7 @@ by adding `llm_composer` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.1.0"}
+    {:llm_composer, "~> 0.2.0"}
   ]
 end
 ```
@@ -24,7 +24,7 @@ To create a basic chatbot using LlmComposer, you need to define a module that us
 
 
 ```elixir
-Application.put_env(:llm_caller, :openai_key, "<your api key>")
+Application.put_env(:llm_composer, :openai_key, "<your api key>")
 
 defmodule MyChat do
 
@@ -68,7 +68,7 @@ Make sure to start the Ollama server first.
 
 ```elixir
 # Set the Ollama URI in the application environment if not already configured
-# Application.put_env(:llm_caller, :ollama_uri, "http://localhost:11434")
+# Application.put_env(:llm_composer, :ollama_uri, "http://localhost:11434")
 
 defmodule MyChat do
 
@@ -115,7 +115,7 @@ You can enhance the bot's capabilities by adding support for external function e
 
 
 ```elixir
-Application.put_env(:llm_caller, :openai_key, "<your api key>")
+Application.put_env(:llm_composer, :openai_key, "<your api key>")
 
 defmodule MyChat do
 
