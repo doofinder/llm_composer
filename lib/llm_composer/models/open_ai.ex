@@ -38,7 +38,7 @@ defmodule LlmComposer.Models.OpenAI do
     model = Keyword.get(opts, :model)
 
     headers = [
-      {"Authorization", "Bearer " <> Application.get_env(:llm_caller, :openai_key)}
+      {"Authorization", "Bearer " <> Application.get_env(:llm_composer, :openai_key)}
     ]
 
     if model do
