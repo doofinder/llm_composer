@@ -1,7 +1,7 @@
 defmodule LlmComposer do
   @moduledoc """
   `LlmComposer` is responsible for interacting with a language model to perform chat-related operations,
-  such as running completions and executing functions based on the responses. The module provides 
+  such as running completions and executing functions based on the responses. The module provides
   functionality to handle user messages, generate responses, and automatically execute functions as needed.
 
   ## Example Usage
@@ -56,13 +56,14 @@ defmodule LlmComposer do
   ## Parameters
     - `settings`: The settings for the language model, including prompts and options.
     - `msg`: The user message to be sent to the language model.
+    - `old_messages`: A list of previous messages used as a context. By default is empty.
 
   ## Returns
     - The result of the language model's response, which may include function executions if specified.
   """
-  @spec simple_chat(Settings.t(), String.t()) :: Helpers.action_result()
-  def simple_chat(%Settings{} = settings, msg) do
-    messages = get_messages(settings, msg, [], %{})
+  @spec simple_chat(Settings.t(), String.t(), messages) :: Helpers.action_result()
+  def simple_chat(%Settings{} = settings, msg, old_messages \\ []) do
+    messages = get_messages(settings, msg, old_messages, %{})
 
     run_completion(settings, messages)
   end
