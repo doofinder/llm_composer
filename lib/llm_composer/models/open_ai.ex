@@ -75,6 +75,9 @@ defmodule LlmComposer.Models.OpenAI do
       %Message{type: :user, content: message} ->
         %{"role" => "user", "content" => message}
 
+      %Message{type: :system, content: message} when message in ["", nil] ->
+        nil
+
       %Message{type: :system, content: message} ->
         %{"role" => "system", "content" => message}
 
@@ -95,10 +98,6 @@ defmodule LlmComposer.Models.OpenAI do
         }
       } ->
         %{"role" => "tool", "content" => message, "tool_call_id" => call_id}
-
-      # happens when system_prompt is "" or nil
-      nil ->
-        nil
     end)
     |> Enum.reject(&is_nil/1)
   end

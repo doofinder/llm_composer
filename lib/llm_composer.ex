@@ -80,7 +80,7 @@ defmodule LlmComposer do
   """
   @spec run_completion(Settings.t(), messages(), LlmResponse.t() | nil) :: Helpers.action_result()
   def run_completion(settings, messages, previous_response \\ nil) do
-    system_msg = system_prompt(settings)
+    system_msg = Message.new(:system, settings.system_prompt)
 
     model_opts =
       Keyword.merge(settings.model_opts, functions: settings.functions)
@@ -115,13 +115,6 @@ defmodule LlmComposer do
   defp user_prompt(settings, message, opts) do
     prompt = Map.get(opts, :user_prompt_prefix, settings.user_prompt_prefix)
     prompt <> message
-  end
-
-  @spec system_prompt(Settings.t()) :: Message.t() | nil
-  defp system_prompt(%Settings{system_prompt: prompt}) when prompt in [nil, ""], do: nil
-
-  defp system_prompt(%Settings{system_prompt: prompt}) do
-    Message.new(:system, prompt)
   end
 
   @spec maybe_run_functions(LlmResponse.t(), messages(), Settings.t()) :: Helpers.action_result()

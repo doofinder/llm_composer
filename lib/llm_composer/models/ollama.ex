@@ -73,15 +73,14 @@ defmodule LlmComposer.Models.Ollama do
       %Message{type: :user, content: message} ->
         %{"role" => "user", "content" => message}
 
+      %Message{type: :system, content: message} when message in ["", nil] ->
+        nil
+
       %Message{type: :system, content: message} ->
         %{"role" => "system", "content" => message}
 
       %Message{type: :assistant, content: message} ->
         %{"role" => "assistant", "content" => message}
-
-      # system prompt nil case
-      nil ->
-        nil
     end)
     |> Enum.reject(&is_nil/1)
   end
