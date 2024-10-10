@@ -58,6 +58,54 @@ mix run sample.ex
 
 This will trigger a conversation with the assistant based on the provided system prompt.
 
+### Using old messages
+
+For more control over the interactions, basically to send the messages history and track the context, you can use the `run_completion/3` function directly.
+
+Here’s an example that demonstrates how to use `run_completion` with a custom message flow:
+
+```elixir
+Application.put_env(:llm_composer, :openai_key, "<your api key>")
+
+defmodule MyCustomChat do
+
+  @settings %LlmComposer.Settings{
+    model: LlmComposer.Models.OpenAI,
+    model_opts: [model: "gpt-4o-mini"],
+    system_prompt: "You are an assistant specialized in history.",
+    auto_exec_functions: false,
+    functions: []
+  }
+
+  def run_custom_chat() do
+    # Define a conversation history with user and assistant messages
+    messages = [
+      %LlmComposer.Message{type: :user, content: "What is the Roman Empire?"},
+      %LlmComposer.Message{type: :assistant, content: "The Roman Empire was a period of ancient Roman civilization with an autocratic government."},
+      %LlmComposer.Message{type: :user, content: "When did it begin?"}
+    ]
+    
+    {:ok, res} = LlmComposer.run_completion(@settings, messages)
+    
+    res.main_response
+  end
+end
+
+IO.inspect(MyCustomChat.run_custom_chat())
+```
+
+Example of execution:
+
+```
+mix run custom_chat.ex
+
+16:45:10.123 [debug] input_tokens=85, output_tokens=47
+%LlmComposer.Message{
+  type: :assistant,
+  content: "The Roman Empire began in 27 B.C. after the end of the Roman Republic, and it continued until 476 A.D. in the West."
+}
+```
+
 
 ### Using Ollama Backend
 

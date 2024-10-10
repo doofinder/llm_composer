@@ -68,9 +68,13 @@ defmodule LlmComposer.Models.Ollama do
   end
 
   defp map_messages(messages) do
-    Enum.map(messages, fn
+    messages
+    |> Stream.map(fn
       %Message{type: :user, content: message} ->
         %{"role" => "user", "content" => message}
+
+      %Message{type: :system, content: message} when message in ["", nil] ->
+        nil
 
       %Message{type: :system, content: message} ->
         %{"role" => "system", "content" => message}
@@ -78,6 +82,7 @@ defmodule LlmComposer.Models.Ollama do
       %Message{type: :assistant, content: message} ->
         %{"role" => "assistant", "content" => message}
     end)
+    |> Enum.reject(&is_nil/1)
   end
 
   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}

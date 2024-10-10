@@ -81,7 +81,9 @@ defmodule LlmComposer do
   @spec run_completion(Settings.t(), messages(), LlmResponse.t() | nil) :: Helpers.action_result()
   def run_completion(settings, messages, previous_response \\ nil) do
     system_msg = Message.new(:system, settings.system_prompt)
-    model_opts = Keyword.merge(settings.model_opts, functions: settings.functions)
+
+    model_opts =
+      Keyword.merge(settings.model_opts, functions: settings.functions)
 
     messages
     |> settings.model.run(system_msg, model_opts)

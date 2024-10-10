@@ -6,7 +6,7 @@ defmodule LlmComposer.Model do
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
 
-  @callback run([Message.t()], Message.t(), keyword()) ::
+  @callback run([Message.t()], Message.t() | nil, keyword()) ::
               {:ok, LlmResponse.t()} | {:error, term()}
 
   @callback model_id() :: atom
