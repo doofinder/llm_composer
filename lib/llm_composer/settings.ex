@@ -11,7 +11,7 @@ defmodule LlmComposer.Settings do
     :model_opts,
     auto_exec_functions: false,
     functions: [],
-    system_prompt: "",
+    system_prompt: nil,
     user_prompt_prefix: ""
   ]
 
@@ -20,7 +20,7 @@ defmodule LlmComposer.Settings do
           functions: [LlmComposer.Function.t()],
           model: module(),
           model_opts: keyword(),
-          system_prompt: String.t(),
+          system_prompt: String.t() | nil,
           user_prompt_prefix: String.t()
         }
 end

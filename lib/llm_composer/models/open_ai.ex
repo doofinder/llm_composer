@@ -70,7 +70,8 @@ defmodule LlmComposer.Models.OpenAI do
   end
 
   defp map_messages(messages) do
-    Enum.map(messages, fn
+    messages
+    |> Stream.map(fn
       %Message{type: :user, content: message} ->
         %{"role" => "user", "content" => message}
 
@@ -94,7 +95,12 @@ defmodule LlmComposer.Models.OpenAI do
         }
       } ->
         %{"role" => "tool", "content" => message, "tool_call_id" => call_id}
+
+      # happens when system_prompt is "" or nil
+      nil ->
+        nil
     end)
+    |> Enum.reject(&is_nil/1)
   end
 
   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
