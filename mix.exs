@@ -11,7 +11,8 @@ defmodule LlmComposer.MixProject do
       package: package(),
       docs: [
         main: "readme",
-        extras: ["README.md"]
+        extras: ["README.md"],
+        source_ref: "master"
       ],
       source_url: "https://github.com/doofinder/llm_composer"
     ]
