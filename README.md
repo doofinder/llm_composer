@@ -10,7 +10,7 @@ by adding `llm_composer` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.2.0"}
+    {:llm_composer, "~> 0.3.0"}
   ]
 end
 ```
