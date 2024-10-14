@@ -113,6 +113,10 @@ defmodule LlmComposer.Models.OpenAI do
     {:error, resp}
   end
 
+  defp handle_response({:error, reason}) do
+    {:error, reason}
+  end
+
   defp cleanup_body(body) do
     body
     |> Enum.reject(fn
