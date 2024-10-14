@@ -8,6 +8,7 @@ defmodule LlmComposer.Models.OpenAI do
 
   use Tesla
 
+  alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.FunctionCall
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
@@ -38,7 +39,7 @@ defmodule LlmComposer.Models.OpenAI do
     model = Keyword.get(opts, :model)
 
     headers = [
-      {"Authorization", "Bearer " <> Application.get_env(:llm_composer, :openai_key)}
+      {"Authorization", "Bearer " <> get_key()}
     ]
 
     if model do
@@ -158,5 +159,12 @@ defmodule LlmComposer.Models.OpenAI do
         arguments: Jason.decode!(call["function"]["arguments"])
       }
     end)
+  end
+
+  defp get_key do
+    case Application.get_env(:llm_composer, :openai_key) do
+      nil -> raise MissingKeyError
+      key -> key
+    end
   end
 end
