@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.3.1] - 2024-10-14
+
+### Added
+- **Error Handling**: Introduced a new module `LlmComposer.Errors` with a custom `MissingKeyError` for better error management.
+- **Removed Legacy Code**: Removed the `get_messages/4` function from `LlmComposer` to streamline message handling.
+
 ## [0.3.0] - 2024-10-10
 
 ### Added
@@ -19,7 +25,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.3.1...HEAD
+[0.3.1]: https://github.com/doofinder/llm_composer/compare/0.3.0...0.3.1
+[0.3.0]: https://github.com/doofinder/llm_composer/compare/0.2.0...0.3.0
 [0.3.0]: https://github.com/doofinder/llm_composer/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/doofinder/llm_composer/compare/d9f96d55859300d779d9c3899b4c33578bb2e362...0.2.0
 [first commit]: https://github.com/doofinder/llm_composer/commit/d9f96d55859300d779d9c3899b4c33578bb2e362
