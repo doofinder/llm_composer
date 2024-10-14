@@ -161,7 +161,7 @@ defmodule LlmComposer.Models.OpenAI do
     end)
   end
 
-  defp get_key() do
+  defp get_key do
     case Application.get_env(:llm_composer, :openai_key) do
       nil -> raise MissingKeyError
       key -> key
