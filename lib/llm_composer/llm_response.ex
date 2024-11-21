@@ -3,10 +3,10 @@ defmodule LlmComposer.LlmResponse do
   Module to parse and easily handle llm responses.
   """
 
-  @llm_models [:open_ai, :ollama]
-
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
+
+  @llm_models [:open_ai, :ollama]
 
   @type t() :: %__MODULE__{
           actions: [[FunctionCall.t()]] | [FunctionCall.t()],
