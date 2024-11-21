@@ -3,6 +3,8 @@ defmodule LlmComposer.LlmResponse do
   Module to parse and easily handle llm responses.
   """
 
+  @llm_models [:open_ai, :ollama]
+
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
@@ -31,8 +33,12 @@ defmodule LlmComposer.LlmResponse do
   @spec new(nil | model_response, atom()) :: {:ok, t()} | {:error, term()}
   def new(nil, _model), do: {:error, :no_llm_response}
 
-  def new({:error, %{body: %{"error" => _} = body}}, :open_ai) do
+  def new({:error, %{body: body}}, model) when model in @llm_models do
     {:error, body}
+  end
+
+  def new({:error, resp}, model) when model in @llm_models do
+    {:error, resp}
   end
 
   def new(
@@ -58,8 +64,6 @@ defmodule LlmComposer.LlmResponse do
      }}
   end
 
-  def new({:error, resp}, :open_ai), do: {:error, resp.body}
-
   def new(
         {status, %{actions: actions, response: %{"message" => message} = raw_response}},
         :ollama
@@ -77,6 +81,4 @@ defmodule LlmComposer.LlmResponse do
        status: status
      }}
   end
-
-  def new({:error, resp}, :ollama), do: {:error, resp.body}
 end
