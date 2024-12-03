@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.3.2] - 2024-12-03
+- **Timeouts**: Handle LLMs timeouts and increase Tesla's timeout to 5 seconds.
+
 ## [0.3.1] - 2024-10-14
 
 ### Added
@@ -18,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **System Prompt Handling**: Added support for an optional system prompt in `run_completion/3`. The `system_prompt` is now treated as `nil` when not provided.
 - **Custom Message Flow Example**: Updated the `README.md` with an example of how to use the `run_completion/3` function directly with a custom message history.
 - **Nil Message Handling in Models**: Handling the `nil` case when system_prompt not provided
-  
+
 ## [0.2.0] - 2024-10-01
 
 ### Added
@@ -26,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 [Unreleased]: https://github.com/doofinder/llm_composer/compare/0.3.1...HEAD
+[0.3.2]: https://github.com/doofinder/llm_composer/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/doofinder/llm_composer/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/doofinder/llm_composer/compare/0.2.0...0.3.0
 [0.3.0]: https://github.com/doofinder/llm_composer/compare/0.2.0...0.3.0
