@@ -28,6 +28,8 @@ defmodule LlmComposer.Models.OpenAI do
     end
   )
 
+  plug(Tesla.Middleware.Timeout, timeout: 5_000)
+
   @impl LlmComposer.Model
   def model_id, do: :open_ai
 
