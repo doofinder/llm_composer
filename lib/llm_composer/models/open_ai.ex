@@ -13,6 +13,8 @@ defmodule LlmComposer.Models.OpenAI do
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
 
+  @default_timeout 50_000
+
   plug(Tesla.Middleware.BaseUrl, "https://api.openai.com/v1")
 
   plug(Tesla.Middleware.JSON)
@@ -28,7 +30,9 @@ defmodule LlmComposer.Models.OpenAI do
     end
   )
 
-  plug(Tesla.Middleware.Timeout, timeout: 5_000)
+  plug(Tesla.Middleware.Timeout,
+    timeout: Application.get_env(:llm_composer, :timeout) || @default_timeout
+  )
 
   @impl LlmComposer.Model
   def model_id, do: :open_ai
