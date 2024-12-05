@@ -78,15 +78,15 @@ defmodule LlmComposer do
   ## Returns
     - A tuple containing `:ok` with the response or `:error` if the model call fails.
   """
-  @spec run_completion(Settings.t(), messages(), LlmResponse.t() | nil) :: Helpers.action_result()
-  def run_completion(settings, messages, previous_response \\ nil) do
+  @spec run_completion(Settings.t(), messages(), LlmResponse.t() | nil, binary | nil) :: Helpers.action_result()
+  def run_completion(settings, messages, previous_response \\ nil, api_key \\ nil) do
     system_msg = Message.new(:system, settings.system_prompt)
 
     model_opts =
       Keyword.merge(settings.model_opts, functions: settings.functions)
 
     messages
-    |> settings.model.run(system_msg, model_opts)
+    |> settings.model.run(system_msg, model_opts, api_key)
     |> then(fn
       {:ok, res} ->
         # set previous response all the time
