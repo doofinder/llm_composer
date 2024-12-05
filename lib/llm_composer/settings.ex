@@ -12,7 +12,8 @@ defmodule LlmComposer.Settings do
     auto_exec_functions: false,
     functions: [],
     system_prompt: nil,
-    user_prompt_prefix: ""
+    user_prompt_prefix: "",
+    api_key: ""
   ]
 
   @type t :: %__MODULE__{
@@ -21,6 +22,7 @@ defmodule LlmComposer.Settings do
           model: module(),
           model_opts: keyword(),
           system_prompt: String.t() | nil,
-          user_prompt_prefix: String.t()
+          user_prompt_prefix: String.t(),
+          api_key: String.t() | nil
         }
 end
