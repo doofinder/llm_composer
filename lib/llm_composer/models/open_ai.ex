@@ -41,11 +41,12 @@ defmodule LlmComposer.Models.OpenAI do
   @doc """
   Reference: https://platform.openai.com/docs/api-reference/chat/create
   """
-  def run(messages, system_message, opts, api_key \\ nil) do
+  def run(messages, system_message, opts) do
     model = Keyword.get(opts, :model)
+    api_key = Keyword.get(opts, :model) || get_key()
 
     headers = [
-      {"Authorization", "Bearer " <> (api_key || get_key())}
+      {"Authorization", "Bearer " <> api_key}
     ]
 
     if model do

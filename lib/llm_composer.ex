@@ -16,7 +16,8 @@ defmodule LlmComposer do
     system_prompt: "You are a helpful assistant.",
     user_prompt_prefix: "",
     auto_exec_functions: false,
-    functions: []
+    functions: [],
+    api_key: ""
   }
 
   # Initiate a simple chat interaction with the defined settings
@@ -78,16 +79,16 @@ defmodule LlmComposer do
   ## Returns
     - A tuple containing `:ok` with the response or `:error` if the model call fails.
   """
-  @spec run_completion(Settings.t(), messages(), LlmResponse.t() | nil, binary | nil) ::
+  @spec run_completion(Settings.t(), messages(), LlmResponse.t() | nil) ::
           Helpers.action_result()
-  def run_completion(settings, messages, previous_response \\ nil, api_key \\ nil) do
+  def run_completion(settings, messages, previous_response \\ nil) do
     system_msg = Message.new(:system, settings.system_prompt)
 
     model_opts =
-      Keyword.merge(settings.model_opts, functions: settings.functions)
+      Keyword.merge(settings.model_opts, functions: settings.functions, api_key: settings.api_key)
 
     messages
-    |> settings.model.run(system_msg, model_opts, api_key)
+    |> settings.model.run(system_msg, model_opts)
     |> then(fn
       {:ok, res} ->
         # set previous response all the time
