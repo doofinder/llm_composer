@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ## [0.3.4] - 2024-12-05
-- **OpenAI API Keys**: Load API keys on the fly when calling chat_completion. The param is sent inside the settings. 
+- **OpenAI API Keys**: Use an API key passed as a parameter when calling chat_completion — overriding the global API key defined in the config. The param is sent inside the settings. 
 
 ## [0.3.3] - 2024-12-03
 - **Timeouts**: Configurable OpenAI's timeout. Default set to 50 seconds.
