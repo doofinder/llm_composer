@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.3.4] - 2024-12-05
+- **OpenAI API Keys**: Use an API key passed as a parameter when calling chat_completion — overriding the global API key defined in the config. The param is sent inside the settings. 
+
 ## [0.3.3] - 2024-12-03
 - **Timeouts**: Configurable OpenAI's timeout. Default set to 50 seconds.
 
@@ -32,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 [Unreleased]: https://github.com/doofinder/llm_composer/compare/0.3.3...HEAD
+[0.3.4]: https://github.com/doofinder/llm_composer/compare/0.3.3...0.3.4
 [0.3.3]: https://github.com/doofinder/llm_composer/compare/0.3.2...0.3.3
 [0.3.2]: https://github.com/doofinder/llm_composer/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/doofinder/llm_composer/compare/0.3.0...0.3.1

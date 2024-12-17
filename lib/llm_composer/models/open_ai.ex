@@ -43,9 +43,10 @@ defmodule LlmComposer.Models.OpenAI do
   """
   def run(messages, system_message, opts) do
     model = Keyword.get(opts, :model)
+    api_key = Keyword.get(opts, :api_key) || get_key()
 
     headers = [
-      {"Authorization", "Bearer " <> get_key()}
+      {"Authorization", "Bearer " <> api_key}
     ]
 
     if model do
