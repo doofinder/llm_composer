@@ -13,7 +13,7 @@ defmodule LlmComposer.Settings do
     functions: [],
     system_prompt: nil,
     user_prompt_prefix: "",
-    api_key: ""
+    api_key: nil
   ]
 
   @type t :: %__MODULE__{
