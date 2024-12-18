@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.3.5] - 2024-12-18
+- **Fix default api_key setting value**: The default value was en empty string. Now it is nil to be evaluated as false when getting the key from the map later. 
+
 ## [0.3.4] - 2024-12-05
 - **OpenAI API Keys**: Use an API key passed as a parameter when calling chat_completion — overriding the global API key defined in the config. The param is sent inside the settings. 
 
