@@ -157,7 +157,7 @@ mix run sample_ollama.ex
 No function calls support in Ollama (for now)
 
 
-### Using Open Router
+### Using OpenRouter
 
 LlmComposer supports integration with [OpenRouter](https://openrouter.ai/), giving you access to a variety of LLM models through a single API compatible with OpenAI's interface.
 
