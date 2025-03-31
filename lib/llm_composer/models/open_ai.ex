@@ -17,7 +17,7 @@ defmodule LlmComposer.Models.OpenAI do
 
   plug(
     Tesla.Middleware.BaseUrl,
-    Application.get_env(:llm_composer, :url, "https://api.openai.com/v1")
+    Application.get_env(:llm_composer, :openai_url, "https://api.openai.com/v1")
   )
 
   plug(Tesla.Middleware.JSON)

@@ -157,6 +157,53 @@ mix run sample_ollama.ex
 No function calls support in Ollama (for now)
 
 
+### Using Open Router
+
+LlmComposer supports integration with [OpenRouter](https://openrouter.ai/), giving you access to a variety of LLM models through a single API compatible with OpenAI's interface.
+
+To use OpenRouter with LlmComposer, you'll need to:
+
+1. Sign up for an API key from [OpenRouter](https://openrouter.ai/)
+2. Configure your application to use OpenRouter's endpoint
+
+Here's a complete example:
+
+```elixir
+# Configure the OpenRouter API key and endpoint
+Application.put_env(:llm_composer, :openai_key, "<your openrouter api key>")
+# we use same LlmComposer.Models.OpenAI model for openrouter api
+Application.put_env(:llm_composer, :openai_url, "https://openrouter.ai/api/v1")
+
+defmodule MyOpenRouterChat do
+  @settings %LlmComposer.Settings{
+    model: LlmComposer.Models.OpenAI,
+    # Use any model available on OpenRouter
+    model_opts: [model: "anthropic/claude-3-sonnet"],
+    system_prompt: "You are a SAAS consultant"
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
+end
+
+{:ok, res} = MyOpenRouterChat.simple_chat("Why doofinder is so awesome?")
+
+IO.inspect(res.main_response)
+```
+
+Example of execution:
+
+```
+mix run openrouter_sample.ex
+
+17:12:45.124 [debug] input_tokens=42, output_tokens=156
+%LlmComposer.Message{
+  type: :assistant,
+  content: "Doofinder is an excellent site search solution for ecommerce websites. Here are some reasons why Doofinder is considered awesome:...
+}
+```
+
 ### Bot with external function call
 
 You can enhance the bot's capabilities by adding support for external function execution. This example demonstrates how to add a simple calculator that evaluates basic math expressions:
