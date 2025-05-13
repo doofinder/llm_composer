@@ -9,7 +9,7 @@ defmodule LlmComposer.Models.Ollama do
   use Tesla
 
   alias LlmComposer.LlmResponse
-  alias LlmComposer.Message
+  alias LlmComposer.Models.Utils
 
   @uri Application.compile_env(:llm_composer, :ollama_uri, "http://localhost:11434")
 
@@ -54,10 +54,7 @@ defmodule LlmComposer.Models.Ollama do
       model: model,
       stream: false,
       # tools: get_tools(Keyword.get(opts, :functions)),
-      messages:
-        map_messages([
-          system_message | messages
-        ])
+      messages: Utils.map_messages([system_message | messages])
     }
 
     req_params = Keyword.get(opts, :request_params, %{})
@@ -65,24 +62,6 @@ defmodule LlmComposer.Models.Ollama do
     base_request
     |> Map.merge(req_params)
     |> cleanup_body()
-  end
-
-  defp map_messages(messages) do
-    messages
-    |> Stream.map(fn
-      %Message{type: :user, content: message} ->
-        %{"role" => "user", "content" => message}
-
-      %Message{type: :system, content: message} when message in ["", nil] ->
-        nil
-
-      %Message{type: :system, content: message} ->
-        %{"role" => "system", "content" => message}
-
-      %Message{type: :assistant, content: message} ->
-        %{"role" => "assistant", "content" => message}
-    end)
-    |> Enum.reject(&is_nil/1)
   end
 
   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
