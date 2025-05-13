@@ -9,7 +9,6 @@ defmodule LlmComposer.Models.OpenAI do
   use Tesla
 
   alias LlmComposer.Errors.MissingKeyError
-  alias LlmComposer.FunctionCall
   alias LlmComposer.LlmResponse
   alias LlmComposer.Models.Utils
 
@@ -84,7 +83,7 @@ defmodule LlmComposer.Models.OpenAI do
 
   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
   defp handle_response({:ok, %Tesla.Env{status: status, body: body}}) when status in [200] do
-    actions = extract_actions(body)
+    actions = Utils.extract_actions(body)
     {:ok, %{response: body, actions: actions}}
   end
 
@@ -94,26 +93,6 @@ defmodule LlmComposer.Models.OpenAI do
 
   defp handle_response({:error, reason}) do
     {:error, reason}
-  end
-
-  @spec extract_actions(map()) :: nil | []
-  defp extract_actions(%{"choices" => choices}) when is_list(choices) do
-    choices
-    |> Enum.filter(&(&1["finish_reason"] == "tool_calls"))
-    |> Enum.map(&get_action/1)
-  end
-
-  defp extract_actions(_response), do: []
-
-  defp get_action(%{"message" => %{"tool_calls" => calls}}) do
-    Enum.map(calls, fn call ->
-      %FunctionCall{
-        type: "function",
-        id: call["id"],
-        name: call["function"]["name"],
-        arguments: Jason.decode!(call["function"]["arguments"])
-      }
-    end)
   end
 
   defp get_key do

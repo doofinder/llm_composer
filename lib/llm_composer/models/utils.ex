@@ -1,5 +1,6 @@
 defmodule LlmComposer.Models.Utils do
   @moduledoc false
+
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
@@ -53,6 +54,26 @@ defmodule LlmComposer.Models.Utils do
 
   def get_tools(functions) when is_list(functions) do
     Enum.map(functions, &transform_fn_to_tool/1)
+  end
+
+  @spec extract_actions(map()) :: nil | []
+  def extract_actions(%{"choices" => choices}) when is_list(choices) do
+    choices
+    |> Enum.filter(&(&1["finish_reason"] == "tool_calls"))
+    |> Enum.map(&get_action/1)
+  end
+
+  def extract_actions(_response), do: []
+
+  defp get_action(%{"message" => %{"tool_calls" => calls}}) do
+    Enum.map(calls, fn call ->
+      %FunctionCall{
+        type: "function",
+        id: call["id"],
+        name: call["function"]["name"],
+        arguments: Jason.decode!(call["function"]["arguments"])
+      }
+    end)
   end
 
   defp transform_fn_to_tool(%LlmComposer.Function{} = function) do
