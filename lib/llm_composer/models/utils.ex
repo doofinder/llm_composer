@@ -36,4 +36,15 @@ defmodule LlmComposer.Models.Utils do
     end)
     |> Enum.reject(&is_nil/1)
   end
+
+  @spec cleanup_body(map()) :: map()
+  def cleanup_body(body) do
+    body
+    |> Enum.reject(fn
+      {_param, nil} -> true
+      {_param, []} -> true
+      _other -> false
+    end)
+    |> Map.new()
+  end
 end

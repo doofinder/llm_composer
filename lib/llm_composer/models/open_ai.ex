@@ -74,7 +74,7 @@ defmodule LlmComposer.Models.OpenAI do
 
     base_request
     |> Map.merge(req_params)
-    |> cleanup_body()
+    |> Utils.cleanup_body()
   end
 
   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
@@ -89,16 +89,6 @@ defmodule LlmComposer.Models.OpenAI do
 
   defp handle_response({:error, reason}) do
     {:error, reason}
-  end
-
-  defp cleanup_body(body) do
-    body
-    |> Enum.reject(fn
-      {_param, nil} -> true
-      {_param, []} -> true
-      _other -> false
-    end)
-    |> Map.new()
   end
 
   @spec get_tools([LlmComposer.Function.t()] | nil) :: nil | [map()]

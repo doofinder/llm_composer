@@ -61,7 +61,7 @@ defmodule LlmComposer.Models.Ollama do
 
     base_request
     |> Map.merge(req_params)
-    |> cleanup_body()
+    |> Utils.cleanup_body()
   end
 
   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
@@ -71,15 +71,5 @@ defmodule LlmComposer.Models.Ollama do
 
   defp handle_response({:ok, resp}) do
     {:error, resp}
-  end
-
-  defp cleanup_body(body) do
-    body
-    |> Enum.reject(fn
-      {_param, nil} -> true
-      {_param, []} -> true
-      _other -> false
-    end)
-    |> Map.new()
   end
 end
