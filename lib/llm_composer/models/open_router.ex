@@ -66,9 +66,14 @@ defmodule LlmComposer.Models.OpenRouter do
   end
 
   defp build_request(messages, system_message, model, opts) do
+    tools =
+      opts
+      |> Keyword.get(:functions)
+      |> Utils.get_tools()
+
     base_request = %{
       model: model,
-      tools: get_tools(Keyword.get(opts, :functions)),
+      tools: tools,
       messages: Utils.map_messages([system_message | messages])
     }
 
@@ -102,24 +107,6 @@ defmodule LlmComposer.Models.OpenRouter do
 
   defp handle_response({:error, reason}, _request_opts) do
     {:error, reason}
-  end
-
-  @spec get_tools([LlmComposer.Function.t()] | nil) :: nil | [map()]
-  defp get_tools(nil), do: nil
-
-  defp get_tools(functions) when is_list(functions) do
-    Enum.map(functions, &transform_fn_to_tool/1)
-  end
-
-  defp transform_fn_to_tool(%LlmComposer.Function{} = function) do
-    %{
-      type: "function",
-      function: %{
-        "name" => function.name,
-        "description" => function.description,
-        "parameters" => function.schema
-      }
-    }
   end
 
   @spec extract_actions(map()) :: nil | []

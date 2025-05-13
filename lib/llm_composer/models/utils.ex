@@ -47,4 +47,22 @@ defmodule LlmComposer.Models.Utils do
     end)
     |> Map.new()
   end
+
+  @spec get_tools([LlmComposer.Function.t()] | nil) :: nil | [map()]
+  def get_tools(nil), do: nil
+
+  def get_tools(functions) when is_list(functions) do
+    Enum.map(functions, &transform_fn_to_tool/1)
+  end
+
+  defp transform_fn_to_tool(%LlmComposer.Function{} = function) do
+    %{
+      type: "function",
+      function: %{
+        "name" => function.name,
+        "description" => function.description,
+        "parameters" => function.schema
+      }
+    }
+  end
 end
