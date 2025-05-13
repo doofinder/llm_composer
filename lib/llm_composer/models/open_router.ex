@@ -92,7 +92,7 @@ defmodule LlmComposer.Models.OpenRouter do
       used_model = body["model"]
 
       if original_model != used_model do
-        Logger.debug("The '#{used_model}' model has been used instead of '#{original_model}'")
+        Logger.warning("The '#{used_model}' model has been used instead of '#{original_model}'")
       end
     end
 
