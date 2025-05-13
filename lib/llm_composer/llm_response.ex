@@ -6,7 +6,7 @@ defmodule LlmComposer.LlmResponse do
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
-  @llm_models [:open_ai, :ollama]
+  @llm_models [:open_ai, :ollama, :open_router]
 
   @type t() :: %__MODULE__{
           actions: [[FunctionCall.t()]] | [FunctionCall.t()],
@@ -44,8 +44,9 @@ defmodule LlmComposer.LlmResponse do
   def new(
         {status,
          %{actions: actions, response: %{"choices" => [first_choice | _]} = raw_response}},
-        :open_ai
-      ) do
+        llm_model
+      )
+      when llm_model in [:open_ai, :open_router] do
     main_response = get_in(first_choice, ["message"])
 
     response =
