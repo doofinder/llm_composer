@@ -1,8 +1,8 @@
-defmodule LlmComposer.Models.OpenAI do
+defmodule LlmComposer.Models.OpenRouter do
   @moduledoc """
-  Model implementation for OpenAI
+  Model implementation for OpenRouter
 
-  Basically it calls the OpenAI api for getting the chat responses.
+  OpenRouter API is very similar to Open AI API, but with some extras like model fallback.
   """
   @behaviour LlmComposer.Model
 
@@ -12,11 +12,13 @@ defmodule LlmComposer.Models.OpenAI do
   alias LlmComposer.LlmResponse
   alias LlmComposer.Models.Utils
 
+  require Logger
+
   @default_timeout 50_000
 
   plug(
     Tesla.Middleware.BaseUrl,
-    Application.get_env(:llm_composer, :openai_url, "https://api.openai.com/v1")
+    Application.get_env(:llm_composer, :open_router_url, "https://openrouter.ai/api/v1")
   )
 
   plug(Tesla.Middleware.JSON)
@@ -37,11 +39,11 @@ defmodule LlmComposer.Models.OpenAI do
   )
 
   @impl LlmComposer.Model
-  def model_id, do: :open_ai
+  def model_id, do: :open_router
 
   @impl LlmComposer.Model
   @doc """
-  Reference: https://platform.openai.com/docs/api-reference/chat/create
+  Reference: https://openrouter.ai/docs/api-reference/chat-completion
   """
   def run(messages, system_message, opts) do
     model = Keyword.get(opts, :model)
@@ -55,7 +57,7 @@ defmodule LlmComposer.Models.OpenAI do
       messages
       |> build_request(system_message, model, opts)
       |> then(&post("/chat/completions", &1, headers: headers))
-      |> handle_response()
+      |> handle_response(opts)
       |> LlmResponse.new(model_id())
     else
       {:error, :model_not_provided}
@@ -78,27 +80,48 @@ defmodule LlmComposer.Models.OpenAI do
 
     base_request
     |> Map.merge(req_params)
+    |> maybe_fallback_models(opts)
     |> Utils.cleanup_body()
   end
 
-  @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}) when status in [200] do
+  @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
+  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, request_opts)
+       when status in [200] do
+    if Keyword.get(request_opts, :models) do
+      original_model = Keyword.get(request_opts, :model)
+      used_model = body["model"]
+
+      if original_model != used_model do
+        Logger.warning("The '#{used_model}' model has been used instead of '#{original_model}'")
+      end
+    end
+
     actions = Utils.extract_actions(body)
     {:ok, %{response: body, actions: actions}}
   end
 
-  defp handle_response({:ok, resp}) do
+  defp handle_response({:ok, resp}, _request_opts) do
     {:error, resp}
   end
 
-  defp handle_response({:error, reason}) do
+  defp handle_response({:error, reason}, _request_opts) do
     {:error, reason}
   end
 
   defp get_key do
-    case Application.get_env(:llm_composer, :openai_key) do
+    case Application.get_env(:llm_composer, :open_router_key) do
       nil -> raise MissingKeyError
       key -> key
+    end
+  end
+
+  defp maybe_fallback_models(base_request, opts) do
+    fallback_models = Keyword.get(opts, :models)
+
+    if fallback_models && is_list(fallback_models) do
+      Map.put_new(base_request, :models, fallback_models)
+    else
+      base_request
     end
   end
 end

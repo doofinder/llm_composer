@@ -1,6 +1,6 @@
 # LlmComposer
 
-**LlmComposer** is an Elixir library that simplifies the interaction with large language models (LLMs) such as OpenAI's GPT, providing a streamlined way to build and execute LLM-based applications or chatbots. It currently supports multiple model providers, including OpenAI and Ollama, with features like auto-execution of functions and customizable prompts to cater to different use cases.
+**LlmComposer** is an Elixir library that simplifies the interaction with large language models (LLMs) such as OpenAI's GPT, providing a streamlined way to build and execute LLM-based applications or chatbots. It currently supports multiple model providers, including OpenAI, OpenRouter and Ollama, with features like auto-execution of functions and customizable prompts to cater to different use cases.
 
 ## Installation
 
@@ -19,9 +19,7 @@ end
 
 ### Simple Bot Definition
 
-
-To create a basic chatbot using LlmComposer, you need to define a module that uses the LlmComposer.Caller behavior. The example below demonstrates a simple configuration with OpenAI as the model provider:
-
+To create a basic chatbot using LlmComposer, you need to define a module that uses the `LlmComposer.Caller` behavior. The example below demonstrates a simple configuration with OpenAI as the model provider:
 
 ```elixir
 Application.put_env(:llm_composer, :openai_key, "<your api key>")
@@ -84,9 +82,9 @@ defmodule MyCustomChat do
       %LlmComposer.Message{type: :assistant, content: "The Roman Empire was a period of ancient Roman civilization with an autocratic government."},
       %LlmComposer.Message{type: :user, content: "When did it begin?"}
     ]
-    
+
     {:ok, res} = LlmComposer.run_completion(@settings, messages)
-    
+
     res.main_response
   end
 end
@@ -106,13 +104,11 @@ mix run custom_chat.ex
 }
 ```
 
-
 ### Using Ollama Backend
 
 LlmComposer also supports the Ollama backend, allowing interaction with models hosted on Ollama.
 
 Make sure to start the Ollama server first.
-
 
 ```elixir
 # Set the Ollama URI in the application environment if not already configured
@@ -156,10 +152,9 @@ mix run sample_ollama.ex
 
 No function calls support in Ollama (for now)
 
-
 ### Using OpenRouter
 
-LlmComposer supports integration with [OpenRouter](https://openrouter.ai/), giving you access to a variety of LLM models through a single API compatible with OpenAI's interface.
+LlmComposer supports integration with [OpenRouter](https://openrouter.ai/), giving you access to a variety of LLM models through a single API compatible with OpenAI's interface. Also supports, the OpenRouter's feature of setting fallback models.
 
 To use OpenRouter with LlmComposer, you'll need to:
 
@@ -170,15 +165,13 @@ Here's a complete example:
 
 ```elixir
 # Configure the OpenRouter API key and endpoint
-Application.put_env(:llm_composer, :openai_key, "<your openrouter api key>")
-# we use same LlmComposer.Models.OpenAI model for openrouter api
-Application.put_env(:llm_composer, :openai_url, "https://openrouter.ai/api/v1")
+Application.put_env(:llm_composer, :open_router_key, "<your openrouter api key>")
 
 defmodule MyOpenRouterChat do
   @settings %LlmComposer.Settings{
-    model: LlmComposer.Models.OpenAI,
+    model: LlmComposer.Models.OpenRouter,
     # Use any model available on OpenRouter
-    model_opts: [model: "anthropic/claude-3-sonnet"],
+    model_opts: [model: "anthropic/claude-3-sonnet", models: ["openai/gpt-4o", "fallback-model2"]],
     system_prompt: "You are a SAAS consultant"
   }
 
@@ -207,7 +200,6 @@ mix run openrouter_sample.ex
 ### Bot with external function call
 
 You can enhance the bot's capabilities by adding support for external function execution. This example demonstrates how to add a simple calculator that evaluates basic math expressions:
-
 
 ```elixir
 Application.put_env(:llm_composer, :openai_key, "<your api key>")
