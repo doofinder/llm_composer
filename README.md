@@ -48,10 +48,10 @@ Example of execution:
 mix run sample.ex
 
 16:41:07.594 [debug] input_tokens=18, output_tokens=9
-%LlmComposer.Message{
-  type: :assistant,
-  content: "Hello! How can I assist you today?"
-}
+LlmComposer.Message.new(
+  :assistant,
+  "Hello! How can I assist you today?"
+)
 ```
 
 This will trigger a conversation with the assistant based on the provided system prompt.
@@ -78,9 +78,9 @@ defmodule MyCustomChat do
   def run_custom_chat() do
     # Define a conversation history with user and assistant messages
     messages = [
-      %LlmComposer.Message{type: :user, content: "What is the Roman Empire?"},
-      %LlmComposer.Message{type: :assistant, content: "The Roman Empire was a period of ancient Roman civilization with an autocratic government."},
-      %LlmComposer.Message{type: :user, content: "When did it begin?"}
+      LlmComposer.Message.new(:user, "What is the Roman Empire?"),
+      LlmComposer.Message.new(:assistant, "The Roman Empire was a period of ancient Roman civilization with an autocratic government."),
+      LlmComposer.Message.new(:user, "When did it begin?")
     ]
 
     {:ok, res} = LlmComposer.run_completion(@settings, messages)
@@ -98,10 +98,10 @@ Example of execution:
 mix run custom_chat.ex
 
 16:45:10.123 [debug] input_tokens=85, output_tokens=47
-%LlmComposer.Message{
-  type: :assistant,
-  content: "The Roman Empire began in 27 B.C. after the end of the Roman Republic, and it continued until 476 A.D. in the West."
-}
+LlmComposer.Message.new(
+  :assistant,
+  "The Roman Empire began in 27 B.C. after the end of the Roman Republic, and it continued until 476 A.D. in the West."
+)
 ```
 
 ### Using Ollama Backend
@@ -138,16 +138,16 @@ Example of execution:
 mix run sample_ollama.ex
 
 17:08:34.271 [debug] input_tokens=, output_tokens=
-%LlmComposer.Message{
-  type: :assistant,
-  content: "How can I assist you today?",
-  metadata: %{
+LlmComposer.Message.new(
+  :assistant,
+  "How can I assist you today?",
+  %{
     original: %{
       "content" => "How can I assist you today?",
       "role" => "assistant"
     }
   }
-}
+)
 ```
 
 No function calls support in Ollama (for now)
@@ -191,10 +191,10 @@ Example of execution:
 mix run openrouter_sample.ex
 
 17:12:45.124 [debug] input_tokens=42, output_tokens=156
-%LlmComposer.Message{
-  type: :assistant,
-  content: "Doofinder is an excellent site search solution for ecommerce websites. Here are some reasons why Doofinder is considered awesome:...
-}
+LlmComposer.Message.new(
+  :assistant,
+  "Doofinder is an excellent site search solution for ecommerce websites. Here are some reasons why Doofinder is considered awesome:...
+)
 ```
 
 ### Bot with external function call
@@ -266,10 +266,10 @@ mix run functions_sample.ex
 16:38:28.338 [debug] input_tokens=111, output_tokens=17
 
 16:38:28.935 [debug] input_tokens=136, output_tokens=9
-%LlmComposer.Message{
-  type: :assistant,
-  content: "1 + 2 is 3."
-}
+LlmComposer.Message.new(
+  :assistant,
+  "1 + 2 is 3."
+)
 ```
 
 In this example, the bot first calls OpenAI to understand the user's intent and determine that a function (the calculator) should be executed. The function is then executed locally, and the result is sent back to the user in a second API call.

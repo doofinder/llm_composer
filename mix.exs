@@ -30,6 +30,7 @@ defmodule LlmComposer.MixProject do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:ex_aws, "~> 2.5"},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:jason, "~> 1.4"},
       {:tesla, "~> 1.12"}
