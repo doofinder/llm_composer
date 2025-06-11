@@ -87,6 +87,6 @@ defmodule LlmComposer.Helpers do
   end
 
   defp serialize_fcall_result(res) when is_map(res) or is_list(res), do: Jason.encode!(res)
-  defp serialize_fcall_result(res) when is_binary(res), do: res
+  defp serialize_fcall_result(res) when is_binary(res) or is_tuple(res), do: res
   defp serialize_fcall_result(res), do: "#{res}"
 end
