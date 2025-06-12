@@ -1,6 +1,6 @@
 # LlmComposer
 
-**LlmComposer** is an Elixir library that simplifies the interaction with large language models (LLMs) such as OpenAI's GPT, providing a streamlined way to build and execute LLM-based applications or chatbots. It currently supports multiple model providers, including OpenAI, OpenRouter and Ollama, with features like auto-execution of functions and customizable prompts to cater to different use cases.
+**LlmComposer** is an Elixir library that simplifies the interaction with large language models (LLMs) such as OpenAI's GPT, providing a streamlined way to build and execute LLM-based applications or chatbots. It currently supports multiple model providers, including OpenAI, OpenRouter, Ollama or Bedrock, with features like auto-execution of functions and customizable prompts to cater to different use cases.
 
 ## Installation
 
@@ -195,6 +195,51 @@ LlmComposer.Message.new(
   :assistant,
   "Doofinder is an excellent site search solution for ecommerce websites. Here are some reasons why Doofinder is considered awesome:...
 )
+```
+
+
+### Using AWS Bedrock
+
+LlmComposer also integrates with [Bedrock](https://aws.amazon.com/es/bedrock/) via its Converse API. This allows you tu use Bedrock as provider with any of its supported models.
+
+Currently, function execution is **not supported** with Bedrock.
+
+To integrate with Bedrock, LlmComposer uses the [`ex_aws`](https://hexdocs.pm/ex_aws/readme.html#aws-key-configuration) to perform its requests. So, if you plan to use Bedrock, make sure that you have configured `ex_aws` as per the official documentation of the library.
+
+Here's a complete example:
+
+```elixir
+# In your config files:
+config :ex_aws,
+  access_key_id: "your key",
+  secret_access_key: "your secret"
+---
+
+defmodule MyBedrockChat do
+  @settings %LlmComposer.Settings{
+    model: LlmComposer.Models.Bedrock,
+    # Use any model available Bedrock model
+    model_opts: [model: "eu.amazon.nova-lite-v1:0"],
+    system_prompt: "You are an expert in Quantum Field Theory."
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
+end
+
+{:ok, res} = MyBedrockChat.simple_chat("What is the wave function collapse? Just a few sentences")
+
+IO.inspect(res.main_response)
+```
+
+Example of execution:
+
+```
+%LlmComposer.Message{
+  type: :assistant,
+  content: "Wave function collapse is a concept in quantum mechanics that describes the transition of a quantum system from a superposition of states to a single definite state upon measurement. This phenomenon is often associated with the interpretation of quantum mechanics, particularly the Copenhagen interpretation, and it remains a topic of ongoing debate and research in the field."
+}
 ```
 
 ### Bot with external function call
