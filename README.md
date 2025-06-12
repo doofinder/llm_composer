@@ -1,6 +1,6 @@
 # LlmComposer
 
-**LlmComposer** is an Elixir library that simplifies the interaction with large language models (LLMs) such as OpenAI's GPT, providing a streamlined way to build and execute LLM-based applications or chatbots. It currently supports multiple model providers, including OpenAI, OpenRouter and Ollama, with features like auto-execution of functions and customizable prompts to cater to different use cases.
+**LlmComposer** is an Elixir library that simplifies the interaction with large language models (LLMs) such as OpenAI's GPT, providing a streamlined way to build and execute LLM-based applications or chatbots. It currently supports multiple model providers, including OpenAI, OpenRouter, Ollama or Bedrock, with features like auto-execution of functions and customizable prompts to cater to different use cases.
 
 ## Installation
 
@@ -48,10 +48,10 @@ Example of execution:
 mix run sample.ex
 
 16:41:07.594 [debug] input_tokens=18, output_tokens=9
-%LlmComposer.Message{
-  type: :assistant,
-  content: "Hello! How can I assist you today?"
-}
+LlmComposer.Message.new(
+  :assistant,
+  "Hello! How can I assist you today?"
+)
 ```
 
 This will trigger a conversation with the assistant based on the provided system prompt.
@@ -78,9 +78,9 @@ defmodule MyCustomChat do
   def run_custom_chat() do
     # Define a conversation history with user and assistant messages
     messages = [
-      %LlmComposer.Message{type: :user, content: "What is the Roman Empire?"},
-      %LlmComposer.Message{type: :assistant, content: "The Roman Empire was a period of ancient Roman civilization with an autocratic government."},
-      %LlmComposer.Message{type: :user, content: "When did it begin?"}
+      LlmComposer.Message.new(:user, "What is the Roman Empire?"),
+      LlmComposer.Message.new(:assistant, "The Roman Empire was a period of ancient Roman civilization with an autocratic government."),
+      LlmComposer.Message.new(:user, "When did it begin?")
     ]
 
     {:ok, res} = LlmComposer.run_completion(@settings, messages)
@@ -98,10 +98,10 @@ Example of execution:
 mix run custom_chat.ex
 
 16:45:10.123 [debug] input_tokens=85, output_tokens=47
-%LlmComposer.Message{
-  type: :assistant,
-  content: "The Roman Empire began in 27 B.C. after the end of the Roman Republic, and it continued until 476 A.D. in the West."
-}
+LlmComposer.Message.new(
+  :assistant,
+  "The Roman Empire began in 27 B.C. after the end of the Roman Republic, and it continued until 476 A.D. in the West."
+)
 ```
 
 ### Using Ollama Backend
@@ -138,16 +138,16 @@ Example of execution:
 mix run sample_ollama.ex
 
 17:08:34.271 [debug] input_tokens=, output_tokens=
-%LlmComposer.Message{
-  type: :assistant,
-  content: "How can I assist you today?",
-  metadata: %{
+LlmComposer.Message.new(
+  :assistant,
+  "How can I assist you today?",
+  %{
     original: %{
       "content" => "How can I assist you today?",
       "role" => "assistant"
     }
   }
-}
+)
 ```
 
 No function calls support in Ollama (for now)
@@ -191,9 +191,54 @@ Example of execution:
 mix run openrouter_sample.ex
 
 17:12:45.124 [debug] input_tokens=42, output_tokens=156
+LlmComposer.Message.new(
+  :assistant,
+  "Doofinder is an excellent site search solution for ecommerce websites. Here are some reasons why Doofinder is considered awesome:...
+)
+```
+
+
+### Using AWS Bedrock
+
+LlmComposer also integrates with [Bedrock](https://aws.amazon.com/es/bedrock/) via its Converse API. This allows you tu use Bedrock as provider with any of its supported models.
+
+Currently, function execution is **not supported** with Bedrock.
+
+To integrate with Bedrock, LlmComposer uses the [`ex_aws`](https://hexdocs.pm/ex_aws/readme.html#aws-key-configuration) to perform its requests. So, if you plan to use Bedrock, make sure that you have configured `ex_aws` as per the official documentation of the library.
+
+Here's a complete example:
+
+```elixir
+# In your config files:
+config :ex_aws,
+  access_key_id: "your key",
+  secret_access_key: "your secret"
+---
+
+defmodule MyBedrockChat do
+  @settings %LlmComposer.Settings{
+    model: LlmComposer.Models.Bedrock,
+    # Use any model available Bedrock model
+    model_opts: [model: "eu.amazon.nova-lite-v1:0"],
+    system_prompt: "You are an expert in Quantum Field Theory."
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
+end
+
+{:ok, res} = MyBedrockChat.simple_chat("What is the wave function collapse? Just a few sentences")
+
+IO.inspect(res.main_response)
+```
+
+Example of execution:
+
+```
 %LlmComposer.Message{
   type: :assistant,
-  content: "Doofinder is an excellent site search solution for ecommerce websites. Here are some reasons why Doofinder is considered awesome:...
+  content: "Wave function collapse is a concept in quantum mechanics that describes the transition of a quantum system from a superposition of states to a single definite state upon measurement. This phenomenon is often associated with the interpretation of quantum mechanics, particularly the Copenhagen interpretation, and it remains a topic of ongoing debate and research in the field."
 }
 ```
 
@@ -266,10 +311,10 @@ mix run functions_sample.ex
 16:38:28.338 [debug] input_tokens=111, output_tokens=17
 
 16:38:28.935 [debug] input_tokens=136, output_tokens=9
-%LlmComposer.Message{
-  type: :assistant,
-  content: "1 + 2 is 3."
-}
+LlmComposer.Message.new(
+  :assistant,
+  "1 + 2 is 3."
+)
 ```
 
 In this example, the bot first calls OpenAI to understand the user's intent and determine that a function (the calculator) should be executed. The function is then executed locally, and the result is sent back to the user in a second API call.

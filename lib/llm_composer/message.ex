@@ -5,7 +5,7 @@ defmodule LlmComposer.Message do
 
   @type t :: %__MODULE__{
           type: binary() | atom(),
-          content: binary(),
+          content: binary() | nil,
           metadata: map()
         }
 

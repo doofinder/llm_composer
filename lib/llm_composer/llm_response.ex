@@ -6,7 +6,7 @@ defmodule LlmComposer.LlmResponse do
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
-  @llm_models [:open_ai, :ollama, :open_router]
+  @llm_models [:open_ai, :ollama, :open_router, :bedrock]
 
   @type t() :: %__MODULE__{
           actions: [[FunctionCall.t()]] | [FunctionCall.t()],
@@ -79,6 +79,22 @@ defmodule LlmComposer.LlmResponse do
        actions: actions,
        main_response: response,
        raw: raw_response,
+       status: status
+     }}
+  end
+
+  def new({status, %{actions: actions, response: response}}, :bedrock) do
+    [%{"text" => message_content}] = response["output"]["message"]["content"]
+    role = String.to_existing_atom(response["output"]["message"]["role"])
+
+    {:ok,
+     %__MODULE__{
+       actions: actions,
+       input_tokens: response["usage"]["inputTokens"],
+       output_tokens: response["usage"]["outputTokens"],
+       main_response:
+         Message.new(role, message_content, %{original: response["output"]["message"]}),
+       raw: response,
        status: status
      }}
   end
