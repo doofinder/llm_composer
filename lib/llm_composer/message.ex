@@ -5,7 +5,7 @@ defmodule LlmComposer.Message do
 
   @type t :: %__MODULE__{
           type: binary() | atom(),
-          content: binary() | map() | nil,
+          content: binary() | list() | nil,
           metadata: map()
         }
 
@@ -15,7 +15,7 @@ defmodule LlmComposer.Message do
   @doc """
   Creates a new message struct with a given type and content.
   """
-  @spec new(type :: binary() | atom(), content :: binary() | map() | nil, metadata :: map()) ::
+  @spec new(type :: binary() | atom(), content :: binary() | list() | nil, metadata :: map()) ::
           t()
   def new(type, content, metadata \\ %{})
       when is_binary(type) or is_atom(type) do
