@@ -83,8 +83,8 @@ defmodule LlmComposer.LlmResponse do
      }}
   end
 
-  def new({status, %{actions: actions, response: response}} = raw_response, :bedrock) do
-    content = response["output"]["message"]["content"]
+  def new({status, %{actions: actions, response: response}}, :bedrock) do
+    [%{"text" => message_content}] = response["output"]["message"]["content"]
     role = String.to_existing_atom(response["output"]["message"]["role"])
 
     {:ok,
@@ -92,8 +92,9 @@ defmodule LlmComposer.LlmResponse do
        actions: actions,
        input_tokens: response["usage"]["inputTokens"],
        output_tokens: response["usage"]["outputTokens"],
-       main_response: Message.new(role, content, %{original: response["output"]["message"]}),
-       raw: raw_response,
+       main_response:
+         Message.new(role, message_content, %{original: response["output"]["message"]}),
+       raw: response,
        status: status
      }}
   end

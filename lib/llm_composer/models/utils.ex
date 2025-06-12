@@ -44,7 +44,6 @@ defmodule LlmComposer.Models.Utils do
     |> Enum.reject(fn
       {_param, nil} -> true
       {_param, []} -> true
-      {"toolConfig", %{"tools" => []}} -> true
       _other -> false
     end)
     |> Map.new()

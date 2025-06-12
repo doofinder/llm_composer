@@ -9,7 +9,6 @@ defmodule LlmComposer.Models.Bedrock do
   """
   @behaviour LlmComposer.Model
 
-  alias LlmComposer.Function
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
   alias LlmComposer.Models.Utils
@@ -37,12 +36,9 @@ defmodule LlmComposer.Models.Bedrock do
 
   @spec build_request(list(Message.t()), Message.t(), keyword()) :: map()
   defp build_request(messages, system_message, opts) do
-    tools = Keyword.get(opts, :functions) || []
-
     base_request = %{
       "messages" => Enum.map(messages, &format_message/1),
-      "system" => [format_message(system_message)],
-      "toolConfig" => %{"tools" => Enum.map(tools, &format_tool/1)}
+      "system" => [format_message(system_message)]
     }
 
     req_params = Keyword.get(opts, :request_params, %{})
@@ -71,38 +67,6 @@ defmodule LlmComposer.Models.Bedrock do
     %{"text" => content}
   end
 
-  defp format_message(%Message{type: :function_result, metadata: %{fcall: fcall}}) do
-    tool_result =
-      case fcall.result do
-        {:ok, result} ->
-          %{
-            "toolResult" => %{
-              "toolUseId" => fcall.id,
-              "content" => [
-                %{
-                  "json" => result
-                }
-              ]
-            }
-          }
-
-        {:error, reason} ->
-          %{
-            "toolResult" => %{
-              "toolUseId" => fcall.id,
-              "content" => [
-                %{
-                  "text" => reason
-                }
-              ],
-              "status" => "error"
-            }
-          }
-      end
-
-    %{"role" => "user", "content" => [tool_result]}
-  end
-
   defp format_message(%Message{type: role, content: content}) when is_binary(content) do
     %{"role" => Atom.to_string(role), "content" => [%{"text" => content}]}
   end
@@ -111,26 +75,12 @@ defmodule LlmComposer.Models.Bedrock do
     %{"role" => Atom.to_string(role), "content" => content}
   end
 
-  defp format_tool(%Function{} = function) do
-    %{
-      "toolSpec" => %{
-        "name" => function.name,
-        "description" => function.description,
-        "inputSchema" => %{
-          "json" => function.schema
-        }
-      }
-    }
-  end
-
   @spec handle_response({:ok, map()} | {:error, map()}) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %{"output" => %{"message" => message}} = response}) do
-    actions = extract_actions(message)
-
+  defp handle_response({:ok, %{"output" => %{"message" => _message}} = response}) do
     {:ok,
      %{
        response: response,
-       actions: actions,
+       actions: [],
        input_tokens: get_in(response, ["usage", "inputTokens"]),
        output_tokens: get_in(response, ["usage", "outputTokens"])
      }}
@@ -139,21 +89,4 @@ defmodule LlmComposer.Models.Bedrock do
   defp handle_response({:error, resp}) do
     {:error, resp}
   end
-
-  defp extract_actions(%{"content" => content}) when is_list(content) do
-    content
-    |> Enum.filter(&Map.has_key?(&1, "toolUse"))
-    |> Enum.map(fn %{"toolUse" => tool_use} ->
-      [
-        %LlmComposer.FunctionCall{
-          id: tool_use["toolUseId"],
-          name: tool_use["name"],
-          arguments: tool_use["input"],
-          type: "function"
-        }
-      ]
-    end)
-  end
-
-  defp extract_actions(_), do: []
 end
