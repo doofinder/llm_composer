@@ -102,8 +102,7 @@ defmodule LlmComposer do
           {:ok, res}
         end
 
-      {:error, data} = resp ->
-        Logger.error("error in llm call: #{inspect(data)}")
+      {:error, _data} = resp ->
         resp
     end)
   end

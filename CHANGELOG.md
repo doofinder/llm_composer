@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.5.2] - 2024-06-19
+- **Making `ex_aws` dependency optional**: `ex_aws` is only required for the Bedrock provider. Making it optional so it is not included in case Bedrock is not used. Additionally, removing the `Logger.error()` in case of a model error, delegating this to the caller of the library.
+
+## [0.5.1] - 2024-06-12
+- **Adjust `Message.content` specs**: For Bedrock, the `content` field of the message has to be a list, allowing for messages with with multi-type content (image + text).
+
+## [0.5.0] - 2024-06-12
+- **Include Bedrock Support**: Included Bedrock support as provider only with `completion()`s support.
+
 ## [0.3.5] - 2024-12-18
 - **Fix default api_key setting value**: The default value was en empty string. Now it is nil to be evaluated as false when getting the key from the map later. 
 
