@@ -81,6 +81,7 @@ defmodule LlmComposer.Models.OpenRouter do
     base_request
     |> Map.merge(req_params)
     |> maybe_fallback_models(opts)
+    |> maybe_provider_routing(opts)
     |> Utils.cleanup_body()
   end
 
@@ -120,6 +121,16 @@ defmodule LlmComposer.Models.OpenRouter do
 
     if fallback_models && is_list(fallback_models) do
       Map.put_new(base_request, :models, fallback_models)
+    else
+      base_request
+    end
+  end
+
+  defp maybe_provider_routing(base_request, opts) do
+    provider_routing = Keyword.get(opts, :provider_routing)
+
+    if provider_routing && is_map(provider_routing) do
+      Map.put_new(base_request, :provider, provider_routing)
     else
       base_request
     end
