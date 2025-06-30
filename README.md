@@ -172,12 +172,12 @@ defmodule MyOpenRouterChat do
     model: LlmComposer.Models.OpenRouter,
     # Use any model available on OpenRouter
     model_opts: [
-            model: "anthropic/claude-3-sonnet",
-            models: ["openai/gpt-4o", "fallback-model2"],
-            provider_routing: %{
-                order: ["openai", "azure"]
-            }
-        ],
+      model: "anthropic/claude-3-sonnet",
+      models: ["openai/gpt-4o", "fallback-model2"],
+      provider_routing: %{
+        order: ["openai", "azure"]
+      }
+    ],
     system_prompt: "You are a SAAS consultant"
   }
 
