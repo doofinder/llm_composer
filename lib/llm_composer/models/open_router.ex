@@ -49,9 +49,7 @@ defmodule LlmComposer.Models.OpenRouter do
     model = Keyword.get(opts, :model)
     api_key = Keyword.get(opts, :api_key) || get_key()
 
-    headers = [
-      {"Authorization", "Bearer " <> api_key}
-    ]
+    headers = maybe_structured_output_headers([{"Authorization", "Bearer " <> api_key}], opts)
 
     if model do
       messages
@@ -82,6 +80,7 @@ defmodule LlmComposer.Models.OpenRouter do
     |> Map.merge(req_params)
     |> maybe_fallback_models(opts)
     |> maybe_provider_routing(opts)
+    |> maybe_structured_output(opts)
     |> Utils.cleanup_body()
   end
 
@@ -131,6 +130,27 @@ defmodule LlmComposer.Models.OpenRouter do
 
     if provider_routing && is_map(provider_routing) do
       Map.put_new(base_request, :provider, provider_routing)
+    else
+      base_request
+    end
+  end
+
+  defp maybe_structured_output_headers(headers, opts) do
+    has_json_schema? =
+      Keyword.has_key?(opts, :response_format) && opts.response_format.type == "json_schema"
+
+    if has_json_schema? do
+      [headers | {"Content-Type", "application/json"}]
+    else
+      headers
+    end
+  end
+
+  defp maybe_structured_output(base_request, opts) do
+    response_format = Keyword.get(opts, :response_format)
+
+    if response_format && is_map(response_format) do
+      Map.put_new(base_request, :response_format, response_format)
     else
       base_request
     end
