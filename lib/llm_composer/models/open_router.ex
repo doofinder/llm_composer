@@ -137,10 +137,10 @@ defmodule LlmComposer.Models.OpenRouter do
 
   defp maybe_structured_output_headers(headers, opts) do
     has_json_schema? =
-      Keyword.has_key?(opts, :response_format) && opts.response_format.type == "json_schema"
+      Keyword.has_key?(opts, :response_format) && opts[:response_format].type == "json_schema"
 
     if has_json_schema? do
-      [headers | {"Content-Type", "application/json"}]
+      [{"Content-Type", "application/json"} | headers]
     else
       headers
     end
