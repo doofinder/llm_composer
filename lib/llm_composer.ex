@@ -85,7 +85,10 @@ defmodule LlmComposer do
     system_msg = Message.new(:system, settings.system_prompt)
 
     provider_opts =
-      Keyword.merge(settings.provider_opts, functions: settings.functions, api_key: settings.api_key)
+      Keyword.merge(settings.provider_opts,
+        functions: settings.functions,
+        api_key: settings.api_key
+      )
 
     messages
     |> settings.model.run(system_msg, provider_opts)
