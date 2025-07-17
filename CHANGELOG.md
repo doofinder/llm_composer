@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.6.0] - 2024-07-17
+- **Refactor Models to Providers**: Renamed the "Models" module to "Providers" to better reflect the architecture and improve code organization.
+- **Fix optional ex_aws dependency**: Fixed the ex_aws dependency to be truly optional by adding missing `Code.ensure_loaded` checks that were making the dependency mandatory.
+
+## [0.5.5] - 2024-07-08
+- **Fix typos**: Fixed various typos throughout the codebase.
+
+## [0.5.4] - 2024-07-07
+- **Add support for structured outputs in OpenRouter**: Added functionality to support structured outputs when using the OpenRouter model.
+
+## [0.5.3] - 2024-06-30
+- **Remove provider_routing from OpenRouter**: Removed the `provider_routing` functionality from the OpenRouter model, simplifying the model configuration and request building process.
+
 ## [0.5.2] - 2024-06-19
 - **Making `ex_aws` dependency optional**: `ex_aws` is only required for the Bedrock provider. Making it optional so it is not included in case Bedrock is not used. Additionally, removing the `Logger.error()` in case of a model error, delegating this to the caller of the library.
 
@@ -46,7 +59,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.3.3...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/doofinder/llm_composer/compare/0.5.5...0.6.0
+[0.5.5]: https://github.com/doofinder/llm_composer/compare/0.5.4...0.5.5
+[0.5.4]: https://github.com/doofinder/llm_composer/compare/0.5.3...0.5.4
+[0.5.3]: https://github.com/doofinder/llm_composer/compare/0.5.2...0.5.3
+[0.5.2]: https://github.com/doofinder/llm_composer/compare/0.5.1...0.5.2
+[0.5.1]: https://github.com/doofinder/llm_composer/compare/0.5.0...0.5.1
+
+[0.3.5]: https://github.com/doofinder/llm_composer/compare/0.3.4...0.3.5
+[0.5.0]: https://github.com/doofinder/llm_composer/compare/0.3.5...0.5.0
 [0.3.4]: https://github.com/doofinder/llm_composer/compare/0.3.3...0.3.4
 [0.3.3]: https://github.com/doofinder/llm_composer/compare/0.3.2...0.3.3
 [0.3.2]: https://github.com/doofinder/llm_composer/compare/0.3.1...0.3.2
