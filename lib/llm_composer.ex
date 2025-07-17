@@ -11,8 +11,8 @@ defmodule LlmComposer do
   ```elixir
   # Define the settings for your LlmComposer instance
   settings = %LlmComposer.Settings{
-    model: LlmComposer.Models.OpenAI,
-    model_opts: [model: "gpt-4o-mini"],
+    provider: LlmComposer.Providers.OpenAI,
+    provider_opts: [model: "gpt-4o-mini"],
     system_prompt: "You are a helpful assistant.",
     user_prompt_prefix: "",
     auto_exec_functions: false,
@@ -84,11 +84,11 @@ defmodule LlmComposer do
   def run_completion(settings, messages, previous_response \\ nil) do
     system_msg = Message.new(:system, settings.system_prompt)
 
-    model_opts =
-      Keyword.merge(settings.model_opts, functions: settings.functions, api_key: settings.api_key)
+    provider_opts =
+      Keyword.merge(settings.provider_opts, functions: settings.functions, api_key: settings.api_key)
 
     messages
-    |> settings.model.run(system_msg, model_opts)
+    |> settings.model.run(system_msg, provider_opts)
     |> then(fn
       {:ok, res} ->
         # set previous response all the time

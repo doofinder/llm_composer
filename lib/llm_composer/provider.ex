@@ -1,4 +1,4 @@
-defmodule LlmComposer.Model do
+defmodule LlmComposer.Provider do
   @moduledoc """
   Behaviour definition for LLM models.
   """

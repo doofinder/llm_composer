@@ -1,16 +1,16 @@
-defmodule LlmComposer.Models.OpenAI do
+defmodule LlmComposer.Providers.OpenAI do
   @moduledoc """
   Model implementation for OpenAI
 
   Basically it calls the OpenAI api for getting the chat responses.
   """
-  @behaviour LlmComposer.Model
+  @behaviour LlmComposer.Provider
 
   use Tesla
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.LlmResponse
-  alias LlmComposer.Models.Utils
+  alias LlmComposer.Providers.Utils
 
   @default_timeout 50_000
 
@@ -36,10 +36,10 @@ defmodule LlmComposer.Models.OpenAI do
     timeout: Application.get_env(:llm_composer, :timeout) || @default_timeout
   )
 
-  @impl LlmComposer.Model
+  @impl LlmComposer.Provider
   def model_id, do: :open_ai
 
-  @impl LlmComposer.Model
+  @impl LlmComposer.Provider
   @doc """
   Reference: https://platform.openai.com/docs/api-reference/chat/create
   """

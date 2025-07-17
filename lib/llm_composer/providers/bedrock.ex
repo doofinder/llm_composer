@@ -1,4 +1,4 @@
-defmodule LlmComposer.Models.Bedrock do
+defmodule LlmComposer.Providers.Bedrock do
   @moduledoc """
   Model implementation for Amazon Bedrock.
 
@@ -7,16 +7,16 @@ defmodule LlmComposer.Models.Bedrock do
   the request, you can pass them in the `request_params` option and they will
   be merged into the base request that is prepared.
   """
-  @behaviour LlmComposer.Model
+  @behaviour LlmComposer.Provider
 
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
-  alias LlmComposer.Models.Utils
+  alias LlmComposer.Providers.Utils
 
-  @impl LlmComposer.Model
+  @impl LlmComposer.Provider
   def model_id, do: :bedrock
 
-  @impl LlmComposer.Model
+  @impl LlmComposer.Provider
   @doc """
   Reference: https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html
   """
