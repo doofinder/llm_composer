@@ -27,8 +27,8 @@ Application.put_env(:llm_composer, :openai_key, "<your api key>")
 defmodule MyChat do
 
   @settings %LlmComposer.Settings{
-    model: LlmComposer.Models.OpenAI,
-    model_opts: [model: "gpt-4o-mini"],
+    provider: LlmComposer.Providers.OpenAI,
+    provider_opts: [model: "gpt-4o-mini"],
     system_prompt: "You are a helpful assistant."
   }
 
@@ -68,8 +68,8 @@ Application.put_env(:llm_composer, :openai_key, "<your api key>")
 defmodule MyCustomChat do
 
   @settings %LlmComposer.Settings{
-    model: LlmComposer.Models.OpenAI,
-    model_opts: [model: "gpt-4o-mini"],
+    provider: LlmComposer.Providers.OpenAI,
+    provider_opts: [model: "gpt-4o-mini"],
     system_prompt: "You are an assistant specialized in history.",
     auto_exec_functions: false,
     functions: []
@@ -117,8 +117,8 @@ Make sure to start the Ollama server first.
 defmodule MyChat do
 
   @settings %LlmComposer.Settings{
-    model: LlmComposer.Models.Ollama,
-    model_opts: [model: "llama3.1"],
+    provider: LlmComposer.Providers.Ollama,
+    provider_opts: [model: "llama3.1"],
     system_prompt: "You are a helpful assistant."
   }
 
@@ -169,9 +169,9 @@ Application.put_env(:llm_composer, :open_router_key, "<your openrouter api key>"
 
 defmodule MyOpenRouterChat do
   @settings %LlmComposer.Settings{
-    model: LlmComposer.Models.OpenRouter,
+    provider: LlmComposer.Providers.OpenRouter,
     # Use any model available on OpenRouter
-    model_opts: [
+    provider_opts: [
       model: "anthropic/claude-3-sonnet",
       models: ["openai/gpt-4o", "fallback-model2"],
       provider_routing: %{
@@ -223,9 +223,9 @@ config :ex_aws,
 
 defmodule MyBedrockChat do
   @settings %LlmComposer.Settings{
-    model: LlmComposer.Models.Bedrock,
+    provider: LlmComposer.Providers.Bedrock,
     # Use any model available Bedrock model
-    model_opts: [model: "eu.amazon.nova-lite-v1:0"],
+    provider_opts: [model: "eu.amazon.nova-lite-v1:0"],
     system_prompt: "You are an expert in Quantum Field Theory."
   }
 
@@ -258,8 +258,8 @@ Application.put_env(:llm_composer, :openai_key, "<your api key>")
 defmodule MyChat do
 
   @settings %LlmComposer.Settings{
-    model: LlmComposer.Models.OpenAI,
-    model_opts: [model: "gpt-4o-mini"],
+    provider: LlmComposer.Providers.OpenAI,
+    provider_opts: [model: "gpt-4o-mini"],
     system_prompt: "You are a helpful math assistant that assists with calculations.",
     auto_exec_functions: true,
     functions: [

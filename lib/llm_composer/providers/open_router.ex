@@ -1,16 +1,16 @@
-defmodule LlmComposer.Models.OpenRouter do
+defmodule LlmComposer.Providers.OpenRouter do
   @moduledoc """
   Model implementation for OpenRouter
 
   OpenRouter API is very similar to Open AI API, but with some extras like model fallback.
   """
-  @behaviour LlmComposer.Model
+  @behaviour LlmComposer.Provider
 
   use Tesla
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.LlmResponse
-  alias LlmComposer.Models.Utils
+  alias LlmComposer.Providers.Utils
 
   require Logger
 
@@ -38,10 +38,10 @@ defmodule LlmComposer.Models.OpenRouter do
     timeout: Application.get_env(:llm_composer, :timeout) || @default_timeout
   )
 
-  @impl LlmComposer.Model
-  def model_id, do: :open_router
+  @impl LlmComposer.Provider
+  def name, do: :open_router
 
-  @impl LlmComposer.Model
+  @impl LlmComposer.Provider
   @doc """
   Reference: https://openrouter.ai/docs/api-reference/chat-completion
   """
@@ -56,7 +56,7 @@ defmodule LlmComposer.Models.OpenRouter do
       |> build_request(system_message, model, opts)
       |> then(&post("/chat/completions", &1, headers: headers))
       |> handle_response(opts)
-      |> LlmResponse.new(model_id())
+      |> LlmResponse.new(name())
     else
       {:error, :model_not_provided}
     end

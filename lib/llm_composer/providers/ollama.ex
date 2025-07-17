@@ -1,15 +1,15 @@
-defmodule LlmComposer.Models.Ollama do
+defmodule LlmComposer.Providers.Ollama do
   @moduledoc """
   Model implementation for Ollama
 
   Basically it calls the Ollama server api for getting the chat responses.
   """
-  @behaviour LlmComposer.Model
+  @behaviour LlmComposer.Provider
 
   use Tesla
 
   alias LlmComposer.LlmResponse
-  alias LlmComposer.Models.Utils
+  alias LlmComposer.Providers.Utils
 
   @uri Application.compile_env(:llm_composer, :ollama_uri, "http://localhost:11434")
 
@@ -28,10 +28,10 @@ defmodule LlmComposer.Models.Ollama do
     end
   )
 
-  @impl LlmComposer.Model
-  def model_id, do: :ollama
+  @impl LlmComposer.Provider
+  def name, do: :ollama
 
-  @impl LlmComposer.Model
+  @impl LlmComposer.Provider
   @doc """
   Reference: https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion
   """
@@ -43,7 +43,7 @@ defmodule LlmComposer.Models.Ollama do
       |> build_request(system_message, model, opts)
       |> then(&post("/api/chat", &1))
       |> handle_response()
-      |> LlmResponse.new(model_id())
+      |> LlmResponse.new(name())
     else
       {:error, :model_not_provided}
     end

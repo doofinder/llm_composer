@@ -1,4 +1,4 @@
-defmodule LlmComposer.Models.Utils do
+defmodule LlmComposer.Providers.Utils do
   @moduledoc false
 
   alias LlmComposer.FunctionCall
