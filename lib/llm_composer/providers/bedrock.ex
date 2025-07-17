@@ -15,7 +15,7 @@ if Code.ensure_loaded?(ExAws) do
     alias LlmComposer.Providers.Utils
 
     @impl LlmComposer.Provider
-    def model_id, do: :bedrock
+    def name, do: :bedrock
 
     @impl LlmComposer.Provider
     @doc """
@@ -29,7 +29,7 @@ if Code.ensure_loaded?(ExAws) do
         |> build_request(system_message, opts)
         |> send_request(model)
         |> handle_response()
-        |> LlmResponse.new(model_id())
+        |> LlmResponse.new(name())
       else
         {:error, :model_not_provided}
       end

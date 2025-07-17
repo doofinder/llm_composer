@@ -39,7 +39,7 @@ defmodule LlmComposer.Providers.OpenRouter do
   )
 
   @impl LlmComposer.Provider
-  def model_id, do: :open_router
+  def name, do: :open_router
 
   @impl LlmComposer.Provider
   @doc """
@@ -56,7 +56,7 @@ defmodule LlmComposer.Providers.OpenRouter do
       |> build_request(system_message, model, opts)
       |> then(&post("/chat/completions", &1, headers: headers))
       |> handle_response(opts)
-      |> LlmResponse.new(model_id())
+      |> LlmResponse.new(name())
     else
       {:error, :model_not_provided}
     end

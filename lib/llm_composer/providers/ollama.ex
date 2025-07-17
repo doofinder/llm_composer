@@ -29,7 +29,7 @@ defmodule LlmComposer.Providers.Ollama do
   )
 
   @impl LlmComposer.Provider
-  def model_id, do: :ollama
+  def name, do: :ollama
 
   @impl LlmComposer.Provider
   @doc """
@@ -43,7 +43,7 @@ defmodule LlmComposer.Providers.Ollama do
       |> build_request(system_message, model, opts)
       |> then(&post("/api/chat", &1))
       |> handle_response()
-      |> LlmResponse.new(model_id())
+      |> LlmResponse.new(name())
     else
       {:error, :model_not_provided}
     end

@@ -9,5 +9,5 @@ defmodule LlmComposer.Provider do
   @callback run([Message.t()], Message.t() | nil, keyword()) ::
               {:ok, LlmResponse.t()} | {:error, term()}
 
-  @callback model_id() :: atom
+  @callback name() :: atom
 end
