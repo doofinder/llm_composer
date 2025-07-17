@@ -91,7 +91,7 @@ defmodule LlmComposer do
       )
 
     messages
-    |> settings.model.run(system_msg, provider_opts)
+    |> settings.provider.run(system_msg, provider_opts)
     |> then(fn
       {:ok, res} ->
         # set previous response all the time
