@@ -169,7 +169,7 @@ LlmComposer.Message.new(
 )
 ```
 
-No function calls support in Ollama (for now)
+**Note:** Ollama does not provide token usage information, so `input_tokens` and `output_tokens` will always be empty in debug logs and response metadata. Function calls are also not supported with Ollama.
 
 ### Streaming Responses
 
@@ -224,8 +224,10 @@ Once upon a time, in the vast expanse of space, a brave astronaut embarked on a 
 
 **Important:** When using Stream read chat completion, LlmComposer does not track input/output/cache/thinking tokens. There are two approaches to handle token counting in this mode:
 
-1. Calculate tokens using libraries like `tiktoken`.
+1. Calculate tokens using libraries like `tiktoken` for OpenAI provider.
 2. Read token data from the last stream object if the provider supplies it (currently only OpenRouter supports this).
+
+In Ollama provider, we do not track tokens.
 
 ### Using OpenRouter
 
