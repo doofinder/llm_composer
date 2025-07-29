@@ -15,6 +15,25 @@ def deps do
 end
 ```
 
+## Provider Compatibility
+
+The following table shows which features are supported by each provider:
+
+| Feature | OpenAI | OpenRouter | Ollama | Bedrock |
+|---------|--------|------------|--------|---------|
+| Basic Chat | ✅ | ✅ | ✅ | ✅ |
+| Streaming | ✅ | ✅ | ✅ | ❌ |
+| Function Calls | ✅ | ✅ | ❌ | ❌ |
+| Auto Function Execution | ✅ | ✅ | ❌ | ❌ |
+| Fallback Models | ❌ | ✅ | ❌ | ❌ |
+| Provider Routing | ❌ | ✅ | ❌ | ❌ |
+
+### Notes:
+- **OpenRouter** offers the most comprehensive feature set, including unique capabilities like fallback models and provider routing
+- **Bedrock** support is provided via AWS ExAws integration and requires proper AWS configuration
+- **Ollama** requires an ollama server instance to be running
+- **Function Calls** require the provider to support OpenAI-compatible function calling format
+
 ## Usage
 
 ### Simple Bot Definition
