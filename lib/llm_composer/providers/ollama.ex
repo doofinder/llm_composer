@@ -6,27 +6,11 @@ defmodule LlmComposer.Providers.Ollama do
   """
   @behaviour LlmComposer.Provider
 
-  use Tesla
-
+  alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
   alias LlmComposer.Providers.Utils
 
   @uri Application.compile_env(:llm_composer, :ollama_uri, "http://localhost:11434")
-
-  plug(Tesla.Middleware.BaseUrl, @uri)
-
-  plug(Tesla.Middleware.JSON)
-
-  plug(Tesla.Middleware.Retry,
-    delay: :timer.seconds(1),
-    max_delay: :timer.seconds(10),
-    max_retries: 5,
-    should_retry: fn
-      {:ok, %{status: status}} when status in [429, 500, 503] -> true
-      {:error, :closed} -> true
-      _other -> false
-    end
-  )
 
   @impl LlmComposer.Provider
   def name, do: :ollama
@@ -37,11 +21,13 @@ defmodule LlmComposer.Providers.Ollama do
   """
   def run(messages, system_message, opts) do
     model = Keyword.get(opts, :model)
+    client = HttpClient.client(@uri, opts)
+    req_opts = Utils.get_req_opts(opts)
 
     if model do
       messages
       |> build_request(system_message, model, opts)
-      |> then(&post("/api/chat", &1))
+      |> then(&Tesla.post(client, "/api/chat", &1, opts: req_opts))
       |> handle_response()
       |> LlmResponse.new(name())
     else
@@ -52,7 +38,7 @@ defmodule LlmComposer.Providers.Ollama do
   defp build_request(messages, system_message, model, opts) do
     base_request = %{
       model: model,
-      stream: false,
+      stream: Keyword.get(opts, :stream_response, false),
       # tools: get_tools(Keyword.get(opts, :functions)),
       messages: Utils.map_messages([system_message | messages])
     }

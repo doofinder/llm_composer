@@ -85,6 +85,24 @@ defmodule LlmComposer.LlmResponse do
      }}
   end
 
+  # Stream response case for Ollama
+  def new(
+        {status, %{response: stream}} = raw_response,
+        :ollama
+      )
+      when is_function(stream) do
+    {:ok,
+     %__MODULE__{
+       actions: [],
+       input_tokens: nil,
+       output_tokens: nil,
+       stream: stream,
+       main_response: nil,
+       raw: raw_response,
+       status: status
+     }}
+  end
+
   def new(
         {status, %{actions: actions, response: %{"message" => message} = raw_response}},
         :ollama
