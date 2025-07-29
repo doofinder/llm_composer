@@ -67,16 +67,11 @@ defmodule LlmComposer.Providers.Utils do
 
   @spec get_req_opts(keyword()) :: keyword()
   def get_req_opts(opts) do
-    req_opts = []
-
-    req_opts =
-      if Keyword.get(opts, :stream_response) do
-        Keyword.put(req_opts, :adapter, response: :stream)
-      else
-        []
-      end
-
-    req_opts
+    if Keyword.get(opts, :stream_response) do
+      [adapter: [response: :stream]]
+    else
+      []
+    end
   end
 
   defp get_action(%{"message" => %{"tool_calls" => calls}}) do

@@ -7,7 +7,9 @@ defmodule LlmComposer.HttpClient do
 
   @spec client(binary(), keyword()) :: Tesla.Client.t()
   def client(base_url, opts \\ []) do
-    Tesla.client(middlewares(base_url, opts), adapter())
+    base_url
+    |> middlewares(opts)
+    |> Tesla.client(adapter())
   end
 
   @spec adapter() :: term()
