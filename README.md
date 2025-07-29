@@ -224,6 +224,11 @@ The One Piece be the greatest treasure that ever sailed the seven seas! Legend h
 
 **Note:** The `stream_response: true` setting enables streaming mode, and `parse_stream_response/1` filters and parses the raw stream data into usable content chunks.
 
+**Important:** When using Stream read chat completion, LlmComposer does not track input/output/cache/thinking tokens. There are two approaches to handle token counting in this mode:
+
+1. Calculate tokens using libraries like `tiktoken`.
+2. Read token data from the last stream object if the provider supplies it (currently only OpenRouter supports this).
+
 ### Using OpenRouter
 
 LlmComposer supports integration with [OpenRouter](https://openrouter.ai/), giving you access to a variety of LLM models through a single API compatible with OpenAI's interface. Also supports, the OpenRouter's feature of setting fallback models.
@@ -406,4 +411,3 @@ In this example, the bot first calls OpenAI to understand the user's intent and 
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/llm_composer>.
-
