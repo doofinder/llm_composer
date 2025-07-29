@@ -215,9 +215,7 @@ Example of execution:
 ```
 mix run streaming_sample.ex
 
-Arrr, matey! *adjusts tricorn hat* 
-
-The One Piece be the greatest treasure that ever sailed the seven seas! Legend has it that the Pirate King, Gol D. Roger, left it somewhere on the Grand Line before his execution...
+Once upon a time, in the vast expanse of space, a brave astronaut embarked on a journey to explore distant galaxies. The stars shimmered as the spaceship soared beyond the known universe, uncovering secrets of the cosmos...
 
 --- Stream complete ---
 ```
