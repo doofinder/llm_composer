@@ -152,6 +152,59 @@ LlmComposer.Message.new(
 
 No function calls support in Ollama (for now)
 
+### Streaming Responses
+
+LlmComposer supports streaming responses for real-time output, which is particularly useful for long-form content generation. This feature works with providers that support streaming (like Ollama, OpenRouter and OpenAI).
+
+```elixir
+# Make sure to configure Tesla adapter for streaming (Finch recommended)
+Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
+{:ok, finch} = Finch.start_link(name: MyFinch)
+
+defmodule MyStreamingChat do
+  @settings %LlmComposer.Settings{
+    provider: LlmComposer.Providers.Ollama,
+    provider_opts: [model: "llama3.2"],
+    system_prompt: "You are a creative storyteller.",
+    stream_response: true
+  }
+
+  def run_streaming_chat() do
+    messages = [
+      %LlmComposer.Message{type: :user, content: "Tell me a short story about space exploration"}
+    ]
+    
+    {:ok, res} = LlmComposer.run_completion(@settings, messages)
+
+    # Process the stream and output content in real-time
+    res.stream
+    |> LlmComposer.parse_stream_response()
+    |> Enum.each(fn parsed_data ->
+      content = get_in(parsed_data, ["message", "content"]) || ""
+      if content != "", do: IO.write(content)
+    end)
+    
+    IO.puts("\n--- Stream complete ---")
+  end
+end
+
+MyStreamingChat.run_streaming_chat()
+```
+
+Example of execution:
+
+```
+mix run streaming_sample.ex
+
+Arrr, matey! *adjusts tricorn hat* 
+
+The One Piece be the greatest treasure that ever sailed the seven seas! Legend has it that the Pirate King, Gol D. Roger, left it somewhere on the Grand Line before his execution...
+
+--- Stream complete ---
+```
+
+**Note:** The `stream_response: true` setting enables streaming mode, and `parse_stream_response/1` filters and parses the raw stream data into usable content chunks.
+
 ### Using OpenRouter
 
 LlmComposer supports integration with [OpenRouter](https://openrouter.ai/), giving you access to a variety of LLM models through a single API compatible with OpenAI's interface. Also supports, the OpenRouter's feature of setting fallback models.
