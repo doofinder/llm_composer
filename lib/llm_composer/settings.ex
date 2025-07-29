@@ -9,20 +9,22 @@ defmodule LlmComposer.Settings do
   defstruct [
     :provider,
     :provider_opts,
+    api_key: nil,
     auto_exec_functions: false,
     functions: [],
+    stream_response: false,
     system_prompt: nil,
-    user_prompt_prefix: "",
-    api_key: nil
+    user_prompt_prefix: ""
   ]
 
   @type t :: %__MODULE__{
+          api_key: String.t() | nil,
           auto_exec_functions: boolean(),
           functions: [LlmComposer.Function.t()],
           provider: module(),
           provider_opts: keyword(),
+          stream_response: boolean(),
           system_prompt: String.t() | nil,
-          user_prompt_prefix: String.t(),
-          api_key: String.t() | nil
+          user_prompt_prefix: String.t()
         }
 end

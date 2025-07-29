@@ -11,11 +11,12 @@ defmodule LlmComposer.LlmResponse do
   @type t() :: %__MODULE__{
           actions: [[FunctionCall.t()]] | [FunctionCall.t()],
           input_tokens: pos_integer() | nil,
-          main_response: Message.t(),
+          main_response: Message.t() | nil,
           output_tokens: pos_integer() | nil,
           previous_response: map() | nil,
           raw: map(),
-          status: :ok | :error
+          status: :ok | :error,
+          stream: nil | Enum.t()
         }
 
   defstruct [
@@ -25,7 +26,8 @@ defmodule LlmComposer.LlmResponse do
     :output_tokens,
     :previous_response,
     :raw,
-    :status
+    :status,
+    :stream
   ]
 
   @type model_response :: Tesla.Env.result()
@@ -39,6 +41,24 @@ defmodule LlmComposer.LlmResponse do
 
   def new({:error, resp}, model) when model in @llm_models do
     {:error, resp}
+  end
+
+  # Stream response case
+  def new(
+        {status, %{response: stream}} = raw_response,
+        llm_model
+      )
+      when llm_model in [:open_ai, :open_router] and is_function(stream) do
+    {:ok,
+     %__MODULE__{
+       actions: [],
+       input_tokens: nil,
+       output_tokens: nil,
+       stream: stream,
+       main_response: nil,
+       raw: raw_response,
+       status: status
+     }}
   end
 
   def new(

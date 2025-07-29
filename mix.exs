@@ -32,6 +32,7 @@ defmodule LlmComposer.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_aws, "~> 2.5", optional: true},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
+      {:finch, "~> 0.19", optional: true},
       {:jason, "~> 1.4"},
       {:tesla, "~> 1.12"}
     ]

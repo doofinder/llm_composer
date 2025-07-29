@@ -6,37 +6,18 @@ defmodule LlmComposer.Providers.OpenRouter do
   """
   @behaviour LlmComposer.Provider
 
-  use Tesla
-
   alias LlmComposer.Errors.MissingKeyError
+  alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
   alias LlmComposer.Providers.Utils
 
   require Logger
 
-  @default_timeout 50_000
-
-  plug(
-    Tesla.Middleware.BaseUrl,
-    Application.get_env(:llm_composer, :open_router_url, "https://openrouter.ai/api/v1")
-  )
-
-  plug(Tesla.Middleware.JSON)
-
-  plug(Tesla.Middleware.Retry,
-    delay: :timer.seconds(1),
-    max_delay: :timer.seconds(10),
-    max_retries: 10,
-    should_retry: fn
-      {:ok, %{status: status}} when status in [429, 500, 503] -> true
-      {:error, :closed} -> true
-      _other -> false
-    end
-  )
-
-  plug(Tesla.Middleware.Timeout,
-    timeout: Application.get_env(:llm_composer, :timeout) || @default_timeout
-  )
+  @base_url Application.compile_env(
+              :llm_composer,
+              :open_router_url,
+              "https://openrouter.ai/api/v1"
+            )
 
   @impl LlmComposer.Provider
   def name, do: :open_router
@@ -48,13 +29,15 @@ defmodule LlmComposer.Providers.OpenRouter do
   def run(messages, system_message, opts) do
     model = Keyword.get(opts, :model)
     api_key = Keyword.get(opts, :api_key) || get_key()
+    client = HttpClient.client(@base_url, opts)
 
     headers = maybe_structured_output_headers([{"Authorization", "Bearer " <> api_key}], opts)
+    req_opts = Utils.get_req_opts(opts)
 
     if model do
       messages
       |> build_request(system_message, model, opts)
-      |> then(&post("/chat/completions", &1, headers: headers))
+      |> then(&Tesla.post(client, "/chat/completions", &1, headers: headers, opts: req_opts))
       |> handle_response(opts)
       |> LlmResponse.new(name())
     else
@@ -71,6 +54,7 @@ defmodule LlmComposer.Providers.OpenRouter do
     base_request = %{
       model: model,
       tools: tools,
+      stream: Keyword.get(opts, :stream_response),
       messages: Utils.map_messages([system_message | messages])
     }
 
