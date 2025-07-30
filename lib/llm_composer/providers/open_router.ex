@@ -71,7 +71,8 @@ defmodule LlmComposer.Providers.OpenRouter do
   @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
   defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, request_opts)
        when status in [200] do
-    if Keyword.get(request_opts, :models) do
+    # if stream response, skip this logic for logging a warning
+    if not is_function(body) and Keyword.get(request_opts, :models) do
       original_model = Keyword.get(request_opts, :model)
       used_model = body["model"]
 
