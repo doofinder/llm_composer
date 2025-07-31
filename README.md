@@ -33,6 +33,7 @@ The following table shows which features are supported by each provider:
 - **Bedrock** support is provided via AWS ExAws integration and requires proper AWS configuration
 - **Ollama** requires an ollama server instance to be running
 - **Function Calls** require the provider to support OpenAI-compatible function calling format
+- **Streaming** is **not** compatible with Tesla **retries**.
 
 ## Usage
 
