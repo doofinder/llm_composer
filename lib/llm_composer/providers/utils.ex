@@ -65,6 +65,15 @@ defmodule LlmComposer.Providers.Utils do
 
   def extract_actions(_response), do: []
 
+  @spec get_req_opts(keyword()) :: keyword()
+  def get_req_opts(opts) do
+    if Keyword.get(opts, :stream_response) do
+      [adapter: [response: :stream]]
+    else
+      []
+    end
+  end
+
   defp get_action(%{"message" => %{"tool_calls" => calls}}) do
     Enum.map(calls, fn call ->
       %FunctionCall{

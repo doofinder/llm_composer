@@ -15,6 +15,26 @@ def deps do
 end
 ```
 
+## Provider Compatibility
+
+The following table shows which features are supported by each provider:
+
+| Feature | OpenAI | OpenRouter | Ollama | Bedrock |
+|---------|--------|------------|--------|---------|
+| Basic Chat | ✅ | ✅ | ✅ | ✅ |
+| Streaming | ✅ | ✅ | ✅ | ❌ |
+| Function Calls | ✅ | ✅ | ❌ | ❌ |
+| Auto Function Execution | ✅ | ✅ | ❌ | ❌ |
+| Fallback Models | ❌ | ✅ | ❌ | ❌ |
+| Provider Routing | ❌ | ✅ | ❌ | ❌ |
+
+### Notes:
+- **OpenRouter** offers the most comprehensive feature set, including unique capabilities like fallback models and provider routing
+- **Bedrock** support is provided via AWS ExAws integration and requires proper AWS configuration
+- **Ollama** requires an ollama server instance to be running
+- **Function Calls** require the provider to support OpenAI-compatible function calling format
+- **Streaming** is **not** compatible with Tesla **retries**.
+
 ## Usage
 
 ### Simple Bot Definition
@@ -150,7 +170,65 @@ LlmComposer.Message.new(
 )
 ```
 
-No function calls support in Ollama (for now)
+**Note:** Ollama does not provide token usage information, so `input_tokens` and `output_tokens` will always be empty in debug logs and response metadata. Function calls are also not supported with Ollama.
+
+### Streaming Responses
+
+LlmComposer supports streaming responses for real-time output, which is particularly useful for long-form content generation. This feature works with providers that support streaming (like Ollama, OpenRouter and OpenAI).
+
+```elixir
+# Make sure to configure Tesla adapter for streaming (Finch recommended)
+Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
+{:ok, finch} = Finch.start_link(name: MyFinch)
+
+defmodule MyStreamingChat do
+  @settings %LlmComposer.Settings{
+    provider: LlmComposer.Providers.Ollama,
+    provider_opts: [model: "llama3.2"],
+    system_prompt: "You are a creative storyteller.",
+    stream_response: true
+  }
+
+  def run_streaming_chat() do
+    messages = [
+      %LlmComposer.Message{type: :user, content: "Tell me a short story about space exploration"}
+    ]
+    
+    {:ok, res} = LlmComposer.run_completion(@settings, messages)
+
+    # Process the stream and output content in real-time
+    res.stream
+    |> LlmComposer.parse_stream_response()
+    |> Enum.each(fn parsed_data ->
+      content = get_in(parsed_data, ["message", "content"]) || ""
+      if content != "", do: IO.write(content)
+    end)
+    
+    IO.puts("\n--- Stream complete ---")
+  end
+end
+
+MyStreamingChat.run_streaming_chat()
+```
+
+Example of execution:
+
+```
+mix run streaming_sample.ex
+
+Once upon a time, in the vast expanse of space, a brave astronaut embarked on a journey to explore distant galaxies. The stars shimmered as the spaceship soared beyond the known universe, uncovering secrets of the cosmos...
+
+--- Stream complete ---
+```
+
+**Note:** The `stream_response: true` setting enables streaming mode, and `parse_stream_response/1` filters and parses the raw stream data into usable content chunks.
+
+**Important:** When using Stream read chat completion, LlmComposer does not track input/output/cache/thinking tokens. There are two approaches to handle token counting in this mode:
+
+1. Calculate tokens using libraries like `tiktoken` for OpenAI provider.
+2. Read token data from the last stream object if the provider supplies it (currently only OpenRouter supports this).
+
+In Ollama provider, we do not track tokens.
 
 ### Using OpenRouter
 
@@ -334,4 +412,3 @@ In this example, the bot first calls OpenAI to understand the user's intent and 
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/llm_composer>.
-
