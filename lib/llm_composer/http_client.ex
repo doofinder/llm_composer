@@ -1,6 +1,6 @@
 defmodule LlmComposer.HttpClient do
   @moduledoc """
-  Helper mod for setup the Tesla http client and it's options
+  Helper mod for setup the Tesla http client and its options
   """
 
   @default_timeout 50_000
