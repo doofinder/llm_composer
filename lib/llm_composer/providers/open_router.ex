@@ -69,11 +69,11 @@ defmodule LlmComposer.Providers.OpenRouter do
   end
 
   @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, request_opts)
+  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, completion_opts)
        when status in [200] do
     # if stream response, skip this logic for logging a warning
-    if not is_function(body) and Keyword.get(request_opts, :models) do
-      original_model = Keyword.get(request_opts, :model)
+    if not is_function(body) and Keyword.get(completion_opts, :models) do
+      original_model = Keyword.get(completion_opts, :model)
       used_model = body["model"]
 
       if original_model != used_model do
@@ -81,8 +81,16 @@ defmodule LlmComposer.Providers.OpenRouter do
       end
     end
 
+    metadata =
+      if Keyword.get(completion_opts, :track_costs) and Code.ensure_loaded?(Decimal) do
+        Logger.debug("retrieving cost of completion")
+        track_costs(body)
+      else
+        %{}
+      end
+
     actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions}}
+    {:ok, %{response: body, actions: actions, metadata: metadata}}
   end
 
   defp handle_response({:ok, resp}, _request_opts) do
@@ -139,5 +147,37 @@ defmodule LlmComposer.Providers.OpenRouter do
     else
       base_request
     end
+  end
+
+  @spec track_costs(map()) :: map()
+  defp track_costs(%{"model" => model, "provider" => provider, "usage" => usage}) do
+    client = HttpClient.client(@base_url, [])
+
+    {:ok, res} = Tesla.get(client, "/models/#{model}/endpoints")
+
+    endpoints = get_in(res.body, ["data", "endpoints"])
+
+    # sometimes provider has more than one endpoint (eg: google with vertex and vertex/global)
+    endpoint = Enum.filter(endpoints, &(&1["provider_name"] == provider)) |> hd()
+
+    cost = calculate_cost(usage, endpoint)
+
+    Logger.debug("model=#{model} provider=#{provider} cost=#{Decimal.to_string(cost, :normal)}$")
+
+    %{costs: cost}
+  end
+
+  @spec calculate_cost(map(), map()) :: Decimal.t()
+  defp calculate_cost(
+         %{"completion_tokens" => completion, "prompt_tokens" => prompt},
+         %{"pricing" => %{"completion" => completion_costs, "prompt" => prompt_costs}}
+       ) do
+    completion_decimal = Decimal.new(completion_costs)
+    prompt_decimal = Decimal.new(prompt_costs)
+
+    completion_cost = Decimal.mult(completion_decimal, completion)
+    prompt_cost = Decimal.mult(prompt_decimal, prompt)
+
+    Decimal.add(completion_cost, prompt_cost)
   end
 end

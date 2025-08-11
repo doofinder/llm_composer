@@ -6,12 +6,13 @@ defmodule LlmComposer.LlmResponse do
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
-  @llm_models [:open_ai, :ollama, :open_router, :bedrock]
+  @llm_providers [:open_ai, :ollama, :open_router, :bedrock]
 
   @type t() :: %__MODULE__{
           actions: [[FunctionCall.t()]] | [FunctionCall.t()],
           input_tokens: pos_integer() | nil,
           main_response: Message.t() | nil,
+          metadata: map(),
           output_tokens: pos_integer() | nil,
           previous_response: map() | nil,
           raw: map(),
@@ -27,28 +28,29 @@ defmodule LlmComposer.LlmResponse do
     :previous_response,
     :raw,
     :status,
-    :stream
+    :stream,
+    metadata: %{}
   ]
 
   @type model_response :: Tesla.Env.result()
 
   @spec new(nil | model_response, atom()) :: {:ok, t()} | {:error, term()}
-  def new(nil, _model), do: {:error, :no_llm_response}
+  def new(nil, _provider), do: {:error, :no_llm_response}
 
-  def new({:error, %{body: body}}, model) when model in @llm_models do
+  def new({:error, %{body: body}}, provider) when provider in @llm_providers do
     {:error, body}
   end
 
-  def new({:error, resp}, model) when model in @llm_models do
+  def new({:error, resp}, provider) when provider in @llm_providers do
     {:error, resp}
   end
 
   # Stream response case
   def new(
         {status, %{response: stream}} = raw_response,
-        llm_model
+        llm_provider
       )
-      when llm_model in [:open_ai, :open_router] and is_function(stream) do
+      when llm_provider in [:open_ai, :open_router] and is_function(stream) do
     {:ok,
      %__MODULE__{
        actions: [],
@@ -63,10 +65,11 @@ defmodule LlmComposer.LlmResponse do
 
   def new(
         {status,
-         %{actions: actions, response: %{"choices" => [first_choice | _]} = raw_response}},
-        llm_model
+         %{actions: actions, response: %{"choices" => [first_choice | _]} = raw_response} =
+           provider_response},
+        llm_provider
       )
-      when llm_model in [:open_ai, :open_router] do
+      when llm_provider in [:open_ai, :open_router] do
     main_response = get_in(first_choice, ["message"])
 
     response =
@@ -80,6 +83,7 @@ defmodule LlmComposer.LlmResponse do
        input_tokens: get_in(raw_response, ["usage", "prompt_tokens"]),
        output_tokens: get_in(raw_response, ["usage", "completion_tokens"]),
        main_response: response,
+       metadata: Map.get(provider_response, :metadata, %{}),
        raw: raw_response,
        status: status
      }}

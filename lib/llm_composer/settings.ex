@@ -14,6 +14,7 @@ defmodule LlmComposer.Settings do
     functions: [],
     stream_response: false,
     system_prompt: nil,
+    track_costs: false,
     user_prompt_prefix: ""
   ]
 
@@ -25,6 +26,7 @@ defmodule LlmComposer.Settings do
           provider_opts: keyword(),
           stream_response: boolean(),
           system_prompt: String.t() | nil,
+          track_costs: boolean(),
           user_prompt_prefix: String.t()
         }
 end
