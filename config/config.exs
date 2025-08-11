@@ -5,6 +5,7 @@ config :llm_composer,
   ollama_uri: "http://localhost:11434",
   open_router_key: "",
   tesla_adapter: nil,
+  cache_mod: LlmComposer.Cache.Ets,
   timeout: nil
 
 import_config "#{Mix.env()}.exs"

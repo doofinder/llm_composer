@@ -10,6 +10,7 @@ defmodule LlmComposer.Providers.OpenRouter do
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
   alias LlmComposer.Providers.Utils
+  alias LlmComposer.Providers.OpenRouter.TrackCosts
 
   require Logger
 
@@ -84,7 +85,7 @@ defmodule LlmComposer.Providers.OpenRouter do
     metadata =
       if Keyword.get(completion_opts, :track_costs) and Code.ensure_loaded?(Decimal) do
         Logger.debug("retrieving cost of completion")
-        track_costs(body)
+        TrackCosts.track_costs(body, @base_url)
       else
         %{}
       end
@@ -147,37 +148,5 @@ defmodule LlmComposer.Providers.OpenRouter do
     else
       base_request
     end
-  end
-
-  @spec track_costs(map()) :: map()
-  defp track_costs(%{"model" => model, "provider" => provider, "usage" => usage}) do
-    client = HttpClient.client(@base_url, [])
-
-    {:ok, res} = Tesla.get(client, "/models/#{model}/endpoints")
-
-    endpoints = get_in(res.body, ["data", "endpoints"])
-
-    # sometimes provider has more than one endpoint (eg: google with vertex and vertex/global)
-    endpoint = Enum.filter(endpoints, &(&1["provider_name"] == provider)) |> hd()
-
-    cost = calculate_cost(usage, endpoint)
-
-    Logger.debug("model=#{model} provider=#{provider} cost=#{Decimal.to_string(cost, :normal)}$")
-
-    %{costs: cost}
-  end
-
-  @spec calculate_cost(map(), map()) :: Decimal.t()
-  defp calculate_cost(
-         %{"completion_tokens" => completion, "prompt_tokens" => prompt},
-         %{"pricing" => %{"completion" => completion_costs, "prompt" => prompt_costs}}
-       ) do
-    completion_decimal = Decimal.new(completion_costs)
-    prompt_decimal = Decimal.new(prompt_costs)
-
-    completion_cost = Decimal.mult(completion_decimal, completion)
-    prompt_cost = Decimal.mult(prompt_decimal, prompt)
-
-    Decimal.add(completion_cost, prompt_cost)
   end
 end
