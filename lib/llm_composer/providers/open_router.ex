@@ -9,8 +9,8 @@ defmodule LlmComposer.Providers.OpenRouter do
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
-  alias LlmComposer.Providers.Utils
   alias LlmComposer.Providers.OpenRouter.TrackCosts
+  alias LlmComposer.Providers.Utils
 
   require Logger
 

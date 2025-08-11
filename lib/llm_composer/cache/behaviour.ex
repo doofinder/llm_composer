@@ -1,4 +1,8 @@
 defmodule LlmComposer.Cache.Behaviour do
+  @moduledoc """
+  Cache behaviour to use other implementations for cache mod.
+  """
+
   @doc """
   Retrieves a value from the cache by key.
   Returns `{:ok, value}` if found and not expired, `:error` otherwise.

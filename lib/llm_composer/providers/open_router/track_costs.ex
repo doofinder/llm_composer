@@ -14,7 +14,10 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
     endpoints = get_in(res.body, ["data", "endpoints"])
 
     # sometimes provider has more than one endpoint (eg: google with vertex and vertex/global)
-    endpoint = Enum.filter(endpoints, &(&1["provider_name"] == provider)) |> hd()
+    endpoint =
+      endpoints
+      |> Enum.filter(&(&1["provider_name"] == provider))
+      |> hd()
 
     cost = calculate_cost(usage, endpoint)
 
