@@ -9,7 +9,7 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
 
   require Logger
 
-  @cache_mod Application.compile_env(:llm_composer, :cache_mod)
+  @cache_mod Application.compile_env(:llm_composer, :cache_mod, LlmComposer.Cache.Ets)
 
   @spec track_costs(map()) :: map()
   def track_costs(%{"model" => model, "provider" => provider, "usage" => usage}) do
