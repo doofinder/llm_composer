@@ -46,6 +46,9 @@ defmodule LlmComposer.Providers.OpenRouter do
     end
   end
 
+  @spec get_base_url() :: binary
+  def get_base_url, do: @base_url
+
   defp build_request(messages, system_message, model, opts) do
     tools =
       opts
@@ -85,7 +88,7 @@ defmodule LlmComposer.Providers.OpenRouter do
     metadata =
       if Keyword.get(completion_opts, :track_costs) and Code.ensure_loaded?(Decimal) do
         Logger.debug("retrieving cost of completion")
-        TrackCosts.track_costs(body, @base_url)
+        TrackCosts.track_costs(body)
       else
         %{}
       end

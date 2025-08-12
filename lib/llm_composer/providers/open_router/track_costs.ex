@@ -1,5 +1,9 @@
 defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
-  @moduledoc false
+  @moduledoc """
+  Useful method for tracking costs of given Openroutert response
+  """
+
+  import LlmComposer.Providers.OpenRouter, only: [get_base_url: 0]
 
   alias LlmComposer.HttpClient
 
@@ -7,9 +11,9 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
 
   @cache_mod Application.compile_env(:llm_composer, :cache_mod)
 
-  @spec track_costs(map(), binary) :: map()
-  def track_costs(%{"model" => model, "provider" => provider, "usage" => usage}, base_url) do
-    {:ok, res} = fetch_model_endpoints_with_cache(model, base_url)
+  @spec track_costs(map()) :: map()
+  def track_costs(%{"model" => model, "provider" => provider, "usage" => usage}) do
+    {:ok, res} = fetch_model_endpoints_with_cache(model, get_base_url())
 
     endpoints = get_in(res.body, ["data", "endpoints"])
 
