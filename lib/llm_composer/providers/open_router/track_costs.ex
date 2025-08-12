@@ -1,7 +1,5 @@
 defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
-  @moduledoc """
-  Useful method for tracking costs of given Openroutert response
-  """
+  @moduledoc false
 
   import LlmComposer.Providers.OpenRouter, only: [get_base_url: 0]
 
