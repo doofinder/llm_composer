@@ -66,8 +66,9 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
 
         with client <- HttpClient.client(base_url, []),
              {:ok, endpoints_response} <- Tesla.get(client, "/models/#{model}/endpoints") do
-          # 24h ttl
-          @cache_mod.put(key, endpoints_response.body, 60 * 60 * 24)
+          # 24h ttl default
+          ttl = Application.get_env(:llm_composer, :cache_ttl, 60 * 60 * 24)
+          @cache_mod.put(key, endpoints_response.body, ttl)
           endpoints_response.body
         end
     end
