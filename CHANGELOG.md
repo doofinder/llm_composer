@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-## [0.8.0] - 2025-01-27
+## [0.8.0] - 2025-08-12
 - **Add tracking costs for OpenRouter provider**: Introduced cost tracking functionality specifically for the OpenRouter provider to monitor API usage expenses.
 
 ## [0.7.0] - 2025-07-31
