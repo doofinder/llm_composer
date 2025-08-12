@@ -34,11 +34,6 @@ defmodule LlmComposer.Cache.Ets do
     GenServer.call(server, {:delete, key})
   end
 
-  @impl LlmComposer.Cache.Behaviour
-  def clear(server \\ __MODULE__) do
-    GenServer.call(server, :clear)
-  end
-
   # Server callbacks
   # genserver required..
   @impl GenServer
@@ -76,11 +71,6 @@ defmodule LlmComposer.Cache.Ets do
 
   def handle_call({:delete, key}, _from, %{table: table} = state) do
     :ets.delete(table, key)
-    {:reply, :ok, state}
-  end
-
-  def handle_call(:clear, _from, %{table: table} = state) do
-    :ets.delete_all_objects(table)
     {:reply, :ok, state}
   end
 

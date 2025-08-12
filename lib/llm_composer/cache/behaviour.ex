@@ -20,10 +20,4 @@ defmodule LlmComposer.Cache.Behaviour do
   Returns `:ok`.
   """
   @callback delete(key :: term()) :: :ok
-
-  @doc """
-  Clears all entries from the cache.
-  Returns `:ok`.
-  """
-  @callback clear() :: :ok
 end

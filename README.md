@@ -449,7 +449,7 @@ end
 # config :llm_composer, cache_mod: MyCustomCache
 #
 # Your custom cache module must implement the LlmComposer.Cache.Behaviour
-# which defines callbacks for get/1, put/3, delete/1, and clear/0 operations.
+# which defines callbacks for get/1, put/3, and delete/1 operations.
 {:ok, _} = LlmComposer.Cache.Ets.start_link()
 
 MyCostTrackingChat.run_chat_with_costs()
