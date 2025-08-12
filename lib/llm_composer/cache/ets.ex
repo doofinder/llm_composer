@@ -8,7 +8,8 @@ defmodule LlmComposer.Cache.Ets do
 
   @type server :: atom() | module() | pid()
 
-  @cleanup_interval :timer.minutes(5)
+  @cleanup_task_interval :timer.minutes(5)
+  @no_cache_resp :miss
 
   # Client API
 
@@ -46,7 +47,7 @@ defmodule LlmComposer.Cache.Ets do
     table = :ets.new(table_name, [:set, :protected, :named_table])
 
     # Schedule periodic cleanup
-    Process.send_after(self(), :cleanup, @cleanup_interval)
+    Process.send_after(self(), :cleanup, @cleanup_task_interval)
 
     {:ok, %{table: table}}
   end
@@ -59,11 +60,11 @@ defmodule LlmComposer.Cache.Ets do
           {:reply, {:ok, value}, state}
         else
           :ets.delete(table, key)
-          {:reply, :error, state}
+          {:reply, @no_cache_resp, state}
         end
 
       [] ->
-        {:reply, :miss, state}
+        {:reply, @no_cache_resp, state}
     end
   end
 
@@ -83,7 +84,7 @@ defmodule LlmComposer.Cache.Ets do
     {:reply, :ok, state}
   end
 
-  @spec handle_info(atom, map) :: {:noreply, map}
+  @impl GenServer
   def handle_info(:cleanup, %{table: table} = state) do
     current_time = System.system_time(:second)
 
@@ -93,7 +94,7 @@ defmodule LlmComposer.Cache.Ets do
     ])
 
     # Schedule next cleanup
-    Process.send_after(self(), :cleanup, @cleanup_interval)
+    Process.send_after(self(), :cleanup, @cleanup_task_interval)
 
     {:noreply, state}
   end
