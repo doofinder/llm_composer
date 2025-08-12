@@ -7,7 +7,7 @@ defmodule LlmComposer.Application do
 
   @spec start(term, term) :: Supervisor.on_start()
   def start(_type, _args) do
-    cache_mod = Application.get_env(:llm_composer, :cache_mod)
+    cache_mod = Application.get_env(:llm_composer, :cache_mod, LlmComposer.Cache.Ets)
 
     children =
       if cache_mod == LlmComposer.Cache.Ets do
