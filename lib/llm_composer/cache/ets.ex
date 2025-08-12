@@ -43,7 +43,7 @@ defmodule LlmComposer.Cache.Ets do
   # genserver required..
   @impl GenServer
   def init(opts) do
-    table_name = Keyword.get(opts, :table_name, :cache_table)
+    table_name = Keyword.get(opts, :table_name, LlmComposer.MyCache)
     table = :ets.new(table_name, [:set, :protected, :named_table])
 
     # Schedule periodic cleanup
