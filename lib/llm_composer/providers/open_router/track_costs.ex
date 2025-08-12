@@ -47,7 +47,8 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
   defp fetch_model_endpoints_with_cache(model, provider, base_url) do
     key = model
 
-    # here we cache the response, and if data in cache, we check that the provider exists, if not we invalidate to retry.
+    # here we cache the response, and if data in cache, we check that the provider exists,
+    # if not we invalidate to retry.
     case @cache_mod.get(key) do
       {:ok, resp} ->
         Logger.debug("cache hit")
