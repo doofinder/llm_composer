@@ -455,6 +455,28 @@ end
 MyCostTrackingChat.run_chat_with_costs()
 ```
 
+#### Starting Cache in a Supervision Tree
+
+For production applications, you should start the cache as part of your application's supervision tree:
+
+```elixir
+# In your application.ex file
+defmodule MyApp.Application do
+  use Application
+
+  def start(_type, _args) do
+    children = [
+      # Other supervisors/workers...
+      LlmComposer.Cache.Ets,
+      # ... rest of your children
+    ]
+
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+end
+```
+
 #### Dependencies Setup
 
 Add the decimal dependency to your `mix.exs`:
