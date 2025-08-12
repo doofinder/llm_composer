@@ -5,7 +5,7 @@ defmodule LlmComposer.Cache.Behaviour do
 
   @doc """
   Retrieves a value from the cache by key.
-  Returns `{:ok, value}` if found and not expired, `:error` otherwise.
+  Returns `{:ok, value}` if found and not expired, `:miss` otherwise.
   """
   @callback get(key :: term()) :: {:ok, term()} | :miss
 
