@@ -27,7 +27,7 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
 
     Logger.debug("model=#{model} provider=#{provider} cost=#{Decimal.to_string(cost, :normal)}$")
 
-    %{costs: cost}
+    %{total_cost: cost}
   end
 
   @spec calculate_cost(map(), map()) :: Decimal.t()
