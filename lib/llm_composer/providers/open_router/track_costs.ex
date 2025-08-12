@@ -45,19 +45,19 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
   @spec fetch_model_endpoints_with_cache(binary, binary) :: {:ok, map()}
   defp fetch_model_endpoints_with_cache(model, base_url) do
     case @cache_mod.get(model) do
-      :miss ->
-        Logger.debug("cache miss")
-        client = HttpClient.client(base_url, [])
-        resp = Tesla.get(client, "/models/#{model}/endpoints")
-
-        # 24h ttl
-        @cache_mod.put(model, resp, 60 * 60 * 24)
-
-        resp
-
       {:ok, resp} ->
         Logger.debug("cache hit")
         resp
+
+      :miss ->
+        Logger.debug("cache miss")
+
+        with client <- HttpClient.client(base_url, []),
+             {:ok, _resp} = response <- Tesla.get(client, "/models/#{model}/endpoints") do
+          # 24h ttl
+          @cache_mod.put(model, response, 60 * 60 * 24)
+          response
+        end
     end
   end
 end
