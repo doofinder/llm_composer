@@ -26,9 +26,4 @@ defmodule LlmComposer.Cache.Behaviour do
   Returns `:ok`.
   """
   @callback clear() :: :ok
-
-  @doc """
-  Starts the cache process.
-  """
-  @callback start_link(opts :: keyword()) :: GenServer.on_start()
 end

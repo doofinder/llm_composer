@@ -18,28 +18,29 @@ defmodule LlmComposer.Cache.Ets do
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
-  @spec get(term, server) :: term
+  @impl LlmComposer.Cache.Behaviour
   def get(key, server \\ __MODULE__) do
     GenServer.call(server, {:get, key})
   end
 
-  @spec put(term, term, integer, server) :: term
+  @impl LlmComposer.Cache.Behaviour
   def put(key, value, ttl_seconds, server \\ __MODULE__) do
     GenServer.call(server, {:put, key, value, ttl_seconds})
   end
 
-  @spec delete(term, server) :: term
+  @impl LlmComposer.Cache.Behaviour
   def delete(key, server \\ __MODULE__) do
     GenServer.call(server, {:delete, key})
   end
 
-  @spec clear(server) :: term
+  @impl LlmComposer.Cache.Behaviour
   def clear(server \\ __MODULE__) do
     GenServer.call(server, :clear)
   end
 
   # Server callbacks
-  @spec init(keyword()) :: {:ok, map()}
+  # genserver required..
+  @impl GenServer
   def init(opts) do
     table_name = Keyword.get(opts, :table_name, :cache_table)
     table = :ets.new(table_name, [:set, :protected, :named_table])
@@ -50,8 +51,7 @@ defmodule LlmComposer.Cache.Ets do
     {:ok, %{table: table}}
   end
 
-  @spec handle_call({atom, term} | {atom, term, term, pos_integer()}, term(), map()) ::
-          {atom, term, map()}
+  @impl GenServer
   def handle_call({:get, key}, _from, %{table: table} = state) do
     case :ets.lookup(table, key) do
       [{^key, value, expires_at}] ->
