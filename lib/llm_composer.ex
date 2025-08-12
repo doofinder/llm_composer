@@ -88,7 +88,8 @@ defmodule LlmComposer do
       Keyword.merge(settings.provider_opts,
         functions: settings.functions,
         stream_response: settings.stream_response,
-        api_key: settings.api_key
+        api_key: settings.api_key,
+        track_costs: settings.track_costs
       )
 
     messages

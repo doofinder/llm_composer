@@ -9,6 +9,7 @@ defmodule LlmComposer.Providers.OpenRouter do
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
+  alias LlmComposer.Providers.OpenRouter.TrackCosts
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -45,6 +46,9 @@ defmodule LlmComposer.Providers.OpenRouter do
     end
   end
 
+  @spec get_base_url() :: binary
+  def get_base_url, do: @base_url
+
   defp build_request(messages, system_message, model, opts) do
     tools =
       opts
@@ -69,11 +73,11 @@ defmodule LlmComposer.Providers.OpenRouter do
   end
 
   @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, request_opts)
+  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, completion_opts)
        when status in [200] do
     # if stream response, skip this logic for logging a warning
-    if not is_function(body) and Keyword.get(request_opts, :models) do
-      original_model = Keyword.get(request_opts, :model)
+    if not is_function(body) and Keyword.get(completion_opts, :models) do
+      original_model = Keyword.get(completion_opts, :model)
       used_model = body["model"]
 
       if original_model != used_model do
@@ -81,8 +85,16 @@ defmodule LlmComposer.Providers.OpenRouter do
       end
     end
 
+    metadata =
+      if Keyword.get(completion_opts, :track_costs) and Code.ensure_loaded?(Decimal) do
+        Logger.debug("retrieving cost of completion")
+        TrackCosts.track_costs(body)
+      else
+        %{}
+      end
+
     actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions}}
+    {:ok, %{response: body, actions: actions, metadata: metadata}}
   end
 
   defp handle_response({:ok, resp}, _request_opts) do
