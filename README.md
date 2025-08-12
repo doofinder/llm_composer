@@ -10,7 +10,7 @@ by adding `llm_composer` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.3.0"}
+    {:llm_composer, "~> 0.7.0"}
   ]
 end
 ```
@@ -402,6 +402,73 @@ LlmComposer.Message.new(
 ```
 
 In this example, the bot first calls OpenAI to understand the user's intent and determine that a function (the calculator) should be executed. The function is then executed locally, and the result is sent back to the user in a second API call.
+
+### Cost Tracking
+
+LlmComposer provides built-in cost tracking functionality, for **OpenRouter backend only**, to monitor token usage and associated costs across different providers. This feature helps you keep track of API expenses and optimize your usage.
+
+#### Requirements
+
+To use cost tracking, you need:
+
+1. **Decimal package**: Add `{:decimal, "~> 2.0"}` to your dependencies in `mix.exs`
+2. **Cache backend**: A cache implementation for storing cost data (LlmComposer provides an ETS-based cache by default, or you can implement a custom one using `LlmComposer.Cache.Behaviour`)
+
+#### Basic Cost Tracking Example
+
+```elixir
+Application.put_env(:llm_composer, :open_router_key, "<your openrouter api key>")
+
+defmodule MyCostTrackingChat do
+  @settings %LlmComposer.Settings{
+    provider: LlmComposer.Providers.OpenRouter,
+    provider_opts: [model: "meta-llama/llama-3.2-3b-instruct"],
+    system_prompt: "You are a helpful assistant.",
+    track_costs: true
+  }
+
+  def run_chat_with_costs() do
+    messages = [
+      %LlmComposer.Message{type: :user, content: "How much is 1 + 1?"}
+    ]
+    
+    {:ok, res} = LlmComposer.run_completion(@settings, messages)
+    
+    # Access cost information from the response
+    IO.puts("Input tokens: #{res.input_tokens}")
+    IO.puts("Output tokens: #{res.output_tokens}")
+    IO.puts("Total cost: #{Decimal.to_string(res.metadata.total_cost, :normal)}$")
+    
+    res
+  end
+end
+
+# Start the cache backend (required for cost tracking)
+# The default ETS cache can be overridden by configuring a custom cache module:
+#
+# config :llm_composer, cache_mod: MyCustomCache
+#
+# Your custom cache module must implement the LlmComposer.Cache.Behaviour
+# which defines callbacks for get/1, put/3, delete/1, and clear/0 operations.
+{:ok, _} = LlmComposer.Cache.Ets.start_link()
+
+MyCostTrackingChat.run_chat_with_costs()
+```
+
+#### Dependencies Setup
+
+Add the decimal dependency to your `mix.exs`:
+
+```elixir
+def deps do
+  [
+    {:llm_composer, "~> 0.7.0"},
+    {:decimal, "~> 2.3"}  # Required for cost tracking
+  ]
+end
+```
+
+**Note:** Cost tracking calculates expenses based on the provider's pricing model and token usage. The cache backend stores pricing information to avoid repeated lookups and improve performance.
 
 ### Additional Features
 * Auto Function Execution: Automatically executes predefined functions, reducing manual intervention.

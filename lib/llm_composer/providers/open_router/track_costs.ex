@@ -11,15 +11,7 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
 
   @spec track_costs(map()) :: map()
   def track_costs(%{"model" => model, "provider" => provider, "usage" => usage}) do
-    {:ok, res} = fetch_model_endpoints_with_cache(model, get_base_url())
-
-    endpoints = get_in(res.body, ["data", "endpoints"])
-
-    # sometimes provider has more than one endpoint (eg: google with vertex and vertex/global)
-    endpoint =
-      endpoints
-      |> Enum.filter(&(&1["provider_name"] == provider))
-      |> hd()
+    endpoint = get_endpoint_data(model, provider)
 
     cost = calculate_cost(usage, endpoint)
 
@@ -42,22 +34,52 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
     Decimal.add(completion_cost, prompt_cost)
   end
 
-  @spec fetch_model_endpoints_with_cache(binary, binary) :: {:ok, map()}
-  defp fetch_model_endpoints_with_cache(model, base_url) do
-    case @cache_mod.get(model) do
+  @spec get_endpoint_data(binary, binary) :: map()
+  defp get_endpoint_data(model, provider) do
+    model_endpoints = fetch_model_endpoints_with_cache(model, provider, get_base_url())
+
+    model_endpoints
+    |> get_in(["data", "endpoints"])
+    |> get_endpoint(provider)
+  end
+
+  @spec fetch_model_endpoints_with_cache(binary, binary, binary) :: map()
+  defp fetch_model_endpoints_with_cache(model, provider, base_url) do
+    key = model
+
+    # here we cache the response, and if data in cache, we check that the provider exists, if not we invalidate to retry.
+    case @cache_mod.get(key) do
       {:ok, resp} ->
         Logger.debug("cache hit")
-        resp
+
+        if is_nil(get_endpoint(resp["data"]["endpoints"], provider)) do
+          @cache_mod.delete(key)
+
+          # retry if provider not found in cache... it should retry just once as non cache case has no retry.
+          fetch_model_endpoints_with_cache(model, provider, base_url)
+        else
+          resp
+        end
 
       :miss ->
         Logger.debug("cache miss")
 
         with client <- HttpClient.client(base_url, []),
-             {:ok, _resp} = response <- Tesla.get(client, "/models/#{model}/endpoints") do
+             {:ok, endpoints_response} <- Tesla.get(client, "/models/#{model}/endpoints") do
           # 24h ttl
-          @cache_mod.put(model, response, 60 * 60 * 24)
-          response
+          @cache_mod.put(key, endpoints_response.body, 60 * 60 * 24)
+          endpoints_response.body
         end
     end
+  end
+
+  @spec get_endpoint(list(map()), binary) :: map() | nil
+  defp get_endpoint(endpoints, provider) do
+    endpoints
+    |> Enum.filter(&(&1["provider_name"] == provider))
+    |> then(fn
+      [endpoint | _] -> endpoint
+      [] -> nil
+    end)
   end
 end
