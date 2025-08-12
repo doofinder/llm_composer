@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-01-27
+- **Add tracking costs for OpenRouter provider**: Introduced cost tracking functionality specifically for the OpenRouter provider to monitor API usage expenses.
+
 ## [0.7.0] - 2025-07-31
 - **Add HttpClient module**: Introduced a new HttpClient module for improved HTTP handling.
 - **Add streaming read capability**: Added the capability of streaming read for LLM providers completions.
@@ -64,7 +67,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.6.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.8.0...HEAD
+[0.8.0]: https://github.com/doofinder/llm_composer/compare/0.7.0...0.8.0
+[0.7.0]: https://github.com/doofinder/llm_composer/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/doofinder/llm_composer/compare/0.5.5...0.6.0
 [0.5.5]: https://github.com/doofinder/llm_composer/compare/0.5.4...0.5.5
 [0.5.4]: https://github.com/doofinder/llm_composer/compare/0.5.3...0.5.4
