@@ -46,7 +46,7 @@ defmodule LlmComposer.Providers.OpenAI do
     tools =
       opts
       |> Keyword.get(:functions)
-      |> Utils.get_tools()
+      |> Utils.get_tools(name())
 
     base_request = %{
       model: model,

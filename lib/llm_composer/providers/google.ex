@@ -60,11 +60,7 @@ defmodule LlmComposer.Providers.Google do
     tools =
       opts
       |> Keyword.get(:functions)
-      |> Utils.get_tools()
-
-    unless is_nil(tools) or tools == [] do
-      Logger.warning("tools not supported for Google provider in llm_composer, ignoring it")
-    end
+      |> Utils.get_tools(name())
 
     # custom request params if provided
     req_params = Keyword.get(opts, :request_params, %{})
@@ -74,6 +70,7 @@ defmodule LlmComposer.Providers.Google do
     }
     |> maybe_add_system_instructs(system_message)
     |> maybe_add_structured_outputs(opts)
+    |> maybe_add_tools(tools)
     |> Map.merge(req_params)
     |> Utils.cleanup_body()
   end
@@ -120,5 +117,12 @@ defmodule LlmComposer.Providers.Google do
           responseSchema: response_schema
         })
     end
+  end
+
+  @spec maybe_add_tools(map(), map() | nil) :: map()
+  defp maybe_add_tools(base_req, nil), do: base_req
+
+  defp maybe_add_tools(base_req, tools) do
+    Map.put(base_req, :tools, [%{"functionDeclarations" => tools}])
   end
 end

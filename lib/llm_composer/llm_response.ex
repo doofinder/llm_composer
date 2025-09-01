@@ -126,7 +126,11 @@ defmodule LlmComposer.LlmResponse do
   def new({status, %{actions: actions, response: response}}, :google) do
     [first_candidate | _] = response["candidates"]
     content = first_candidate["content"]
-    [%{"text" => message_content}] = content["parts"]
+
+    message_content =
+      content["parts"]
+      |> hd()
+      |> Map.get("text")
 
     # Map "model" role to :assistant to match other providers
     role =

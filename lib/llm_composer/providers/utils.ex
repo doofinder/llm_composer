@@ -46,8 +46,32 @@ defmodule LlmComposer.Providers.Utils do
       %Message{type: :user, content: message} ->
         %{"role" => "user", "parts" => [%{"text" => message}]}
 
+      # reference to original "tool_calls"
+      %Message{
+        type: :assistant,
+        content: nil,
+        metadata: %{original: %{"parts" => [%{"functionCall" => _}]} = msg}
+      } ->
+        msg
+
       %Message{type: :assistant, content: message} ->
         %{"role" => "model", "parts" => [%{"text" => message}]}
+
+      %Message{
+        type: :function_result,
+        content: message,
+        metadata: %{
+          fcall: %FunctionCall{
+            name: name
+          }
+        }
+      } ->
+        %{
+          "role" => "user",
+          "parts" => [
+            %{"functionResponse" => %{"name" => name, "response" => %{"result" => message}}}
+          ]
+        }
     end)
     |> Enum.reject(&is_nil/1)
   end
@@ -63,11 +87,11 @@ defmodule LlmComposer.Providers.Utils do
     |> Map.new()
   end
 
-  @spec get_tools([LlmComposer.Function.t()] | nil) :: nil | [map()]
-  def get_tools(nil), do: nil
+  @spec get_tools([LlmComposer.Function.t()] | nil, atom) :: nil | [map()]
+  def get_tools(nil, _provider), do: nil
 
-  def get_tools(functions) when is_list(functions) do
-    Enum.map(functions, &transform_fn_to_tool/1)
+  def get_tools(functions, provider) when is_list(functions) do
+    Enum.map(functions, &transform_fn_to_tool(&1, provider))
   end
 
   @spec extract_actions(map()) :: nil | []
@@ -75,6 +99,16 @@ defmodule LlmComposer.Providers.Utils do
     choices
     |> Enum.filter(&(&1["finish_reason"] == "tool_calls"))
     |> Enum.map(&get_action/1)
+  end
+
+  # google case
+  def extract_actions(%{"candidates" => candidates}) when is_list(candidates) do
+    candidates
+    |> Enum.filter(fn
+      %{"finishReason" => "STOP", "content" => %{"parts" => [%{"functionCall" => _data}]}} -> true
+      _other -> false
+    end)
+    |> Enum.map(&get_action(&1, :google))
   end
 
   def extract_actions(_response), do: []
@@ -99,7 +133,20 @@ defmodule LlmComposer.Providers.Utils do
     end)
   end
 
-  defp transform_fn_to_tool(%LlmComposer.Function{} = function) do
+  defp get_action(%{"content" => %{"parts" => parts}}, :google) do
+    Enum.map(parts, fn
+      %{"functionCall" => fcall} ->
+        %FunctionCall{
+          type: "function",
+          id: nil,
+          name: fcall["name"],
+          arguments: fcall["args"]
+        }
+    end)
+  end
+
+  defp transform_fn_to_tool(%LlmComposer.Function{} = function, provider)
+       when provider in [:open_ai, :ollama] do
     %{
       type: "function",
       function: %{
@@ -107,6 +154,14 @@ defmodule LlmComposer.Providers.Utils do
         "description" => function.description,
         "parameters" => function.schema
       }
+    }
+  end
+
+  defp transform_fn_to_tool(%LlmComposer.Function{} = function, :google) do
+    %{
+      "name" => function.name,
+      "description" => function.description,
+      "parameters" => function.schema
     }
   end
 end
