@@ -80,7 +80,7 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
     endpoints
     |> Enum.filter(&(&1["provider_name"] == provider))
     |> then(fn
-      [endpoint | _] -> endpoint
+      [endpoint | _tail] -> endpoint
       [] -> nil
     end)
   end

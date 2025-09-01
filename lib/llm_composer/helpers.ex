@@ -35,7 +35,7 @@ defmodule LlmComposer.Helpers do
   @spec maybe_exec_functions(LlmResponse.t(), llmfunctions()) :: action_result()
   def maybe_exec_functions(%{actions: []} = res, _functions), do: {:ok, res}
 
-  def maybe_exec_functions(%{actions: [actions | _]} = res, llm_functions) do
+  def maybe_exec_functions(%{actions: [actions | _tail]} = res, llm_functions) do
     results = Enum.map(actions, &exec_function(&1, llm_functions))
 
     {:completion, res, results}
@@ -53,7 +53,7 @@ defmodule LlmComposer.Helpers do
     - The result of re-running the completion with the new set of messages and function results.
   """
   @spec maybe_complete_chat(action_result(), messages(), function()) :: action_result()
-  def maybe_complete_chat({:ok, _} = res, _messages, _fcalls), do: res
+  def maybe_complete_chat({:ok, _action_result} = res, _messages, _fcalls), do: res
 
   def maybe_complete_chat({:completion, oldres, results}, messages, run_completion_fn) do
     results =

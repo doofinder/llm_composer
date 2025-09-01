@@ -65,7 +65,7 @@ defmodule LlmComposer.LlmResponse do
 
   def new(
         {status,
-         %{actions: actions, response: %{"choices" => [first_choice | _]} = raw_response} =
+         %{actions: actions, response: %{"choices" => [first_choice | _tail]} = raw_response} =
            provider_response},
         llm_provider
       )

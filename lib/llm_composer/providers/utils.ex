@@ -18,7 +18,11 @@ defmodule LlmComposer.Providers.Utils do
         %{"role" => "system", "content" => message}
 
       # reference to original "tool_calls"
-      %Message{type: :assistant, content: nil, metadata: %{original: %{"tool_calls" => _} = msg}} ->
+      %Message{
+        type: :assistant,
+        content: nil,
+        metadata: %{original: %{"tool_calls" => _tool_calls} = msg}
+      } ->
         msg
 
       %Message{type: :assistant, content: message} ->
