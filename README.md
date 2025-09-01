@@ -2,6 +2,28 @@
 
 **LlmComposer** is an Elixir library that simplifies the interaction with large language models (LLMs) such as OpenAI's GPT, providing a streamlined way to build and execute LLM-based applications or chatbots. It currently supports multiple model providers, including OpenAI, OpenRouter, Ollama, Bedrock, and Google (Gemini), with features like auto-execution of functions and customizable prompts to cater to different use cases.
 
+## Table of Contents
+
+- [Installation](#installation)
+- [Provider Compatibility](#provider-compatibility)
+- [Usage](#usage)
+  - [Simple Bot Definition](#simple-bot-definition)
+  - [Using old messages](#using-old-messages)
+  - [Using Ollama Backend](#using-ollama-backend)
+  - [Streaming Responses](#streaming-responses)
+  - [Using OpenRouter](#using-openrouter)
+  - [Structured Outputs](#structured-outputs)
+  - [Using AWS Bedrock](#using-aws-bedrock)
+  - [Using Google (Gemini)](#using-google-gemini)
+    - [Basic Google Chat Example](#basic-google-chat-example)
+  - [Bot with external function call](#bot-with-external-function-call)
+  - [Cost Tracking](#cost-tracking)
+    - [Requirements](#requirements)
+    - [Basic Cost Tracking Example](#basic-cost-tracking-example)
+    - [Starting Cache in a Supervision Tree](#starting-cache-in-a-supervision-tree)
+    - [Dependencies Setup](#dependencies-setup)
+  - [Additional Features](#additional-features)
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
@@ -93,7 +115,6 @@ defmodule MyCustomChat do
     provider: LlmComposer.Providers.OpenAI,
     provider_opts: [model: "gpt-4o-mini"],
     system_prompt: "You are an assistant specialized in history.",
-    auto_exec_functions: false,
     functions: []
   }
 
@@ -176,61 +197,12 @@ LlmComposer.Message.new(
 
 ### Streaming Responses
 
-LlmComposer supports streaming responses for real-time output, which is particularly useful for long-form content generation. This feature works with providers that support streaming (like Ollama, OpenRouter, OpenAI, and Google).
+LlmComposer supports streaming responses for real-time output, which is particularly useful for long-form content generation. This feature works with providers that support streaming (like OpenRouter, OpenAI, and Google).
 
-```elixir
-# Make sure to configure Tesla adapter for streaming (Finch recommended)
-Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
-{:ok, finch} = Finch.start_link(name: MyFinch)
-
-defmodule MyStreamingChat do
-  @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.Ollama,
-    provider_opts: [model: "llama3.2"],
-    system_prompt: "You are a creative storyteller.",
-    stream_response: true
-  }
-
-  def run_streaming_chat() do
-    messages = [
-      %LlmComposer.Message{type: :user, content: "Tell me a short story about space exploration"}
-    ]
-    
-    {:ok, res} = LlmComposer.run_completion(@settings, messages)
-
-    # Process the stream and output content in real-time
-    res.stream
-    |> LlmComposer.parse_stream_response()
-    |> Enum.each(fn parsed_data ->
-      content = get_in(parsed_data, ["message", "content"]) || ""
-      if content != "", do: IO.write(content)
-    end)
-    
-    IO.puts("\n--- Stream complete ---")
-  end
-end
-
-MyStreamingChat.run_streaming_chat()
-```
-
-Example of execution:
-
-```
-mix run streaming_sample.ex
-
-Once upon a time, in the vast expanse of space, a brave astronaut embarked on a journey to explore distant galaxies. The stars shimmered as the spaceship soared beyond the known universe, uncovering secrets of the cosmos...
-
---- Stream complete ---
-```
-
-**Note:** The `stream_response: true` setting enables streaming mode, and `parse_stream_response/1` filters and parses the raw stream data into usable content chunks.
-
-**Important:** When using Stream read chat completion, LlmComposer does not track input/output/cache/thinking tokens. There are two approaches to handle token counting in this mode:
+**Note:** The `stream_response: true` setting enables streaming mode. When using streaming, LlmComposer does not track input/output/cache/thinking tokens. There are two approaches to handle token counting in this mode:
 
 1. Calculate tokens using libraries like `tiktoken` for OpenAI provider.
 2. Read token data from the last stream object if the provider supplies it (currently only OpenRouter supports this).
-
-In Ollama provider, we do not track tokens.
 
 ### Using OpenRouter
 
@@ -283,9 +255,9 @@ LlmComposer.Message.new(
 )
 ```
 
-### Structured Outputs with OpenRouter
+### Structured Outputs
 
-OpenRouter supports structured outputs by allowing you to specify a `response_format` in the provider options. This enables the model to return responses conforming to a defined JSON schema, which is helpful for applications requiring strict formatting and validation of the output.
+OpenRouter/Google/Openai supports structured outputs by allowing you to specify a `response_format` in the provider options. This enables the model to return responses conforming to a defined JSON schema, which is helpful for applications requiring strict formatting and validation of the output.
 
 To use structured outputs, include the `response_format` key inside your `provider_opts` in the settings, like this:
 
@@ -315,7 +287,7 @@ settings = %LlmComposer.Settings{
 
 The model will then produce responses that adhere to the specified JSON schema, making it easier to parse and handle results programmatically.
 
-**Note:** This feature is currently supported only on the OpenRouter and Google provider.
+**Note:** This feature is currently supported only on the OpenRouter and Google provider in llm_composer.
 
 
 ### Using AWS Bedrock
@@ -392,152 +364,6 @@ end
 {:ok, res} = MyGoogleChat.simple_chat("What is quantum computing?")
 
 IO.inspect(res.main_response)
-```
-
-#### Google with Function Calls
-
-Google provider supports function calls with auto-execution:
-
-```elixir
-Application.put_env(:llm_composer, :google_key, "<your google api key>")
-
-defmodule MyGoogleFunctionChat do
-  @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.Google,
-    provider_opts: [model: "gemini-2.5-flash"],
-    system_prompt: "You are a helpful math assistant.",
-    auto_exec_functions: true,
-    functions: [
-      %LlmComposer.Function{
-        mf: {__MODULE__, :calculator},
-        name: "calculator",
-        description: "A calculator that accepts math expressions as strings.",
-        schema: %{
-          type: "object",
-          properties: %{
-            expression: %{
-              type: "string",
-              description: "A math expression to evaluate, using '+', '-', '*', '/'."
-            }
-          },
-          required: ["expression"]
-        }
-      }
-    ]
-  }
-
-  def simple_chat(msg) do
-    LlmComposer.simple_chat(@settings, msg)
-  end
-
-  def calculator(%{"expression" => expression}) do
-    # Basic validation pattern to prevent arbitrary code execution
-    pattern = ~r/^[0-9\.\s\+\-\*\/\(\)]+$/
-
-    if Regex.match?(pattern, expression) do
-      try do
-        {result, _binding} = Code.eval_string(expression)
-        result
-      rescue
-        _ -> {:error, "Invalid expression"}
-      end
-    else
-      {:error, "Invalid expression format"}
-    end
-  end
-end
-
-{:ok, res} = MyGoogleFunctionChat.simple_chat("What is 15 * 23?")
-IO.inspect(res.main_response)
-```
-
-#### Google with Structured Outputs
-
-Google provider supports structured outputs by specifying a `response_format` schema:
-
-```elixir
-Application.put_env(:llm_composer, :google_key, "<your google api key>")
-
-defmodule MyGoogleStructuredChat do
-  @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.Google,
-    provider_opts: [
-      model: "gemini-2.5-flash",
-      response_format: %{
-        "type" => "object",
-        "properties" => %{
-          "answer" => %{"type" => "string"},
-          "confidence_score" => %{"type" => "number"}
-        },
-        "required" => ["answer", "confidence_score"]
-      }
-    ],
-    system_prompt: "You are a helpful assistant. Always provide a confidence score between 0 and 1."
-  }
-
-  def ask_question(question) do
-    {:ok, res} = LlmComposer.simple_chat(@settings, question)
-    
-    # The response will be structured JSON
-    parsed_response = Jason.decode!(res.main_response.content)
-    
-    IO.puts("Answer: #{parsed_response["answer"]}")
-    IO.puts("Confidence: #{parsed_response["confidence_score"]}")
-    
-    res
-  end
-end
-
-MyGoogleStructuredChat.ask_question("What is the capital of France?")
-```
-
-#### Google with Streaming
-
-Google provider supports streaming responses for real-time output:
-
-```elixir
-# Configure Tesla adapter for streaming
-Application.put_env(:llm_composer, :google_key, "<your google api key>")
-Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
-
-defmodule MyGoogleStreamingChat do
-  @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.Google,
-    provider_opts: [model: "gemini-2.5-flash"],
-    system_prompt: "You are a creative storyteller.",
-    stream_response: true
-  }
-
-  def run_streaming_chat() do
-    messages = [
-      %LlmComposer.Message{type: :user, content: "Tell me about the history of space exploration"}
-    ]
-    
-    {:ok, res} = LlmComposer.run_completion(@settings, messages)
-
-    # Process the stream and output content in real-time
-    res.stream
-    |> Stream.each(fn
-      "[DONE]" -> :ok
-      data ->
-        case Jason.decode(data) do
-          {:ok, parsed} ->
-            # Extract content from Google's streaming format
-            content = get_in(parsed, ["candidates", Access.at(0), "content", "parts", Access.at(0), "text"]) || ""
-            if content != "", do: IO.write(content)
-          {:error, _} -> :ok
-        end
-    end)
-    |> Stream.run()
-    
-    IO.puts("\n--- Stream complete ---")
-  end
-end
-
-# Start Finch for streaming
-{:ok, _} = Finch.start_link(name: MyFinch)
-
-MyGoogleStreamingChat.run_streaming_chat()
 ```
 
 **Note:** Google provider supports all major LlmComposer features including function calls, structured outputs, and streaming. The provider uses Google's Gemini models and requires a Google AI API key.
