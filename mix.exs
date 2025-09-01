@@ -34,6 +34,7 @@ defmodule LlmComposer.MixProject do
       {:ex_aws, "~> 2.5", optional: true},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:finch, "~> 0.18", optional: true},
+      {:goth, "~> 1.4", optional: true},
       {:jason, "~> 1.4"},
       {:tesla, "~> 1.14"}
     ]
