@@ -334,7 +334,7 @@ defmodule LlmComposer.Providers.Google do
   end
 
   @spec get_vertex_endpoint(map(), String.t()) :: String.t()
-  defp get_vertex_endpoint(%{api_endpoint: custom_endpoint}, _), do: custom_endpoint
-  defp get_vertex_endpoint(_, "global"), do: "aiplatform.googleapis.com"
-  defp get_vertex_endpoint(_, location_id), do: "#{location_id}-aiplatform.googleapis.com"
+  defp get_vertex_endpoint(%{api_endpoint: custom_endpoint}, _location), do: custom_endpoint
+  defp get_vertex_endpoint(_data, "global"), do: "aiplatform.googleapis.com"
+  defp get_vertex_endpoint(_data, location_id), do: "#{location_id}-aiplatform.googleapis.com"
 end
