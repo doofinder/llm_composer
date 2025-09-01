@@ -148,5 +148,5 @@ defmodule LlmComposer.LlmResponse do
      }}
   end
 
-  def new(_, provider), do: raise("provider #{provider} handling not implemented")
+  def new(_response, provider), do: raise("provider #{provider} handling not implemented")
 end

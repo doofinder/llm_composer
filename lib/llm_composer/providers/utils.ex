@@ -4,7 +4,7 @@ defmodule LlmComposer.Providers.Utils do
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
-  @spec map_messages([Message.t()]) :: [map()]
+  @spec map_messages([Message.t()], atom) :: [map()]
   def map_messages(messages, provider \\ :open_ai)
 
   def map_messages(messages, :open_ai) do
