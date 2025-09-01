@@ -1,6 +1,6 @@
 defmodule LlmComposer.Providers.OpenRouter do
   @moduledoc """
-  Model implementation for OpenRouter
+  Provider implementation for OpenRouter
 
   OpenRouter API is very similar to Open AI API, but with some extras like model fallback.
   """

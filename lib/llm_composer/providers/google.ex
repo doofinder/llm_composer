@@ -1,20 +1,26 @@
-defmodule LlmComposer.Providers.OpenAI do
+defmodule LlmComposer.Providers.Google do
   @moduledoc """
-  Provider implementation for OpenAI
+  Provider implementation for Google
 
-  Basically it calls the OpenAI api for getting the chat responses.
+  Basically it calls the Google api for getting the chat responses.
   """
   @behaviour LlmComposer.Provider
+
+  require Logger
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
   alias LlmComposer.Providers.Utils
 
-  @base_url Application.compile_env(:llm_composer, :openai_url, "https://api.openai.com/v1")
+  @base_url Application.compile_env(
+              :llm_composer,
+              :google_url,
+              "https://generativelanguage.googleapis.com/v1beta/models/"
+            )
 
   @impl LlmComposer.Provider
-  def name, do: :open_ai
+  def name, do: :google
 
   @impl LlmComposer.Provider
   @doc """
@@ -26,15 +32,23 @@ defmodule LlmComposer.Providers.OpenAI do
     client = HttpClient.client(@base_url, opts)
 
     headers = [
-      {"Authorization", "Bearer " <> api_key}
+      {"X-GOOG-API-KEY", api_key}
     ]
 
     req_opts = Utils.get_req_opts(opts)
 
+    # stream or generate?
+    suffix =
+      if Keyword.get(opts, :stream_response) do
+        "streamGenerateContent?alt=sse"
+      else
+        "generateContent"
+      end
+
     if model do
       messages
-      |> build_request(system_message, model, opts)
-      |> then(&Tesla.post(client, "/chat/completions", &1, headers: headers, opts: req_opts))
+      |> build_request(system_message, opts)
+      |> then(&Tesla.post(client, "/#{model}:#{suffix}", &1, headers: headers, opts: req_opts))
       |> handle_response()
       |> LlmResponse.new(name())
     else
@@ -42,18 +56,28 @@ defmodule LlmComposer.Providers.OpenAI do
     end
   end
 
-  defp build_request(messages, system_message, model, opts) do
+  defp build_request(messages, system_message, opts) do
     tools =
       opts
       |> Keyword.get(:functions)
       |> Utils.get_tools()
 
+    unless is_nil(tools) or tools == [] do
+      Logger.warning("tools not supported for Google provider in llm_composer, ignoring it")
+    end
+
     base_request = %{
-      model: model,
-      tools: tools,
-      stream: Keyword.get(opts, :stream_response),
-      messages: Utils.map_messages([system_message | messages])
+      contents: Utils.map_messages(messages, :google)
     }
+
+    base_request =
+      if is_nil(system_message) do
+        base_request
+      else
+        Map.put(base_request, :system_instruction, %{
+          "parts" => [%{"text" => system_message.content}]
+        })
+      end
 
     req_params = Keyword.get(opts, :request_params, %{})
 
@@ -77,7 +101,7 @@ defmodule LlmComposer.Providers.OpenAI do
   end
 
   defp get_key do
-    case Application.get_env(:llm_composer, :openai_key) do
+    case Application.get_env(:llm_composer, :google_key) do
       nil -> raise MissingKeyError
       key -> key
     end

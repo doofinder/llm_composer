@@ -1,7 +1,7 @@
 if Code.ensure_loaded?(ExAws) do
   defmodule LlmComposer.Providers.Bedrock do
     @moduledoc """
-    Model implementation for Amazon Bedrock.
+    Provider implementation for Amazon Bedrock.
 
     Handles chat completion requests through Amazon Bedrock Converse API. Any
     Bedrock compatible model can be used. To specify any model-specific options for

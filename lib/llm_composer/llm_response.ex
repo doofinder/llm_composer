@@ -6,7 +6,7 @@ defmodule LlmComposer.LlmResponse do
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
-  @llm_providers [:open_ai, :ollama, :open_router, :bedrock]
+  @llm_providers [:open_ai, :ollama, :open_router, :bedrock, :google]
 
   @type t() :: %__MODULE__{
           actions: [[FunctionCall.t()]] | [FunctionCall.t()],
@@ -50,7 +50,7 @@ defmodule LlmComposer.LlmResponse do
         {status, %{response: stream}} = raw_response,
         llm_provider
       )
-      when llm_provider in [:open_ai, :open_router] and is_function(stream) do
+      when llm_provider in [:open_ai, :open_router, :ollama, :google] and is_function(stream) do
     {:ok,
      %__MODULE__{
        actions: [],
@@ -89,24 +89,6 @@ defmodule LlmComposer.LlmResponse do
      }}
   end
 
-  # Stream response case for Ollama
-  def new(
-        {status, %{response: stream}} = raw_response,
-        :ollama
-      )
-      when is_function(stream) do
-    {:ok,
-     %__MODULE__{
-       actions: [],
-       input_tokens: nil,
-       output_tokens: nil,
-       stream: stream,
-       main_response: nil,
-       raw: raw_response,
-       status: status
-     }}
-  end
-
   def new(
         {status, %{actions: actions, response: %{"message" => message} = raw_response}},
         :ollama
@@ -140,4 +122,31 @@ defmodule LlmComposer.LlmResponse do
        status: status
      }}
   end
+
+  def new({status, %{actions: actions, response: response}}, :google) do
+    [first_candidate | _] = response["candidates"]
+    content = first_candidate["content"]
+    [%{"text" => message_content}] = content["parts"]
+
+    # Map "model" role to :assistant to match other providers
+    role =
+      case content["role"] do
+        "model" -> :assistant
+        other -> String.to_existing_atom(other)
+      end
+
+    usage = response["usageMetadata"]
+
+    {:ok,
+     %__MODULE__{
+       actions: actions,
+       input_tokens: usage["promptTokenCount"],
+       output_tokens: usage["candidatesTokenCount"],
+       main_response: Message.new(role, message_content, %{original: content}),
+       raw: response,
+       status: status
+     }}
+  end
+
+  def new(_, provider), do: raise("provider #{provider} handling not implemented")
 end

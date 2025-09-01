@@ -5,7 +5,9 @@ defmodule LlmComposer.Providers.Utils do
   alias LlmComposer.Message
 
   @spec map_messages([Message.t()]) :: [map()]
-  def map_messages(messages) do
+  def map_messages(messages, provider \\ :open_ai)
+
+  def map_messages(messages, :open_ai) do
     messages
     |> Stream.map(fn
       %Message{type: :user, content: message} ->
@@ -34,6 +36,18 @@ defmodule LlmComposer.Providers.Utils do
         }
       } ->
         %{"role" => "tool", "content" => message, "tool_call_id" => call_id}
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  def map_messages(messages, :google) do
+    messages
+    |> Stream.map(fn
+      %Message{type: :user, content: message} ->
+        %{"role" => "user", "parts" => [%{"text" => message}]}
+
+      %Message{type: :assistant, content: message} ->
+        %{"role" => "model", "parts" => [%{"text" => message}]}
     end)
     |> Enum.reject(&is_nil/1)
   end
