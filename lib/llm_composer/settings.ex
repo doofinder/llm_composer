@@ -5,18 +5,16 @@ defmodule LlmComposer.Settings do
   This module provides a struct that includes model configuration, prompt settings, and options for function execution, enabling fine control over the chat flow and behavior.
   """
 
-  defstruct [
-    api_key: nil,
-    auto_exec_functions: false,
-    functions: [],
-    provider: nil,
-    provider_opts: nil,
-    providers: [],
-    stream_response: false,
-    system_prompt: nil,
-    track_costs: false,
-    user_prompt_prefix: ""
-  ]
+  defstruct api_key: nil,
+            auto_exec_functions: false,
+            functions: [],
+            provider: nil,
+            provider_opts: nil,
+            providers: [],
+            stream_response: false,
+            system_prompt: nil,
+            track_costs: false,
+            user_prompt_prefix: ""
 
   @type t :: %__MODULE__{
           api_key: String.t() | nil,
