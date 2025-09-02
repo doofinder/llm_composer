@@ -258,25 +258,28 @@ defmodule LlmComposer do
       :allow ->
         Logger.debug("#{provider.name()} allowed")
         provider_opts = get_provider_opts(provider_opts, settings)
+        run_provider(provider, messages, system_msg, provider_opts, router)
+    end
+  end
 
-        case provider.run(messages, system_msg, provider_opts) do
-          {:ok, _res} = ok_res ->
-            router.on_provider_success(provider)
-            {:halt, ok_res}
+  defp run_provider(provider, messages, system_msg, provider_opts, router) do
+    case provider.run(messages, system_msg, provider_opts) do
+      {:ok, _res} = ok_res ->
+        router.on_provider_success(provider)
+        {:halt, ok_res}
 
-          {:error, error} = err_res ->
-            case router.on_provider_failure(provider, error) do
-              :continue ->
-                {:cont, err_res}
+      {:error, error} = err_res ->
+        case router.on_provider_failure(provider, error) do
+          :continue ->
+            {:cont, err_res}
 
-              :block ->
-                # provider blocked, skip remaining
-                {:cont, err_res}
+          :block ->
+            # provider blocked, skip remaining
+            {:cont, err_res}
 
-              {:block, _ms} ->
-                # block with timer (same handling for now)
-                {:cont, err_res}
-            end
+          {:block, _ms} ->
+            # block with timer (same handling for now)
+            {:cont, err_res}
         end
     end
   end

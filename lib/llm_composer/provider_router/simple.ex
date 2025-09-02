@@ -64,7 +64,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
 
     case Ets.get(provider, name) do
       :blocked -> :skip
-      _ -> :allow
+      _other -> :allow
     end
   end
 
@@ -138,14 +138,17 @@ defmodule LlmComposer.ProviderRouter.Simple do
   end
 
   defp match_error_pattern?(pattern, error) when is_atom(pattern) and is_binary(error) do
-    String.contains?(String.downcase(error), Atom.to_string(pattern))
+    error
+    |> String.downcase()
+    |> String.contains?(Atom.to_string(pattern))
   end
 
-  defp match_error_pattern?(_, _), do: false
+  defp match_error_pattern?(_pattern, _error), do: false
 
   @spec get_config(atom(), term()) :: term()
   defp get_config(key, default) do
-    Application.get_env(:llm_composer, :provider_router, [])
+    :llm_composer
+    |> Application.get_env(:provider_router, [])
     |> Keyword.get(key, default)
   end
 end
