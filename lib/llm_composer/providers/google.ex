@@ -337,7 +337,7 @@ defmodule LlmComposer.Providers.Google do
     end
   end
 
-  @spec get_vertex_endpoint(map(), String.t()) :: String.t()
+  @spec get_vertex_endpoint(map(), String.t()) :: String.t() | {:custom, String.t()}
   defp get_vertex_endpoint(%{api_endpoint: custom_endpoint}, _location),
     do: {:custom, custom_endpoint}
 
