@@ -1,6 +1,6 @@
 defmodule LlmComposer.Providers.OpenAI do
   @moduledoc """
-  Model implementation for OpenAI
+  Provider implementation for OpenAI
 
   Basically it calls the OpenAI api for getting the chat responses.
   """
@@ -46,7 +46,7 @@ defmodule LlmComposer.Providers.OpenAI do
     tools =
       opts
       |> Keyword.get(:functions)
-      |> Utils.get_tools()
+      |> Utils.get_tools(name())
 
     base_request = %{
       model: model,

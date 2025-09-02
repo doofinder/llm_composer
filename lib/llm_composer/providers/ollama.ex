@@ -1,6 +1,6 @@
 defmodule LlmComposer.Providers.Ollama do
   @moduledoc """
-  Model implementation for Ollama
+  Provider implementation for Ollama
 
   Basically it calls the Ollama server api for getting the chat responses.
   """

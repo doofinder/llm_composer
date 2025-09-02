@@ -1,6 +1,6 @@
 defmodule LlmComposer.Providers.OpenRouter do
   @moduledoc """
-  Model implementation for OpenRouter
+  Provider implementation for OpenRouter
 
   OpenRouter API is very similar to Open AI API, but with some extras like model fallback.
   """
@@ -53,7 +53,7 @@ defmodule LlmComposer.Providers.OpenRouter do
     tools =
       opts
       |> Keyword.get(:functions)
-      |> Utils.get_tools()
+      |> Utils.get_tools(name())
 
     base_request = %{
       model: model,
