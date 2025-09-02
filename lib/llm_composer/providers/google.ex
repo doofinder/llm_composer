@@ -66,7 +66,7 @@ defmodule LlmComposer.Providers.Google do
     req_params = Keyword.get(opts, :request_params, %{})
 
     %{
-      contents: Utils.map_messages(messages, :google)
+      contents: Utils.map_messages(messages, name())
     }
     |> maybe_add_system_instructs(system_message)
     |> maybe_add_structured_outputs(opts)
@@ -76,7 +76,7 @@ defmodule LlmComposer.Providers.Google do
   end
 
   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}) when status in [200] do
+  defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}) do
     actions = Utils.extract_actions(body)
     {:ok, %{response: body, actions: actions}}
   end
