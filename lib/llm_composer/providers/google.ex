@@ -323,10 +323,14 @@ defmodule LlmComposer.Providers.Google do
 
         %{token: token} = Goth.fetch!(name)
 
-        api_endpoint = get_vertex_endpoint(vertex, location_id)
-
         base_url =
-          "https://#{api_endpoint}/v1/projects/#{project_id}/locations/#{location_id}/publishers/google/models"
+          case get_vertex_endpoint(vertex, location_id) do
+            {:custom, custom_endpoint} ->
+              custom_endpoint
+
+            api_endpoint ->
+              "https://#{api_endpoint}/v1/projects/#{project_id}/locations/#{location_id}/publishers/google/models"
+          end
 
         headers = [{"Authorization", "Bearer #{token}"}]
         {base_url, headers}
@@ -334,7 +338,9 @@ defmodule LlmComposer.Providers.Google do
   end
 
   @spec get_vertex_endpoint(map(), String.t()) :: String.t()
-  defp get_vertex_endpoint(%{api_endpoint: custom_endpoint}, _location), do: custom_endpoint
+  defp get_vertex_endpoint(%{api_endpoint: custom_endpoint}, _location),
+    do: {:custom, custom_endpoint}
+
   defp get_vertex_endpoint(_data, "global"), do: "aiplatform.googleapis.com"
   defp get_vertex_endpoint(_data, location_id), do: "#{location_id}-aiplatform.googleapis.com"
 end
