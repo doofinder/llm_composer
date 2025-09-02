@@ -207,9 +207,10 @@ defmodule LlmComposer do
   # old case of single provider config
   defp fallback_run(
          messages,
-         %{provider: provider, provider_opts: provider_opts} = settings,
+         %Settings{provider: provider, provider_opts: provider_opts} = settings,
          system_msg
-       ) do
+       )
+       when provider != nil do
     provider_opts = get_provider_opts(provider_opts, settings)
     provider.run(messages, system_msg, provider_opts)
   end
@@ -217,14 +218,16 @@ defmodule LlmComposer do
   # only one provider in list
   defp fallback_run(
          messages,
-         %{providers: [{provider, provider_opts}]} = settings,
+         %Settings{providers: [{provider, provider_opts}]} = settings,
          system_msg
        ) do
     provider_opts = get_provider_opts(provider_opts, settings)
     provider.run(messages, system_msg, provider_opts)
   end
 
-  defp fallback_run(messages, %{providers: providers} = settings, system_msg) do
+  # multiple providers in list
+  defp fallback_run(messages, %Settings{providers: providers} = settings, system_msg)
+       when is_list(providers) and length(providers) > 1 do
     router = get_provider_router()
 
     if Process.whereis(router) == nil do
@@ -236,6 +239,11 @@ defmodule LlmComposer do
         &fallback_run_router(&1, &2, router, messages, system_msg, settings)
       )
     end
+  end
+
+  # fallback case when no providers are configured
+  defp fallback_run(_messages, %Settings{}, _system_msg) do
+    {:error, :no_providers_configured}
   end
 
   defp fallback_run_router(
