@@ -38,7 +38,7 @@ by adding `llm_composer` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.7.0"}
+    {:llm_composer, "~> 0.8.0"}
   ]
 end
 ```
@@ -655,7 +655,7 @@ Add the decimal dependency to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.7.0"},
+    {:llm_composer, "~> 0.8.0"},
     {:decimal, "~> 2.3"}  # Required for cost tracking
   ]
 end
