@@ -11,8 +11,9 @@ defmodule LlmComposer do
   ```elixir
   # Define the settings for your LlmComposer instance
   settings = %LlmComposer.Settings{
-    provider: LlmComposer.Providers.OpenAI,
-    provider_opts: [model: "gpt-4o-mini"],
+    providers: [
+      {LlmComposer.Providers.OpenAI,  [model: "gpt-4o-mini"]}
+    ],
     system_prompt: "You are a helpful assistant.",
     user_prompt_prefix: "",
     auto_exec_functions: false,
@@ -49,6 +50,11 @@ defmodule LlmComposer do
 
   require Logger
 
+  @deprecated_msg """
+  The settings keys :provider and :provider_opts are deprecated and will be removed in version 0.10.0.
+  Please migrate your configuration to use the :providers list instead.
+  """
+
   @type messages :: [Message.t()]
 
   @doc """
@@ -63,6 +69,8 @@ defmodule LlmComposer do
   """
   @spec simple_chat(Settings.t(), String.t()) :: Helpers.action_result()
   def simple_chat(%Settings{} = settings, msg) do
+    validate_settings(settings)
+
     messages = [Message.new(:user, user_prompt(settings, msg, %{}))]
 
     run_completion(settings, messages)
@@ -82,18 +90,12 @@ defmodule LlmComposer do
   @spec run_completion(Settings.t(), messages(), LlmResponse.t() | nil) ::
           Helpers.action_result()
   def run_completion(settings, messages, previous_response \\ nil) do
+    validate_settings(settings)
+
     system_msg = Message.new(:system, settings.system_prompt)
 
-    provider_opts =
-      Keyword.merge(settings.provider_opts,
-        functions: settings.functions,
-        stream_response: settings.stream_response,
-        api_key: settings.api_key,
-        track_costs: settings.track_costs
-      )
-
     messages
-    |> settings.provider.run(system_msg, provider_opts)
+    |> fallback_run(settings, system_msg)
     |> then(fn
       {:ok, res} ->
         # set previous response all the time
@@ -178,5 +180,64 @@ defmodule LlmComposer do
     |> Helpers.maybe_complete_chat(messages, fn new_messages ->
       run_completion(settings, new_messages, res)
     end)
+  end
+
+  @spec validate_settings(Settings.t()) :: :ok
+  defp validate_settings(%Settings{
+         providers: providers,
+         provider: provider,
+         provider_opts: provider_opts
+       }) do
+    cond do
+      providers != [] and (provider != nil or (provider_opts != nil and provider_opts != [])) ->
+        raise ArgumentError,
+              "Settings cannot contain both :providers and deprecated :provider/:provider_opts simultaneously. " <>
+                "Please use only :providers. " <>
+                "Current settings: providers=#{inspect(providers)}, provider=#{inspect(provider)}"
+
+      provider != nil or (provider_opts != nil and provider_opts != []) ->
+        Logger.warn(@deprecated_msg)
+        :ok
+
+      true ->
+        :ok
+    end
+  end
+
+  defp fallback_run(
+         messages,
+         %{providers: [_provider | _rest] = providers} = settings,
+         system_msg
+       ) do
+    Enum.reduce_while(providers, nil, fn {provider, provider_opts}, _last_resp ->
+      provider_opts = get_provider_opts(provider_opts, settings)
+
+      case provider.run(messages, system_msg, provider_opts) do
+        {:ok, _} = res ->
+          {:halt, res}
+
+        {:error, error} = full_error ->
+          Logger.warning("Error running provider #{provider}: #{inspect(error)}")
+          {:cont, full_error}
+      end
+    end)
+  end
+
+  defp fallback_run(
+         messages,
+         %{provider: provider, provider_opts: provider_opts} = settings,
+         system_msg
+       ) do
+    provider_opts = get_provider_opts(provider_opts, settings)
+    provider.run(messages, system_msg, provider_opts)
+  end
+
+  defp get_provider_opts(opts, settings) do
+    Keyword.merge(opts,
+      functions: settings.functions,
+      stream_response: settings.stream_response,
+      api_key: settings.api_key,
+      track_costs: settings.track_costs
+    )
   end
 end
