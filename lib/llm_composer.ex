@@ -196,7 +196,7 @@ defmodule LlmComposer do
                 "Current settings: providers=#{inspect(providers)}, provider=#{inspect(provider)}"
 
       provider != nil or (provider_opts != nil and provider_opts != []) ->
-        Logger.warn(@deprecated_msg)
+        Logger.warning(@deprecated_msg)
         :ok
 
       true ->
@@ -204,25 +204,7 @@ defmodule LlmComposer do
     end
   end
 
-  defp fallback_run(
-         messages,
-         %{providers: [_provider | _rest] = providers} = settings,
-         system_msg
-       ) do
-    Enum.reduce_while(providers, nil, fn {provider, provider_opts}, _last_resp ->
-      provider_opts = get_provider_opts(provider_opts, settings)
-
-      case provider.run(messages, system_msg, provider_opts) do
-        {:ok, _} = res ->
-          {:halt, res}
-
-        {:error, error} = full_error ->
-          Logger.warning("Error running provider #{provider}: #{inspect(error)}")
-          {:cont, full_error}
-      end
-    end)
-  end
-
+  # old case of single provider config
   defp fallback_run(
          messages,
          %{provider: provider, provider_opts: provider_opts} = settings,
@@ -232,6 +214,73 @@ defmodule LlmComposer do
     provider.run(messages, system_msg, provider_opts)
   end
 
+  # only one provider in list
+  defp fallback_run(
+         messages,
+         %{providers: [{provider, provider_opts}]} = settings,
+         system_msg
+       ) do
+    provider_opts = get_provider_opts(provider_opts, settings)
+    provider.run(messages, system_msg, provider_opts)
+  end
+
+  defp fallback_run(messages, %{providers: providers} = settings, system_msg) do
+    router = get_provider_router()
+
+    if Process.whereis(router) == nil do
+      {:error, :provider_router_not_started}
+    else
+      Enum.reduce_while(
+        providers,
+        {:error, :no_providers_available},
+        &fallback_run_router(&1, &2, router, messages, system_msg, settings)
+      )
+    end
+  end
+
+  defp fallback_run_router(
+         {provider, provider_opts},
+         _acc,
+         router,
+         messages,
+         system_msg,
+         settings
+       ) do
+    case router.should_use_provider?(provider) do
+      :skip ->
+        # Skip this provider and continue
+        {:cont, {:error, :provider_skipped}}
+
+      {:delay, _ms} ->
+        # You could implement delay logic here, but for now skip
+        {:cont, {:error, :provider_skipped}}
+
+      :allow ->
+        Logger.debug("#{provider.name()} allowed")
+        provider_opts = get_provider_opts(provider_opts, settings)
+
+        case provider.run(messages, system_msg, provider_opts) do
+          {:ok, _res} = ok_res ->
+            router.on_provider_success(provider)
+            {:halt, ok_res}
+
+          {:error, error} = err_res ->
+            case router.on_provider_failure(provider, error) do
+              :continue ->
+                {:cont, err_res}
+
+              :block ->
+                # provider blocked, skip remaining
+                {:cont, err_res}
+
+              {:block, _ms} ->
+                # block with timer (same handling for now)
+                {:cont, err_res}
+            end
+        end
+    end
+  end
+
   defp get_provider_opts(opts, settings) do
     Keyword.merge(opts,
       functions: settings.functions,
@@ -239,5 +288,11 @@ defmodule LlmComposer do
       api_key: settings.api_key,
       track_costs: settings.track_costs
     )
+  end
+
+  defp get_provider_router do
+    :LlmComposer
+    |> Application.get_env(:provider_router, [])
+    |> Keyword.get(:name, LlmComposer.ProviderRouter.Simple)
   end
 end
