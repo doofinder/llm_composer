@@ -39,6 +39,8 @@ defmodule LlmComposer.ProviderRouter do
 
   @type provider :: module() | atom()
   @type error :: term()
+  @type ok_res :: {:ok, Tesla.Env.t()}
+  @type metrics :: map()
   @type routing_decision :: :allow | :skip | {:delay, non_neg_integer()}
   @type failure_response :: :continue | :block | {:block, non_neg_integer()}
 
@@ -71,7 +73,7 @@ defmodule LlmComposer.ProviderRouter do
   ## Parameters
   - `provider` - The provider module that succeeded
   """
-  @callback on_provider_success(provider()) :: :ok
+  @callback on_provider_success(provider(), ok_res(), metrics()) :: :ok
 
   @doc """
   Called when a provider fails to handle a request.

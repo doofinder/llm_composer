@@ -73,7 +73,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
   extended to track success metrics or reset failure counters.
   """
   @impl LlmComposer.ProviderRouter
-  def on_provider_success(_provider) do
+  def on_provider_success(_provider, _resp, _metrics) do
     # For now, we just rely on the natural expiry of blocking entries
     :ok
   end
