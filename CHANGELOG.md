@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.10.0] - 2025-09-03
+- **Add Google (Gemini) provider**: Full feature support including chat, functions, streaming, and structured outputs.
+- **Add Vertex AI integration**: Same Google provider but can be used with it's Vertex API. Enterprise support with OAuth 2.0 authentication via Goth library.
+
 ## [0.9.0] - 2025-09-01
 - Update elixir(1.18) and erlang(28).
 
@@ -70,7 +74,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.9.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.10.0...HEAD
+[0.10.0]: https://github.com/doofinder/llm_composer/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/doofinder/llm_composer/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/doofinder/llm_composer/compare/0.7.0...0.8.0
 [0.7.0]: https://github.com/doofinder/llm_composer/compare/0.6.0...0.7.0
