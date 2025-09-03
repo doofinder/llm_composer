@@ -5,11 +5,11 @@ on: [push, pull_request]
 jobs:
   consistency:
     runs-on: ubuntu-24.04
-    name: OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    name: consistency OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
     strategy:
       matrix:
-        otp: ['26.0']
-        elixir: ['1.17.2']
+        otp: ['28.0.2']
+        elixir: ['1.18.4']
 
     steps:
       - uses: actions/checkout@v4
@@ -48,11 +48,11 @@ jobs:
 
   test:
     runs-on: ubuntu-24.04
-    name: OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    name: test OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
     strategy:
       matrix:
-        otp: ['26.0', '27.0']
-        elixir: ['1.17.2']
+        otp: ['28.0.2']
+        elixir: ['1.18.4']
 
     env:
       MIX_ENV: test

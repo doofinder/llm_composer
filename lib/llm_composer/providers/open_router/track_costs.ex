@@ -47,31 +47,33 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
   defp fetch_model_endpoints_with_cache(model, provider, base_url) do
     key = model
 
-    # here we cache the response, and if data in cache, we check that the provider exists,
-    # if not we invalidate to retry.
     case @cache_mod.get(key) do
-      {:ok, resp} ->
-        Logger.debug("cache hit")
+      {:ok, resp} -> handle_cache_hit(resp, key, model, provider, base_url)
+      :miss -> handle_cache_miss(key, model, base_url)
+    end
+  end
 
-        if is_nil(get_endpoint(resp["data"]["endpoints"], provider)) do
-          @cache_mod.delete(key)
+  defp handle_cache_hit(resp, key, model, provider, base_url) do
+    Logger.debug("cache hit")
 
-          # retry if provider not found in cache... it should retry just once as non cache case has no retry.
-          fetch_model_endpoints_with_cache(model, provider, base_url)
-        else
-          resp
-        end
+    if is_nil(get_endpoint(resp["data"]["endpoints"], provider)) do
+      @cache_mod.delete(key)
+      # Retry only once
+      fetch_model_endpoints_with_cache(model, provider, base_url)
+    else
+      resp
+    end
+  end
 
-      :miss ->
-        Logger.debug("cache miss")
+  defp handle_cache_miss(key, model, base_url) do
+    Logger.debug("cache miss")
 
-        with client <- HttpClient.client(base_url, []),
-             {:ok, endpoints_response} <- Tesla.get(client, "/models/#{model}/endpoints") do
-          # 24h ttl default
-          ttl = Application.get_env(:llm_composer, :cache_ttl, 60 * 60 * 24)
-          @cache_mod.put(key, endpoints_response.body, ttl)
-          endpoints_response.body
-        end
+    with client <- HttpClient.client(base_url, []),
+         {:ok, endpoints_response} <- Tesla.get(client, "/models/#{model}/endpoints") do
+      # 24h ttl default
+      ttl = Application.get_env(:llm_composer, :cache_ttl, 60 * 60 * 24)
+      @cache_mod.put(key, endpoints_response.body, ttl)
+      endpoints_response.body
     end
   end
 
@@ -80,7 +82,7 @@ defmodule LlmComposer.Providers.OpenRouter.TrackCosts do
     endpoints
     |> Enum.filter(&(&1["provider_name"] == provider))
     |> then(fn
-      [endpoint | _] -> endpoint
+      [endpoint | _tail] -> endpoint
       [] -> nil
     end)
   end
