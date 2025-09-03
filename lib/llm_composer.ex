@@ -158,7 +158,7 @@ defmodule LlmComposer do
         {:ok, parsed} ->
           parsed
 
-        {:error, _} ->
+        {:error, _error} ->
           nil
       end
     end)
