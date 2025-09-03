@@ -1,8 +1,6 @@
 defmodule LlmComposer.ProviderRouter.Simple do
   @moduledoc """
 
-  ...
-
   ## Configuration
 
   Configuration is done via application environment:
@@ -37,6 +35,8 @@ defmodule LlmComposer.ProviderRouter.Simple do
                 :llm_composer_provider_blocks
               )
 
+  @long_ttl_seconds :timer.hours(24) * 10
+
   @doc """
   Initialize the ETS table for storing provider blocking state.
   """
@@ -63,8 +63,17 @@ defmodule LlmComposer.ProviderRouter.Simple do
     name = get_config(:name, __MODULE__)
 
     case Ets.get(provider, name) do
-      {:blocked, _count} -> :skip
-      _other -> :allow
+      {:ok, {blocked_until, _failure_count}} ->
+        if System.monotonic_time(:millisecond) < blocked_until do
+          :skip
+        else
+          # Here we do not remove the data in ETS, this will be removed on success,
+          # or will be increased if fails remains
+          :allow
+        end
+
+      _other ->
+        :allow
     end
   end
 
@@ -90,7 +99,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
     name = get_config(:name, __MODULE__)
 
     if should_block_error?(error) do
-      min_backoff_ms = get_config(:min_backoff_ms, 1000)
+      min_backoff_ms = get_config(:min_backoff_ms, 1_000)
       max_backoff_ms = get_config(:max_backoff_ms, :timer.minutes(5))
 
       # Get previous failure count from ETS if any
@@ -98,16 +107,18 @@ defmodule LlmComposer.ProviderRouter.Simple do
 
       failure_count =
         case current_state do
-          {:blocked, count} when is_integer(count) -> count + 1
+          {:ok, {_blocked_until, count}} when is_integer(count) -> count + 1
           _ -> 1
         end
 
       # Calculate exponential backoff: min_backoff * 2^(failure_count-1)
       backoff_ms =
-        min(max_backoff_ms, (min_backoff_ms * :math.pow(2, failure_count - 1)) |> round())
+        min(max_backoff_ms, round(min_backoff_ms * :math.pow(2, failure_count - 1)))
 
-      seconds_blocked = backoff_ms / 1000
-      Ets.put(provider, {:blocked, failure_count}, seconds_blocked, name)
+      blocked_until = System.monotonic_time(:millisecond) + backoff_ms
+
+      Ets.put(provider, {blocked_until, failure_count}, @long_ttl_seconds, name)
+
       {:block, backoff_ms}
     else
       :continue

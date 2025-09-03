@@ -60,7 +60,13 @@ defmodule LlmComposer.ProviderRunner do
          system_msg,
          settings
        ) do
-    case router.should_use_provider?(provider) do
+    resp = router.should_use_provider?(provider)
+
+    Logger.debug(
+      "--- [provider=#{provider.name()}] should use provider? ----> [#{inspect(resp)}]"
+    )
+
+    case resp do
       :skip ->
         Logger.debug("#{provider.name()} skiped")
         {:cont, {:error, :provider_skipped}}
@@ -75,6 +81,8 @@ defmodule LlmComposer.ProviderRunner do
     end
   end
 
+  @spec execute_provider(module, [map()], String.t(), keyword(), module) ::
+          {:cont | :halt, term()}
   defp execute_provider(provider, messages, system_msg, provider_opts, router) do
     {exec_time_us, result} =
       :timer.tc(fn ->
@@ -99,8 +107,12 @@ defmodule LlmComposer.ProviderRunner do
   end
 
   defp handle_provider_result({:error, error} = err_res, provider, router, metrics) do
-    Logger.debug("error with provider #{provider.name()}: #{inspect(error)}")
-    router.on_provider_failure(provider, error, metrics)
+    resp = router.on_provider_failure(provider, error, metrics)
+
+    Logger.debug(
+      "error with provider=#{provider.name()} status=#{inspect(resp)} error=#{inspect(error)}"
+    )
+
     {:cont, err_res}
   end
 
