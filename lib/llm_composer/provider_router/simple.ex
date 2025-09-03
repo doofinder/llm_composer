@@ -44,14 +44,9 @@ defmodule LlmComposer.ProviderRouter.Simple do
   """
   @impl LlmComposer.ProviderRouter
   def start_link(opts) do
-    name = get_config(:name, __MODULE__)
-
-    opts =
-      opts
-      |> Keyword.put_new(:name, name)
-      |> Keyword.put_new(:table_name, @table_name)
-
-    Ets.start_link(opts)
+    mod = cache_mod()
+    opts = Keyword.merge(cache_opts(), opts)
+    mod.start_link(opts)
   end
 
   @doc """
@@ -64,7 +59,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
   def should_use_provider?(provider) do
     name = get_config(:name, __MODULE__)
 
-    case Ets.get(provider, name) do
+    case cache_mod().get(provider, name) do
       {:ok, {blocked_until, _failure_count}} ->
         if System.monotonic_time(:millisecond) < blocked_until do
           Logger.info("[#{provider.name()}] is currently blocked, skipping")
@@ -75,7 +70,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
           :allow
         end
 
-      _other ->
+      _ ->
         :allow
     end
   end
@@ -87,7 +82,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
   @impl LlmComposer.ProviderRouter
   def on_provider_success(provider, _resp, _metrics) do
     name = get_config(:name, __MODULE__)
-    Ets.delete(provider, name)
+    cache_mod().delete(provider, name)
     Logger.info("[#{provider.name()}] unblocked after success")
     :ok
   end
@@ -106,8 +101,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
       min_backoff_ms = get_config(:min_backoff_ms, 1_000)
       max_backoff_ms = get_config(:max_backoff_ms, :timer.minutes(5))
 
-      # Get previous failure count from ETS if any
-      current_state = Ets.get(provider, name)
+      current_state = cache_mod().get(provider, name)
 
       failure_count =
         case current_state do
@@ -115,13 +109,12 @@ defmodule LlmComposer.ProviderRouter.Simple do
           _ -> 1
         end
 
-      # Calculate exponential backoff: min_backoff * 2^(failure_count-1)
       backoff_ms =
         min(max_backoff_ms, round(min_backoff_ms * :math.pow(2, failure_count - 1)))
 
       blocked_until = System.monotonic_time(:millisecond) + backoff_ms
 
-      Ets.put(provider, {blocked_until, failure_count}, @long_ttl_seconds, name)
+      cache_mod().put(provider, {blocked_until, failure_count}, @long_ttl_seconds, name)
 
       Logger.info(
         "[#{provider.name()}] blocked for #{backoff_ms} ms due to error #{inspect(error)}"
@@ -183,5 +176,15 @@ defmodule LlmComposer.ProviderRouter.Simple do
     :llm_composer
     |> Application.get_env(:provider_router, [])
     |> Keyword.get(key, default)
+  end
+
+  @spec cache_mod() :: module()
+  defp cache_mod do
+    get_config(:cache_mod, LlmComposer.Cache.Ets)
+  end
+
+  @spec cache_opts() :: keyword()
+  defp cache_opts do
+    get_config(:cache_opts, name: __MODULE__, table_name: @table_name)
   end
 end
