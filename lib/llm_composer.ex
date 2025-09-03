@@ -96,7 +96,7 @@ defmodule LlmComposer do
     system_msg = Message.new(:system, settings.system_prompt)
 
     messages
-    |> fallback_run(settings, system_msg)
+    |> ProviderRunner.run(settings, system_msg)
     |> then(fn
       {:ok, res} ->
         # set previous response all the time
@@ -203,9 +203,5 @@ defmodule LlmComposer do
       true ->
         :ok
     end
-  end
-
-  defp fallback_run(messages, settings, system_msg) do
-    ProviderRunner.run(messages, settings, system_msg)
   end
 end
