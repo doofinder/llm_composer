@@ -16,6 +16,12 @@
   - [Using AWS Bedrock](#using-aws-bedrock)
   - [Using Google (Gemini)](#using-google-gemini)
     - [Basic Google Chat Example](#basic-google-chat-example)
+    - [Using Vertex AI](#using-vertex-ai)
+      - [Dependencies](#dependencies)
+      - [Service Account Setup](#service-account-setup)
+      - [Basic Vertex AI Example](#basic-vertex-ai-example)
+      - [Production Setup with Supervision Tree](#production-setup-with-supervision-tree)
+      - [Vertex AI Configuration Options](#vertex-ai-configuration-options)
   - [Bot with external function call](#bot-with-external-function-call)
   - [Cost Tracking](#cost-tracking)
     - [Requirements](#requirements)
@@ -32,7 +38,7 @@ by adding `llm_composer` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.7.0"}
+    {:llm_composer, "~> 0.8.0"}
   ]
 end
 ```
@@ -368,6 +374,129 @@ IO.inspect(res.main_response)
 
 **Note:** Google provider supports all major LlmComposer features including function calls, structured outputs, and streaming. The provider uses Google's Gemini models and requires a Google AI API key.
 
+#### Using Vertex AI
+
+LlmComposer also supports Google's Vertex AI platform, which provides enterprise-grade AI capabilities with enhanced security and compliance features. Vertex AI requires OAuth 2.0 authentication via the Goth library.
+
+##### Dependencies
+
+Add Goth to your dependencies for Vertex AI authentication:
+
+```elixir
+def deps do
+  [
+    {:llm_composer, "~> 0.8.0"},
+    {:goth, "~> 1.4"}  # Required for Vertex AI
+  ]
+end
+```
+
+##### Service Account Setup
+
+1. Create a service account in Google Cloud Console
+2. Grant the following IAM roles:
+   - `Vertex AI User` or `Vertex AI Service Agent`
+   - `Service Account Token Creator` (if using impersonation)
+3. Download the JSON credentials file
+
+##### Basic Vertex AI Example
+
+```elixir
+# Read service account credentials
+google_json = File.read!(Path.expand("~/path/to/service-account.json"))
+credentials = Jason.decode!(google_json)
+
+# Optional: Configure HTTP client for Goth with retries
+http_client = fn opts ->
+  client = Tesla.client([
+    {Tesla.Middleware.Retry,
+     delay: 500,
+     max_retries: 2,
+     max_delay: 1_000,
+     should_retry: fn
+       {:ok, %{status: status}}, _env, _context when status in [400, 500] -> true
+       {:ok, _reason}, _env, _context -> false
+       {:error, _reason}, %Tesla.Env{method: :post}, _context -> false
+       {:error, _reason}, %Tesla.Env{method: :put}, %{retries: 2} -> false
+       {:error, _reason}, _env, _context -> true
+     end
+   }
+  ])
+  Tesla.request(client, opts)
+end
+
+# Start Goth process
+{:ok, _pid} = Goth.start_link([
+  source: {:service_account, credentials},
+  http_client: http_client,  # Optional: improves reliability
+  name: MyApp.Goth
+])
+
+# Configure LlmComposer to use your Goth process
+Application.put_env(:llm_composer, :google_goth, MyApp.Goth)
+
+defmodule MyVertexChat do
+  @settings %LlmComposer.Settings{
+    provider: LlmComposer.Providers.Google,
+    provider_opts: [
+      model: "gemini-2.5-flash",
+      vertex: %{
+        project_id: "my-gcp-project",
+        location_id: "global"  # or specific region like "us-central1"
+      }
+    ],
+    system_prompt: "You are a helpful assistant."
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
+end
+
+{:ok, res} = MyVertexChat.simple_chat("What are the benefits of Vertex AI?")
+
+IO.inspect(res.main_response)
+```
+
+##### Production Setup with Supervision Tree
+
+For production applications, add Goth to your supervision tree:
+
+```elixir
+# In your application.ex
+defmodule MyApp.Application do
+  use Application
+
+  def start(_type, _args) do
+    google_json = File.read!(Application.get_env(:my_app, :google_credentials_path))
+    credentials = Jason.decode!(google_json)
+
+    children = [
+      # Other children...
+      {Goth, name: MyApp.Goth, source: {:service_account, credentials}},
+      # ... rest of your children
+    ]
+
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+end
+
+# Configure in config.exs
+config :llm_composer, :google_goth, MyApp.Goth
+config :my_app, :google_credentials_path, "/path/to/service-account.json"
+```
+
+##### Vertex AI Configuration Options
+
+The `:vertex` map accepts the following options:
+
+- `:project_id` (required) - Your Google Cloud project ID
+- `:location_id` (required) - The location/region for your Vertex AI endpoint (e.g., "us-central1", "global")
+- `:api_endpoint` (optional) - Custom API endpoint (overrides default regional endpoint)
+
+**Note:** Vertex AI provides the same feature set as Google AI API but with enterprise security, audit logging, and VPC support. All LlmComposer features including function calls, streaming, and structured outputs are fully supported.
+
 ### Bot with external function call
 
 You can enhance the bot's capabilities by adding support for external function execution. This example demonstrates how to add a simple calculator that evaluates basic math expressions:
@@ -526,7 +655,7 @@ Add the decimal dependency to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.7.0"},
+    {:llm_composer, "~> 0.8.0"},
     {:decimal, "~> 2.3"}  # Required for cost tracking
   ]
 end
