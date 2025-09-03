@@ -53,30 +53,22 @@ defmodule LlmComposer.ProviderRunner do
   end
 
   defp execute_provider_with_fallback(
-         {provider, provider_opts},
+         {provider, _provider_opts} = provider_tuple,
          _acc,
          router,
          messages,
          system_msg,
          settings
        ) do
-    resp = router.should_use_provider?(provider)
+    decision = router.should_use_provider?(provider)
 
-    Logger.debug(
-      "--- [provider=#{provider.name()}] should use provider? ----> [#{inspect(resp)}]"
-    )
-
-    case resp do
+    case decision do
       :skip ->
-        Logger.debug("#{provider.name()} skiped")
-        {:cont, {:error, :provider_skipped}}
-
-      {:delay, _ms} ->
-        Logger.debug("#{provider.name()} delay-skiped")
+        Logger.info("Skipping provider #{provider.name()} as per router decision")
         {:cont, {:error, :provider_skipped}}
 
       :allow ->
-        provider_opts = get_provider_opts(provider_opts, settings)
+        provider_opts = get_provider_opts(elem(provider_tuple, 1), settings)
         execute_provider(provider, messages, system_msg, provider_opts, router)
     end
   end
@@ -107,11 +99,11 @@ defmodule LlmComposer.ProviderRunner do
   end
 
   defp handle_provider_result({:error, error} = err_res, provider, router, metrics) do
-    resp = router.on_provider_failure(provider, error, metrics)
-
-    Logger.debug(
-      "error with provider=#{provider.name()} status=#{inspect(resp)} error=#{inspect(error)}"
+    Logger.warning(
+      "[#{provider.name()}] failed (#{inspect(error)}) in #{Float.round(metrics.latency_ms, 2)} ms"
     )
+
+    router.on_provider_failure(provider, error, metrics)
 
     {:cont, err_res}
   end

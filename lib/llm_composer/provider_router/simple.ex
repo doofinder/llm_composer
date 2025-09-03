@@ -29,6 +29,8 @@ defmodule LlmComposer.ProviderRouter.Simple do
 
   alias LlmComposer.Cache.Ets
 
+  require Logger
+
   @table_name Application.compile_env(
                 :llm_composer,
                 :provider_router_ets_table,
@@ -65,6 +67,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
     case Ets.get(provider, name) do
       {:ok, {blocked_until, _failure_count}} ->
         if System.monotonic_time(:millisecond) < blocked_until do
+          Logger.info("[#{provider.name()}] is currently blocked, skipping")
           :skip
         else
           # Here we do not remove the data in ETS, this will be removed on success,
@@ -85,6 +88,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
   def on_provider_success(provider, _resp, _metrics) do
     name = get_config(:name, __MODULE__)
     Ets.delete(provider, name)
+    Logger.info("[#{provider.name()}] unblocked after success")
     :ok
   end
 
@@ -118,6 +122,10 @@ defmodule LlmComposer.ProviderRouter.Simple do
       blocked_until = System.monotonic_time(:millisecond) + backoff_ms
 
       Ets.put(provider, {blocked_until, failure_count}, @long_ttl_seconds, name)
+
+      Logger.info(
+        "[#{provider.name()}] blocked for #{backoff_ms} ms due to error #{inspect(error)}"
+      )
 
       {:block, backoff_ms}
     else

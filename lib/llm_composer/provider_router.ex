@@ -41,7 +41,7 @@ defmodule LlmComposer.ProviderRouter do
   @type error :: term()
   @type ok_res :: {:ok, Tesla.Env.t()}
   @type metrics :: map()
-  @type routing_decision :: :allow | :skip | {:delay, non_neg_integer()}
+  @type routing_decision :: :allow | :skip
   @type failure_response :: :continue | :block | {:block, non_neg_integer()}
 
   @doc """
@@ -53,7 +53,6 @@ defmodule LlmComposer.ProviderRouter do
   ## Returns
   - `:allow` - proceed with this provider
   - `:skip` - skip this provider and try the next one
-  - `{:delay, ms}` - wait `ms` milliseconds then retry this provider
 
   ## Parameters
   - `provider` - The provider module that is about to be used
