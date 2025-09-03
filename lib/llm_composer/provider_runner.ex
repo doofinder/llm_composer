@@ -4,6 +4,7 @@ defmodule LlmComposer.ProviderRunner do
   and error handling for multiple provider configurations.
   """
 
+  alias LlmComposer.LlmResponse
   alias LlmComposer.Message
   alias LlmComposer.Settings
 
@@ -36,7 +37,7 @@ defmodule LlmComposer.ProviderRunner do
     provider.run(messages, system_msg, provider_opts)
   end
 
-  # old case, TODO: remove for llm_composer 0.10.0
+  # old case, TODO: remove for llm_composer 0.11.0
   def run(
         messages,
         %Settings{provider: provider, provider_opts: provider_opts} = settings,
@@ -61,13 +62,14 @@ defmodule LlmComposer.ProviderRunner do
        ) do
     case router.should_use_provider?(provider) do
       :skip ->
+        Logger.debug("#{provider.name()} skiped")
         {:cont, {:error, :provider_skipped}}
 
       {:delay, _ms} ->
+        Logger.debug("#{provider.name()} delay-skiped")
         {:cont, {:error, :provider_skipped}}
 
       :allow ->
-        Logger.debug("#{provider.name()} allowed")
         provider_opts = get_provider_opts(provider_opts, settings)
         execute_provider(provider, messages, system_msg, provider_opts, router)
     end
@@ -79,9 +81,8 @@ defmodule LlmComposer.ProviderRunner do
         provider.run(messages, system_msg, provider_opts)
       end)
 
-    metrics = %{
-      exec_time_milliseconds: exec_time_us / 1000
-    }
+    metrics = build_metrics(result, exec_time_us, provider, provider_opts)
+    Logger.debug("#{provider.name()} metrics: #{inspect(metrics)}")
 
     handle_provider_result(result, provider, router, metrics)
   end
@@ -92,19 +93,14 @@ defmodule LlmComposer.ProviderRunner do
           module(),
           map()
         ) :: {:cont, {:error, any()}} | {:halt, {:ok, any()}}
-  defp handle_provider_result({:ok, %{status: status}}, provider, router, _metrics)
-       when status >= 500 and status <= 599 do
-    router.on_provider_failure(provider, {:server_error, status})
-    {:cont, {:error, {:server_error, status}}}
-  end
-
   defp handle_provider_result({:ok, _res} = ok_res, provider, router, metrics) do
     router.on_provider_success(provider, ok_res, metrics)
     {:halt, ok_res}
   end
 
-  defp handle_provider_result({:error, error} = err_res, provider, router, _metrics) do
-    router.on_provider_failure(provider, error)
+  defp handle_provider_result({:error, error} = err_res, provider, router, metrics) do
+    Logger.debug("error with provider #{provider.name()}: #{inspect(error)}")
+    router.on_provider_failure(provider, error, metrics)
     {:cont, err_res}
   end
 
@@ -121,5 +117,24 @@ defmodule LlmComposer.ProviderRunner do
     :llm_composer
     |> Application.get_env(:provider_router, [])
     |> Keyword.get(:name, LlmComposer.ProviderRouter.Simple)
+  end
+
+  @spec build_metrics({:ok, LlmResponse.t()} | {:error, term()}, number(), module(), keyword()) ::
+          map()
+  defp build_metrics(result, exec_time_us, provider, provider_opts) do
+    latency_ms = exec_time_us / 1000
+
+    status =
+      case result do
+        {:ok, _} -> :ok
+        {:error, _error} -> :error
+      end
+
+    %{
+      latency_ms: latency_ms,
+      status: status,
+      provider: provider.name(),
+      model: Keyword.fetch!(provider_opts, :model)
+    }
   end
 end

@@ -58,4 +58,6 @@ defmodule LlmComposer.Providers.Ollama do
   defp handle_response({:ok, resp}) do
     {:error, resp}
   end
+
+  defp handle_response({:error, _} = resp), do: resp
 end

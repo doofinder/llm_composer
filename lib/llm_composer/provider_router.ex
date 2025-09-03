@@ -21,12 +21,12 @@ defmodule LlmComposer.ProviderRouter do
       end
     end
 
-    def on_provider_success(provider) do
+    def on_provider_success(provider, _ok_resp, _metrics) do
       # Track successful requests, reset failure counters, etc.
       :ok
     end
 
-    def on_provider_failure(provider, error) do
+    def on_provider_failure(provider, error, _metrics) do
       # Decide how to handle the failure
       case error do
         %{status: status} when status >= 500 -> :block
@@ -90,7 +90,7 @@ defmodule LlmComposer.ProviderRouter do
   - `provider` - The provider module that failed
   - `error` - The error returned by the provider
   """
-  @callback on_provider_failure(provider(), error()) :: failure_response()
+  @callback on_provider_failure(provider(), error(), map()) :: failure_response()
 
   @doc """
   Starts the process linked to the current process.

@@ -63,7 +63,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
     name = get_config(:name, __MODULE__)
 
     case Ets.get(provider, name) do
-      :blocked -> :skip
+      {:blocked, _count} -> :skip
       _other -> :allow
     end
   end
@@ -73,8 +73,9 @@ defmodule LlmComposer.ProviderRouter.Simple do
   extended to track success metrics or reset failure counters.
   """
   @impl LlmComposer.ProviderRouter
-  def on_provider_success(_provider, _resp, _metrics) do
-    # For now, we just rely on the natural expiry of blocking entries
+  def on_provider_success(provider, _resp, _metrics) do
+    name = get_config(:name, __MODULE__)
+    Ets.delete(provider, name)
     :ok
   end
 
@@ -85,15 +86,28 @@ defmodule LlmComposer.ProviderRouter.Simple do
   will be blocked for the configured backoff duration.
   """
   @impl LlmComposer.ProviderRouter
-  def on_provider_failure(provider, error) do
+  def on_provider_failure(provider, error, _metrics) do
     name = get_config(:name, __MODULE__)
 
     if should_block_error?(error) do
-      # 5 minutes default
-      backoff_ms = get_config(:backoff_ms, :timer.minutes(5))
+      min_backoff_ms = get_config(:min_backoff_ms, 1000)
+      max_backoff_ms = get_config(:max_backoff_ms, :timer.minutes(5))
+
+      # Get previous failure count from ETS if any
+      current_state = Ets.get(provider, name)
+
+      failure_count =
+        case current_state do
+          {:blocked, count} when is_integer(count) -> count + 1
+          _ -> 1
+        end
+
+      # Calculate exponential backoff: min_backoff * 2^(failure_count-1)
+      backoff_ms =
+        min(max_backoff_ms, (min_backoff_ms * :math.pow(2, failure_count - 1)) |> round())
 
       seconds_blocked = backoff_ms / 1000
-      Ets.put(provider, :blocked, seconds_blocked, name)
+      Ets.put(provider, {:blocked, failure_count}, seconds_blocked, name)
       {:block, backoff_ms}
     else
       :continue

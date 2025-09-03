@@ -52,7 +52,7 @@ defmodule LlmComposer do
   require Logger
 
   @deprecated_msg """
-  The settings keys :provider and :provider_opts are deprecated and will be removed in version 0.10.0.
+  The settings keys :provider and :provider_opts are deprecated and will be removed in version 0.11.0.
   Please migrate your configuration to use the :providers list instead.
   """
 
