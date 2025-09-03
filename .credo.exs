@@ -161,11 +161,18 @@
           {Credo.Check.Warning.UnusedTupleOperation, []},
           {Credo.Check.Warning.WrongTestFileExtension, []},
 
-          # moved from bellow
+          # moved from bellow to here
+          # Checks scheduled for next check update (opt-in for now)
+          {Credo.Check.Refactor.UtcNowTruncate, []},
+
+          #
+          # Controversial and experimental checks (opt-in, just move the check to `:enabled`
+          #   and be sure to use `mix credo --strict` to see low priority checks)
+          #
           {Credo.Check.Consistency.MultiAliasImportRequireUse, []},
-          {Credo.Check.Consistency.UnusedVariableNames, []},
           {Credo.Check.Design.DuplicatedCode, []},
           {Credo.Check.Design.SkipTestWithoutComment, []},
+          {Credo.Check.Readability.AliasAs, []},
           {Credo.Check.Readability.BlockPipe, []},
           {Credo.Check.Readability.ImplTrue, []},
           {Credo.Check.Readability.MultiAlias, []},
@@ -178,6 +185,7 @@
           {Credo.Check.Readability.Specs, []},
           {Credo.Check.Readability.StrictModuleLayout, []},
           {Credo.Check.Readability.WithCustomTaggedTuple, []},
+          {Credo.Check.Refactor.ABCSize, [max_size: 50]},
           {Credo.Check.Refactor.DoubleBooleanNegation, []},
           {Credo.Check.Refactor.FilterReject, []},
           {Credo.Check.Refactor.IoPuts, []},
@@ -186,27 +194,19 @@
           {Credo.Check.Refactor.PipeChainStart, []},
           {Credo.Check.Refactor.RejectFilter, []},
           {Credo.Check.Refactor.VariableRebinding, []},
-          {Credo.Check.Warning.LazyLogging, []},
           {Credo.Check.Warning.LeakyEnvironment, []},
           {Credo.Check.Warning.MapGetUnsafePass, []},
           {Credo.Check.Warning.MixEnv, []},
           {Credo.Check.Warning.UnsafeToAtom, []}
         ],
         disabled: [
-          {Credo.Check.Refactor.ABCSize, []},
           #
-          # Checks scheduled for next check update (opt-in for now)
-          {Credo.Check.Refactor.UtcNowTruncate, []},
+          #
           {Credo.Check.Refactor.AppendSingleItem, []},
-
-          #
-          # Controversial and experimental checks (opt-in, just move the check to `:enabled`
-          #   and be sure to use `mix credo --strict` to see low priority checks)
-          #
-          {Credo.Check.Refactor.PassAsyncInTestCases, []},
+          {Credo.Check.Warning.LazyLogging, []},
+          {Credo.Check.Consistency.UnusedVariableNames, []},
           {Credo.Check.Refactor.ModuleDependencies, []},
-          {Credo.Check.Readability.AliasAs, []},
-
+          {Credo.Check.Refactor.PassAsyncInTestCases, []},
           # {Credo.Check.Refactor.MapInto, []},
 
           #
