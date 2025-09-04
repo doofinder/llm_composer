@@ -10,9 +10,7 @@
   - [Simple Bot Definition](#simple-bot-definition)
   - [Using old messages](#using-old-messages)
   - [Using Ollama Backend](#using-ollama-backend)
-  - [Streaming Responses](#streaming-responses)
   - [Using OpenRouter](#using-openrouter)
-  - [Structured Outputs](#structured-outputs)
   - [Using AWS Bedrock](#using-aws-bedrock)
   - [Using Google (Gemini)](#using-google-gemini)
     - [Basic Google Chat Example](#basic-google-chat-example)
@@ -22,7 +20,10 @@
       - [Basic Vertex AI Example](#basic-vertex-ai-example)
       - [Production Setup with Supervision Tree](#production-setup-with-supervision-tree)
       - [Vertex AI Configuration Options](#vertex-ai-configuration-options)
+  - [Streaming Responses](#streaming-responses)
+  - [Structured Outputs](#structured-outputs)
   - [Bot with external function call](#bot-with-external-function-call)
+  - [Provider Router Simple](#provider-router-simple)
   - [Cost Tracking](#cost-tracking)
     - [Requirements](#requirements)
     - [Basic Cost Tracking Example](#basic-cost-tracking-example)
@@ -77,8 +78,9 @@ Application.put_env(:llm_composer, :openai_key, "<your api key>")
 defmodule MyChat do
 
   @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.OpenAI,
-    provider_opts: [model: "gpt-4o-mini"],
+    providers: [
+      {LlmComposer.Providers.OpenAI, [model: "gpt-4.1-mini"]}
+    ],
     system_prompt: "You are a helpful assistant."
   }
 
@@ -118,8 +120,9 @@ Application.put_env(:llm_composer, :openai_key, "<your api key>")
 defmodule MyCustomChat do
 
   @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.OpenAI,
-    provider_opts: [model: "gpt-4o-mini"],
+    providers: [
+      {LlmComposer.Providers.OpenAI, [model: "gpt-4.1-mini"]}
+    ],
     system_prompt: "You are an assistant specialized in history.",
     functions: []
   }
@@ -166,8 +169,9 @@ Make sure to start the Ollama server first.
 defmodule MyChat do
 
   @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.Ollama,
-    provider_opts: [model: "llama3.1"],
+    providers: [
+      {LlmComposer.Providers.Ollama, [model: "llama3.1"]}
+    ],
     system_prompt: "You are a helpful assistant."
   }
 
@@ -201,15 +205,6 @@ LlmComposer.Message.new(
 
 **Note:** Ollama does not provide token usage information, so `input_tokens` and `output_tokens` will always be empty in debug logs and response metadata. Function calls are also not supported with Ollama.
 
-### Streaming Responses
-
-LlmComposer supports streaming responses for real-time output, which is particularly useful for long-form content generation. This feature works with providers that support streaming (like OpenRouter, OpenAI, and Google).
-
-**Note:** The `stream_response: true` setting enables streaming mode. When using streaming, LlmComposer does not track input/output/cache/thinking tokens. There are two approaches to handle token counting in this mode:
-
-1. Calculate tokens using libraries like `tiktoken` for OpenAI provider.
-2. Read token data from the last stream object if the provider supplies it (currently only OpenRouter supports this).
-
 ### Using OpenRouter
 
 LlmComposer supports integration with [OpenRouter](https://openrouter.ai/), giving you access to a variety of LLM models through a single API compatible with OpenAI's interface. Also supports, the OpenRouter's feature of setting fallback models.
@@ -227,14 +222,15 @@ Application.put_env(:llm_composer, :open_router_key, "<your openrouter api key>"
 
 defmodule MyOpenRouterChat do
   @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.OpenRouter,
-    # Use any model available on OpenRouter
-    provider_opts: [
-      model: "anthropic/claude-3-sonnet",
-      models: ["openai/gpt-4o", "fallback-model2"],
-      provider_routing: %{
-        order: ["openai", "azure"]
-      }
+    providers: [
+      {LlmComposer.Providers.OpenRouter,
+       [
+         model: "anthropic/claude-3-sonnet",
+         models: ["openai/gpt-4.1", "fallback-model2"],
+         provider_routing: %{
+           order: ["openai", "azure"]
+         }
+       ]}
     ],
     system_prompt: "You are a SAAS consultant"
   }
@@ -261,41 +257,6 @@ LlmComposer.Message.new(
 )
 ```
 
-### Structured Outputs
-
-OpenRouter/Google/Openai supports structured outputs by allowing you to specify a `response_format` in the provider options. This enables the model to return responses conforming to a defined JSON schema, which is helpful for applications requiring strict formatting and validation of the output.
-
-To use structured outputs, include the `response_format` key inside your `provider_opts` in the settings, like this:
-
-```elixir
-settings = %LlmComposer.Settings{
-  provider: LlmComposer.Providers.OpenRouter,
-  provider_opts: [
-    model: "google/gemini-2.5-flash",
-    response_format: %{
-      type: "json_schema",
-      json_schema: %{
-        name: "my_response",
-        strict: true,
-        schema: %{
-          "type" => "object",
-          "properties" => %{
-            "answer" => %{"type" => "string"},
-            "confidence" => %{"type" => "number"}
-          },
-          "required" => ["answer"]
-        }
-      }
-    }
-  ]
-}
-```
-
-The model will then produce responses that adhere to the specified JSON schema, making it easier to parse and handle results programmatically.
-
-**Note:** This feature is currently supported only on the OpenRouter and Google provider in llm_composer.
-
-
 ### Using AWS Bedrock
 
 LlmComposer also integrates with [Bedrock](https://aws.amazon.com/es/bedrock/) via its Converse API. This allows you tu use Bedrock as provider with any of its supported models.
@@ -315,9 +276,9 @@ config :ex_aws,
 
 defmodule MyBedrockChat do
   @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.Bedrock,
-    # Use any model available Bedrock model
-    provider_opts: [model: "eu.amazon.nova-lite-v1:0"],
+    providers: [
+      {LlmComposer.Providers.Bedrock, [model: "eu.amazon.nova-lite-v1:0"]}
+    ],
     system_prompt: "You are an expert in Quantum Field Theory."
   }
 
@@ -357,8 +318,9 @@ Application.put_env(:llm_composer, :google_key, "<your google api key>")
 
 defmodule MyGoogleChat do
   @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.Google,
-    provider_opts: [model: "gemini-2.5-flash"],
+    providers: [
+      {LlmComposer.Providers.Google, [model: "gemini-2.5-flash"]}
+    ],
     system_prompt: "You are a helpful assistant."
   }
 
@@ -497,6 +459,50 @@ The `:vertex` map accepts the following options:
 
 **Note:** Vertex AI provides the same feature set as Google AI API but with enterprise security, audit logging, and VPC support. All LlmComposer features including function calls, streaming, and structured outputs are fully supported.
 
+### Streaming Responses
+
+LlmComposer supports streaming responses for real-time output, which is particularly useful for long-form content generation. This feature works with providers that support streaming (like OpenRouter, OpenAI, and Google).
+
+**Note:** The `stream_response: true` setting enables streaming mode. When using streaming, LlmComposer does not track input/output/cache/thinking tokens. There are two approaches to handle token counting in this mode:
+
+1. Calculate tokens using libraries like `tiktoken` for OpenAI provider.
+2. Read token data from the last stream object if the provider supplies it (currently only OpenRouter supports this).
+
+### Structured Outputs
+
+OpenRouter/Google/Openai supports structured outputs by allowing you to specify a `response_format` in the provider options. This enables the model to return responses conforming to a defined JSON schema, which is helpful for applications requiring strict formatting and validation of the output.
+
+To use structured outputs, include the `response_format` key inside your `provider_opts` in the settings, like this:
+
+```elixir
+settings = %LlmComposer.Settings{
+  providers: [
+    {LlmComposer.Providers.OpenRouter, [
+      model: "google/gemini-2.5-flash",
+      response_format: %{
+        type: "json_schema",
+        json_schema: %{
+          name: "my_response",
+          strict: true,
+          schema: %{
+            "type" => "object",
+            "properties" => %{
+              "answer" => %{"type" => "string"},
+              "confidence" => %{"type" => "number"}
+            },
+            "required" => ["answer"]
+          }
+        }
+      }
+    ]}
+  ]
+}
+```
+
+The model will then produce responses that adhere to the specified JSON schema, making it easier to parse and handle results programmatically.
+
+**Note:** This feature is currently supported only on the OpenRouter and Google provider in llm_composer.
+
 ### Bot with external function call
 
 You can enhance the bot's capabilities by adding support for external function execution. This example demonstrates how to add a simple calculator that evaluates basic math expressions:
@@ -507,8 +513,9 @@ Application.put_env(:llm_composer, :openai_key, "<your api key>")
 defmodule MyChat do
 
   @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.OpenAI,
-    provider_opts: [model: "gpt-4o-mini"],
+    providers: [
+      {LlmComposer.Providers.OpenAI, [model: "gpt-4.1-mini"]}
+    ],
     system_prompt: "You are a helpful math assistant that assists with calculations.",
     auto_exec_functions: true,
     functions: [
@@ -573,6 +580,85 @@ LlmComposer.Message.new(
 ```
 
 In this example, the bot first calls OpenAI to understand the user's intent and determine that a function (the calculator) should be executed. The function is then executed locally, and the result is sent back to the user in a second API call.
+
+### Provider Router Simple
+
+LlmComposer introduces a new provider routing mechanism to support multi-provider configurations with failover and fallback logic. The default router implementation is `LlmComposer.ProviderRouter.Simple`, which provides an exponential backoff blocking strategy on provider failures.
+
+#### Configuration
+
+Configure the provider router in your application environment:
+
+```elixir
+config :llm_composer, :provider_router,
+  min_backoff_ms: 1_000,                    # 1 second minimum backoff (default)
+  max_backoff_ms: :timer.minutes(5),        # 5 minutes maximum backoff (default)
+  cache_mod: LlmComposer.Cache.Ets,         # Cache module to use (default)
+  cache_opts: [name: __MODULE__, table_name: :llm_composer_provider_blocks],  # Cache options
+  name: __MODULE__,                         # Router instance name (default)
+  block_on_errors: [                       # Error patterns to block on (default list below)
+    {:status, 500..599},                    # Server errors
+    :timeout,                               # Request timeouts
+    :econnrefused,                          # Connection refused
+    :network_error                          # Generic network errors
+  ]
+```
+
+**Note**: The `block_on_errors` configuration completely replaces the default error patterns. If you provide this configuration, you must include all error patterns you want to block on, as it will not merge with the defaults.
+
+**Default error patterns** (used when `block_on_errors` is not configured):
+```elixir
+[
+  {:status, 500..599},  # Server errors (5xx HTTP status codes)
+  :timeout,             # Request timeouts
+  :econnrefused         # Connection refused errors
+]
+```
+
+#### Backoff Strategy
+
+The router uses exponential backoff with the following formula:
+```
+backoff_ms = min(max_backoff_ms, min_backoff_ms * 2^(failure_count - 1))
+```
+
+Examples with default settings:
+- 1st failure: 1 second
+- 2nd failure: 2 seconds
+- 3rd failure: 4 seconds
+- 4th failure: 8 seconds
+- 5th failure: 16 seconds
+- ...continuing until max_backoff_ms (5 minutes)
+
+#### Behavior
+
+- **Success**: Provider is unblocked and failure count is reset
+- **Failure**: If error matches configured patterns, provider is blocked for exponential backoff period
+- **Blocking**: Blocked providers are skipped during provider selection
+- **Recovery**: Providers automatically become available after backoff period expires
+- **Persistence**: Blocking state persists across application restarts (stored in ETS with long TTL)
+
+#### Usage
+
+To use multi-provider support with routing and fallback, define your settings with the `:providers` list instead of the deprecated `:provider` and `:provider_opts` keys:
+
+```elixir
+@settings %LlmComposer.Settings{
+  providers: [
+    {LlmComposer.Providers.OpenAI, [model: "gpt-4.1-mini"]},
+    {LlmComposer.Providers.Google, [model: "gemini-2.5-flash"]}
+  ],
+  system_prompt: "You are a helpful assistant."
+}
+```
+
+The `LlmComposer.ProviderRunner` will handle provider selection, routing, and fallback automatically using the configured router.
+
+#### Fallback Logic
+
+The router will skip providers that are currently blocked due to recent failures and try the next available provider in the list. Providers are blocked with an exponential backoff strategy, increasing the block duration on repeated failures.
+
+This mechanism ensures high availability and resilience by automatically failing over to healthy providers without manual intervention.
 
 ### Cost Tracking
 
@@ -666,8 +752,6 @@ end
 ### Additional Features
 * Auto Function Execution: Automatically executes predefined functions, reducing manual intervention.
 * System Prompts: Customize the assistant's behavior by modifying the system prompt (e.g., creating different personalities or roles for your bot).
-
----
 
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can

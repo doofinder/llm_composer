@@ -1,5 +1,10 @@
 defmodule LlmComposer.ProviderRouter.Simple do
   @moduledoc """
+  Simple provider router that implements exponential backoff for failed providers.
+
+  This router blocks providers that encounter specific types of errors for a configurable
+  backoff period. The backoff duration increases exponentially with each consecutive failure,
+  helping to avoid overwhelming failing services while allowing for automatic recovery.
 
   ## Configuration
 
@@ -7,22 +12,54 @@ defmodule LlmComposer.ProviderRouter.Simple do
 
   ```elixir
   config :llm_composer, :provider_router,
-    backoff_ms: :timer.minutes(5),  # 5 minutes default
-    block_on_errors: [
-      {:status, 500..599},       # Server errors
-      :timeout,                  # Request timeouts
-      :econnrefused,            # Connection refused
-      :network_error            # Generic network errors
+    min_backoff_ms: 1_000,                    # 1 second minimum backoff (default)
+    max_backoff_ms: :timer.minutes(5),        # 5 minutes maximum backoff (default)
+    cache_mod: LlmComposer.Cache.Ets,         # Cache module to use (default)
+    cache_opts: [name: __MODULE__, table_name: :llm_composer_provider_blocks],  # Cache options
+    name: __MODULE__,                         # Router instance name (default)
+    block_on_errors: [                       # Error patterns to block on (default list below)
+      {:status, 500..599},                    # Server errors
+      :timeout,                               # Request timeouts
+      :econnrefused,                          # Connection refused
+      :network_error                          # Generic network errors
     ]
   ```
 
+  **Note**: The `block_on_errors` configuration completely replaces the default error patterns.
+  If you provide this configuration, you must include all error patterns you want to block on,
+  as it will not merge with the defaults.
+
+  **Default error patterns** (used when `block_on_errors` is not configured):
+  ```elixir
+  [
+    {:status, 500..599},  # Server errors (5xx HTTP status codes)
+    :timeout,             # Request timeouts
+    :econnrefused         # Connection refused errors
+  ]
+  ```
+
+  ## Backoff Strategy
+
+  The router uses exponential backoff with the following formula:
+  ```
+  backoff_ms = min(max_backoff_ms, min_backoff_ms * 2^(failure_count - 1))
+  ```
+
+  Examples with default settings:
+  - 1st failure: 1 second
+  - 2nd failure: 2 seconds
+  - 3rd failure: 4 seconds
+  - 4th failure: 8 seconds
+  - 5th failure: 16 seconds
+  - ...continuing until max_backoff_ms (5 minutes)
 
   ## Behavior
 
-  - **Success**: No action taken, provider remains available
-  - **Failure**: If error matches configured patterns, provider is blocked for backoff period
+  - **Success**: Provider is unblocked and failure count is reset
+  - **Failure**: If error matches configured patterns, provider is blocked for exponential backoff period
   - **Blocking**: Blocked providers are skipped during provider selection
   - **Recovery**: Providers automatically become available after backoff period expires
+  - **Persistence**: Blocking state persists across application restarts (stored in ETS with long TTL)
   """
 
   @behaviour LlmComposer.ProviderRouter
@@ -76,8 +113,10 @@ defmodule LlmComposer.ProviderRouter.Simple do
   end
 
   @doc """
-  Handle provider success. Currently no action is taken, but this could be
-  extended to track success metrics or reset failure counters.
+  Handle provider success by unblocking the provider and resetting its failure count.
+
+  This removes any blocking state for the provider, allowing it to be used immediately
+  for future requests.
   """
   @impl LlmComposer.ProviderRouter
   def on_provider_success(provider, _resp, _metrics) do
