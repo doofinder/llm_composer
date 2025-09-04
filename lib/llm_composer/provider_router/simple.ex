@@ -172,6 +172,22 @@ defmodule LlmComposer.ProviderRouter.Simple do
     end
   end
 
+  @doc """
+  Selects an eligible provider from the given list.
+
+  This implementation iterates through the providers and returns the first one
+  that is not currently blocked by the circuit breaker.
+  """
+  @impl LlmComposer.ProviderRouter
+  def select_provider(providers) do
+    Enum.find_value(providers, fn {provider_module, _opts} ->
+      case should_use_provider?(provider_module) do
+        :allow -> {:ok, provider_module}
+        :skip -> nil
+      end
+    end) || :none_available
+  end
+
   # Private functions
 
   @spec should_block_error?(term()) :: boolean()

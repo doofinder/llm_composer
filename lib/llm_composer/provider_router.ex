@@ -37,12 +37,13 @@ defmodule LlmComposer.ProviderRouter do
   ```
   """
 
-  @type provider :: module() | atom()
   @type error :: term()
-  @type ok_res :: {:ok, Tesla.Env.t()}
-  @type metrics :: map()
-  @type routing_decision :: :allow | :skip
   @type failure_response :: :continue | :block | {:block, non_neg_integer()}
+  @type metrics :: map()
+  @type ok_res :: {:ok, Tesla.Env.t()}
+  @type provider :: module() | atom()
+  @type providers :: [{provider(), keyword()}]
+  @type routing_decision :: :allow | :skip
 
   @doc """
   Called before attempting to use a provider.
@@ -90,6 +91,22 @@ defmodule LlmComposer.ProviderRouter do
   - `error` - The error returned by the provider
   """
   @callback on_provider_failure(provider(), error(), map()) :: failure_response()
+
+  @doc """
+  Selects an eligible provider from the given list.
+
+  This callback allows the router to implement custom logic for selecting the
+  next provider to use, potentially based on health, load, or other criteria.
+
+  ## Returns
+  - `{:ok, provider}` - The selected provider module.
+  - `:none_available` - No eligible providers are currently available.
+
+  ## Parameters
+  - `providers` - A list of `{:provider_module, provider_opts}` tuples.
+  """
+  @callback select_provider(providers :: providers()) ::
+            {:ok, provider()} | :none_available
 
   @doc """
   Starts the process linked to the current process.

@@ -16,6 +16,11 @@ defmodule LlmComposer.ProviderRunner do
   Runs provider execution with fallback support for multiple providers.
   """
   @spec run(messages(), Settings.t(), Message.t()) :: {:ok, any()} | {:error, atom()}
+  def run(messages, %Settings{providers: [{provider, provider_opts}]} = settings, system_msg) do
+    provider_opts = get_provider_opts(provider_opts, settings)
+    provider.run(messages, system_msg, provider_opts)
+  end
+
   def run(messages, %Settings{providers: providers} = settings, system_msg)
       when is_list(providers) and length(providers) > 1 do
     router = get_provider_router()
@@ -23,18 +28,8 @@ defmodule LlmComposer.ProviderRunner do
     if Process.whereis(router) == nil do
       {:error, :provider_router_not_started}
     else
-      Enum.reduce_while(
-        providers,
-        {:error, :no_providers_available},
-        &execute_provider_with_fallback(&1, &2, router, messages, system_msg, settings)
-      )
+      do_run(router, providers, messages, system_msg, settings)
     end
-  end
-
-  # Running only one provider.
-  def run(messages, %Settings{providers: [{provider, provider_opts}]} = settings, system_msg) do
-    provider_opts = get_provider_opts(provider_opts, settings)
-    provider.run(messages, system_msg, provider_opts)
   end
 
   # old case, TODO: remove for llm_composer 0.11.0
@@ -52,40 +47,38 @@ defmodule LlmComposer.ProviderRunner do
     {:error, :no_providers_configured}
   end
 
-  defp execute_provider_with_fallback(
-         {provider, _provider_opts} = provider_tuple,
-         _acc,
-         router,
-         messages,
-         system_msg,
-         settings
-       ) do
-    decision = router.should_use_provider?(provider)
+  @spec do_run(module(), [{module(), keyword()}], messages(), Message.t(), Settings.t()) ::
+          {:ok, any()} | {:error, atom()}
+  defp do_run(router, all_providers, messages, system_msg, settings) do
+    case router.select_provider(all_providers) do
+      {:ok, selected_provider} ->
+        provider_opts =
+          all_providers
+          |> Enum.find(fn {p, _} -> p == selected_provider end)
+          |> elem(1)
+          |> get_provider_opts(settings)
 
-    case decision do
-      :skip ->
-        Logger.info("Skipping provider #{provider.name()} as per router decision")
-        {:cont, {:error, :provider_skipped}}
+        {exec_time_us, result} =
+          :timer.tc(fn ->
+            selected_provider.run(messages, system_msg, provider_opts)
+          end)
 
-      :allow ->
-        provider_opts = get_provider_opts(elem(provider_tuple, 1), settings)
-        execute_provider(provider, messages, system_msg, provider_opts, router)
+        metrics = build_metrics(result, exec_time_us, selected_provider, provider_opts)
+        Logger.debug("#{selected_provider.name()} metrics: #{inspect(metrics)}")
+
+        case handle_provider_result(result, selected_provider, router, metrics) do
+          {:halt, ok_res} ->
+            ok_res
+
+          {:cont, _err_res} ->
+            do_run(router, all_providers, messages, system_msg, settings)
+        end
+
+      :none_available ->
+        {:error, :no_providers_available}
     end
   end
 
-  @spec execute_provider(module, [map()], String.t(), keyword(), module) ::
-          {:cont | :halt, term()}
-  defp execute_provider(provider, messages, system_msg, provider_opts, router) do
-    {exec_time_us, result} =
-      :timer.tc(fn ->
-        provider.run(messages, system_msg, provider_opts)
-      end)
-
-    metrics = build_metrics(result, exec_time_us, provider, provider_opts)
-    Logger.debug("#{provider.name()} metrics: #{inspect(metrics)}")
-
-    handle_provider_result(result, provider, router, metrics)
-  end
 
   @spec handle_provider_result(
           {:ok, map()} | {:error, any()},
