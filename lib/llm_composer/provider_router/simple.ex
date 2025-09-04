@@ -180,9 +180,9 @@ defmodule LlmComposer.ProviderRouter.Simple do
   """
   @impl LlmComposer.ProviderRouter
   def select_provider(providers) do
-    Enum.find_value(providers, fn {provider_module, _opts} ->
+    Enum.find_value(providers, fn {provider_module, opts} ->
       case should_use_provider?(provider_module) do
-        :allow -> {:ok, provider_module}
+        :allow -> {:ok, {provider_module, opts}}
         :skip -> nil
       end
     end) || :none_available

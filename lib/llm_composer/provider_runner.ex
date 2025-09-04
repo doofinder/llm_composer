@@ -51,12 +51,8 @@ defmodule LlmComposer.ProviderRunner do
           {:ok, any()} | {:error, atom()}
   defp do_run(router, all_providers, messages, system_msg, settings) do
     case router.select_provider(all_providers) do
-      {:ok, selected_provider} ->
-        provider_opts =
-          all_providers
-          |> Enum.find(fn {p, _} -> p == selected_provider end)
-          |> elem(1)
-          |> get_provider_opts(settings)
+      {:ok, {selected_provider, provider_opts}} ->
+        provider_opts = get_provider_opts(provider_opts, settings)
 
         {exec_time_us, result} =
           :timer.tc(fn ->

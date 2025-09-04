@@ -106,7 +106,7 @@ defmodule LlmComposer.ProviderRouter do
   - `providers` - A list of `{:provider_module, provider_opts}` tuples.
   """
   @callback select_provider(providers :: providers()) ::
-            {:ok, provider()} | :none_available
+            {:ok, {provider(), keyword()}} | :none_available
 
   @doc """
   Starts the process linked to the current process.
