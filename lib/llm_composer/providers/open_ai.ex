@@ -11,8 +11,6 @@ defmodule LlmComposer.Providers.OpenAI do
   alias LlmComposer.LlmResponse
   alias LlmComposer.Providers.Utils
 
-  @base_url Application.compile_env(:llm_composer, :openai_url, "https://api.openai.com/v1")
-
   @impl LlmComposer.Provider
   def name, do: :open_ai
 
@@ -21,9 +19,10 @@ defmodule LlmComposer.Providers.OpenAI do
   Reference: https://platform.openai.com/docs/api-reference/chat/create
   """
   def run(messages, system_message, opts) do
-    model = Keyword.get(opts, :model)
-    api_key = Keyword.get(opts, :api_key) || get_key()
-    client = HttpClient.client(@base_url, opts)
+    model = Keyword.fetch!(opts, :model)
+    api_key = get_key(opts)
+    base_url = Utils.get_config(:open_ai, :url, opts, "https://api.openai.com/v1")
+    client = HttpClient.client(base_url, opts)
 
     headers = [
       {"Authorization", "Bearer " <> api_key}
@@ -76,8 +75,8 @@ defmodule LlmComposer.Providers.OpenAI do
     {:error, reason}
   end
 
-  defp get_key do
-    case Application.get_env(:llm_composer, :openai_key) do
+  defp get_key(opts) do
+    case Utils.get_config(:open_ai, :api_key, opts) do
       nil -> raise MissingKeyError
       key -> key
     end

@@ -14,12 +14,6 @@ defmodule LlmComposer.Providers.OpenRouter do
 
   require Logger
 
-  @base_url Application.compile_env(
-              :llm_composer,
-              :open_router_url,
-              "https://openrouter.ai/api/v1"
-            )
-
   @impl LlmComposer.Provider
   def name, do: :open_router
 
@@ -29,8 +23,9 @@ defmodule LlmComposer.Providers.OpenRouter do
   """
   def run(messages, system_message, opts) do
     model = Keyword.get(opts, :model)
-    api_key = Keyword.get(opts, :api_key) || get_key()
-    client = HttpClient.client(@base_url, opts)
+    api_key = get_key(opts)
+    base_url = Utils.get_config(:open_router, :url, opts, "https://openrouter.ai/api/v1")
+    client = HttpClient.client(base_url, opts)
 
     headers = maybe_structured_output_headers([{"Authorization", "Bearer " <> api_key}], opts)
     req_opts = Utils.get_req_opts(opts)
@@ -45,9 +40,6 @@ defmodule LlmComposer.Providers.OpenRouter do
       {:error, :model_not_provided}
     end
   end
-
-  @spec get_base_url() :: binary
-  def get_base_url, do: @base_url
 
   defp build_request(messages, system_message, model, opts) do
     tools =
@@ -105,8 +97,8 @@ defmodule LlmComposer.Providers.OpenRouter do
     {:error, reason}
   end
 
-  defp get_key do
-    case Application.get_env(:llm_composer, :open_router_key) do
+  defp get_key(opts) do
+    case Utils.get_config(:open_router, :api_key, opts) do
       nil -> raise MissingKeyError
       key -> key
     end

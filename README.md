@@ -73,7 +73,7 @@ The following table shows which features are supported by each provider:
 To create a basic chatbot using LlmComposer, you need to define a module that uses the `LlmComposer.Caller` behavior. The example below demonstrates a simple configuration with OpenAI as the model provider:
 
 ```elixir
-Application.put_env(:llm_composer, :openai_key, "<your api key>")
+Application.put_env(:llm_composer, :open_ai, api_key: "<your api key>")
 
 defmodule MyChat do
 
@@ -115,7 +115,7 @@ For more control over the interactions, basically to send the messages history a
 Here’s an example that demonstrates how to use `run_completion` with a custom message flow:
 
 ```elixir
-Application.put_env(:llm_composer, :openai_key, "<your api key>")
+Application.put_env(:llm_composer, :open_ai, api_key: "<your api key>")
 
 defmodule MyCustomChat do
 
@@ -164,7 +164,7 @@ Make sure to start the Ollama server first.
 
 ```elixir
 # Set the Ollama URI in the application environment if not already configured
-# Application.put_env(:llm_composer, :ollama_uri, "http://localhost:11434")
+# Application.put_env(:llm_composer, :ollama, url: "http://localhost:11434")
 
 defmodule MyChat do
 
@@ -218,7 +218,7 @@ Here's a complete example:
 
 ```elixir
 # Configure the OpenRouter API key and endpoint
-Application.put_env(:llm_composer, :open_router_key, "<your openrouter api key>")
+Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api key>")
 
 defmodule MyOpenRouterChat do
   @settings %LlmComposer.Settings{
@@ -314,7 +314,7 @@ To use Google with LlmComposer, you'll need to:
 
 ```elixir
 # Configure the Google API key
-Application.put_env(:llm_composer, :google_key, "<your google api key>")
+Application.put_env(:llm_composer, :google, api_key: "<your google api key>")
 
 defmodule MyGoogleChat do
   @settings %LlmComposer.Settings{
@@ -395,7 +395,7 @@ end
 ])
 
 # Configure LlmComposer to use your Goth process
-Application.put_env(:llm_composer, :google_goth, MyApp.Goth)
+Application.put_env(:llm_composer, :google, goth: MyApp.Goth)
 
 defmodule MyVertexChat do
   @settings %LlmComposer.Settings{
@@ -445,7 +445,7 @@ defmodule MyApp.Application do
 end
 
 # Configure in config.exs
-config :llm_composer, :google_goth, MyApp.Goth
+config :llm_composer, :google, goth: MyApp.Goth
 config :my_app, :google_credentials_path, "/path/to/service-account.json"
 ```
 
@@ -508,7 +508,7 @@ The model will then produce responses that adhere to the specified JSON schema, 
 You can enhance the bot's capabilities by adding support for external function execution. This example demonstrates how to add a simple calculator that evaluates basic math expressions:
 
 ```elixir
-Application.put_env(:llm_composer, :openai_key, "<your api key>")
+Application.put_env(:llm_composer, :open_ai, api_key: "<your api key>")
 
 defmodule MyChat do
 
@@ -660,7 +660,7 @@ To use cost tracking, you need:
 #### Basic Cost Tracking Example
 
 ```elixir
-Application.put_env(:llm_composer, :open_router_key, "<your openrouter api key>")
+Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api key>")
 
 defmodule MyCostTrackingChat do
   @settings %LlmComposer.Settings{

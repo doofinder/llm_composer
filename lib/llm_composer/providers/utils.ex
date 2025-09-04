@@ -126,6 +126,26 @@ defmodule LlmComposer.Providers.Utils do
     end
   end
 
+  @doc """
+  Reads a configuration value for the given provider key.
+
+  Priority order:
+  1. Get from `opts` keyword list.
+  2. Get from application config `:llm_composer`, provider_key.
+  3. Use provided `default` value.
+  """
+  @spec get_config(atom, atom, keyword, any) :: any
+  def get_config(provider_key, key, opts, default \\ nil) do
+    case Keyword.fetch(opts, key) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        Application.get_env(:llm_composer, provider_key, [])
+        |> Keyword.get(key, default)
+    end
+  end
+
   defp get_action(%{"message" => %{"tool_calls" => calls}}) do
     Enum.map(calls, fn call ->
       %FunctionCall{
