@@ -93,6 +93,12 @@ defmodule LlmComposer do
   def run_completion(settings, messages, previous_response \\ nil) do
     validate_settings(settings)
 
+    if settings.api_key && settings.api_key != "" do
+      Logger.warning(
+        "The :api_key setting in Settings struct is deprecated and will be removed in version 0.11.0. Please specify :api_key inside each provider's options in the :providers list."
+      )
+    end
+
     system_msg = Message.new(:system, settings.system_prompt)
 
     messages
