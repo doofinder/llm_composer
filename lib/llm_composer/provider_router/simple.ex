@@ -15,8 +15,11 @@ defmodule LlmComposer.ProviderRouter.Simple do
     min_backoff_ms: 1_000,                    # 1 second minimum backoff (default)
     max_backoff_ms: :timer.minutes(5),        # 5 minutes maximum backoff (default)
     cache_mod: LlmComposer.Cache.Ets,         # Cache module to use (default)
-    cache_opts: [name: __MODULE__, table_name: :llm_composer_provider_blocks],  # Cache options
-    name: __MODULE__,                         # Router instance name (default)
+    cache_opts: [                             # Cache options (default shown below)
+      name: LlmComposer.ProviderRouter.Simple,
+      table_name: :llm_composer_provider_blocks
+    ],
+    name: LlmComposer.ProviderRouter.Simple,  # Router instance name (default)
     block_on_errors: [                       # Error patterns to block on (default list below)
       {:status, 500..599},                    # Server errors
       :timeout,                               # Request timeouts
@@ -25,9 +28,13 @@ defmodule LlmComposer.ProviderRouter.Simple do
     ]
   ```
 
-  **Note**: The `block_on_errors` configuration completely replaces the default error patterns.
-  If you provide this configuration, you must include all error patterns you want to block on,
-  as it will not merge with the defaults.
+  **Configuration Notes:**
+
+  - **`block_on_errors`**: Completely replaces the default error patterns. If you provide this configuration, you must include all error patterns you want to block on, as it will not merge with the defaults.
+
+  - **`cache_mod`**: Must implement the `LlmComposer.Cache.Behaviour`. The default `LlmComposer.Cache.Ets` provides an ETS-based cache implementation.
+
+  - **`cache_opts`**: Options passed to the cache module. If you use a custom cache module, ensure these options are compatible with your implementation.
 
   **Default error patterns** (used when `block_on_errors` is not configured):
   ```elixir
