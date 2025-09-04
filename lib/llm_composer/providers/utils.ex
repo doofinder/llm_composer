@@ -141,7 +141,8 @@ defmodule LlmComposer.Providers.Utils do
         value
 
       :error ->
-        Application.get_env(:llm_composer, provider_key, [])
+        :llm_composer
+        |> Application.get_env(provider_key, [])
         |> Keyword.get(key, default)
     end
   end
