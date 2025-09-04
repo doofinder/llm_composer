@@ -136,14 +136,14 @@ defmodule LlmComposer.Providers.Utils do
   """
   @spec get_config(atom, atom, keyword, any) :: any
   def get_config(provider_key, key, opts, default \\ nil) do
-    case Keyword.fetch(opts, key) do
-      {:ok, value} ->
-        value
-
-      :error ->
+    case Keyword.get(opts, key) do
+      nil ->
         :llm_composer
         |> Application.get_env(provider_key, [])
         |> Keyword.get(key, default)
+
+      value ->
+        value
     end
   end
 
