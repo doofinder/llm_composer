@@ -12,7 +12,7 @@ defmodule LlmComposer do
   # Define the settings for your LlmComposer instance
   settings = %LlmComposer.Settings{
     providers: [
-      {LlmComposer.Providers.OpenAI,  [model: "gpt-4o-mini"]}
+      {LlmComposer.Providers.OpenAI,  [model: "gpt-4.1-mini"]}
     ],
     system_prompt: "You are a helpful assistant.",
     user_prompt_prefix: "",
@@ -136,13 +136,13 @@ defmodule LlmComposer do
       provider_opts: [model: "llama3.2"],
       stream_response: true
     }
-    
+
     messages = [
       %LlmComposer.Message{type: :user, content: "Tell me a short story"}
     ]
-    
+
     {:ok, res} = LlmComposer.run_completion(settings, messages)
-    
+
     # Process the stream and print each parsed chunk
     res.stream
     |> LlmComposer.parse_stream_response()
