@@ -15,6 +15,7 @@ defmodule LlmComposer.LlmResponse do
           metadata: map(),
           output_tokens: pos_integer() | nil,
           previous_response: map() | nil,
+          provider: atom(),
           raw: map(),
           status: :ok | :error,
           stream: nil | Enum.t()
@@ -26,6 +27,7 @@ defmodule LlmComposer.LlmResponse do
     :input_tokens,
     :output_tokens,
     :previous_response,
+    :provider,
     :raw,
     :status,
     :stream,
@@ -57,6 +59,7 @@ defmodule LlmComposer.LlmResponse do
        input_tokens: nil,
        output_tokens: nil,
        stream: stream,
+       provider: llm_provider,
        main_response: nil,
        raw: raw_response,
        status: status
@@ -84,6 +87,7 @@ defmodule LlmComposer.LlmResponse do
        output_tokens: get_in(raw_response, ["usage", "completion_tokens"]),
        main_response: response,
        metadata: Map.get(provider_response, :metadata, %{}),
+       provider: llm_provider,
        raw: raw_response,
        status: status
      }}
@@ -91,7 +95,7 @@ defmodule LlmComposer.LlmResponse do
 
   def new(
         {status, %{actions: actions, response: %{"message" => message} = raw_response}},
-        :ollama
+        :ollama = provider
       ) do
     response =
       message["role"]
@@ -102,12 +106,13 @@ defmodule LlmComposer.LlmResponse do
      %__MODULE__{
        actions: actions,
        main_response: response,
+       provider: provider,
        raw: raw_response,
        status: status
      }}
   end
 
-  def new({status, %{actions: actions, response: response}}, :bedrock) do
+  def new({status, %{actions: actions, response: response}}, :bedrock = provider) do
     [%{"text" => message_content}] = response["output"]["message"]["content"]
     role = String.to_existing_atom(response["output"]["message"]["role"])
 
@@ -118,12 +123,13 @@ defmodule LlmComposer.LlmResponse do
        output_tokens: response["usage"]["outputTokens"],
        main_response:
          Message.new(role, message_content, %{original: response["output"]["message"]}),
+       provider: provider,
        raw: response,
        status: status
      }}
   end
 
-  def new({status, %{actions: actions, response: response}}, :google) do
+  def new({status, %{actions: actions, response: response}}, :google = provider) do
     [first_candidate | _] = response["candidates"]
     content = first_candidate["content"]
 
@@ -147,6 +153,7 @@ defmodule LlmComposer.LlmResponse do
        input_tokens: usage["promptTokenCount"],
        output_tokens: usage["candidatesTokenCount"],
        main_response: Message.new(role, message_content, %{original: content}),
+       provider: provider,
        raw: response,
        status: status
      }}
