@@ -24,7 +24,7 @@ defmodule LlmComposer.Providers.OpenRouter do
   def run(messages, system_message, opts) do
     model = Keyword.get(opts, :model)
     api_key = get_key(opts)
-    base_url = Utils.get_config(:open_router, :url, opts, "https://openrouter.ai/api/v1")
+    base_url = get_base_url(opts)
     client = HttpClient.client(base_url, opts)
 
     headers = maybe_structured_output_headers([{"Authorization", "Bearer " <> api_key}], opts)
@@ -40,6 +40,11 @@ defmodule LlmComposer.Providers.OpenRouter do
       {:error, :model_not_provided}
     end
   end
+
+  # function required for costs tracking
+  @spec get_base_url(keyword()) :: binary
+  def get_base_url(opts \\ []),
+    do: Utils.get_config(:open_router, :url, opts, "https://openrouter.ai/api/v1")
 
   defp build_request(messages, system_message, model, opts) do
     tools =
