@@ -79,7 +79,6 @@ defmodule LlmComposer.ProviderRunner do
     end
   end
 
-
   @spec handle_provider_result(
           {:ok, map()} | {:error, any()},
           module(),
