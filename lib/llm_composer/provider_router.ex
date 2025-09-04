@@ -9,56 +9,42 @@ defmodule LlmComposer.ProviderRouter do
   ## Example Usage
 
   ```elixir
-  defmodule MyApp.CustomRouter do
+  defmodule MyApp.SimpleRouter do
     @behaviour LlmComposer.ProviderRouter
 
-    def should_use_provider?(provider) do
-      # Custom logic to determine if provider should be used
-      if provider_is_healthy?(provider) do
-        :allow
-      else
-        :skip
-      end
-    end
-
-    def on_provider_success(provider, _ok_resp, _metrics) do
-      # Track successful requests, reset failure counters, etc.
+    @impl true
+    def on_provider_success(_provider, _response, _metrics) do
+      # Could log success metrics here
       :ok
     end
 
-    def on_provider_failure(provider, error, _metrics) do
-      # Decide how to handle the failure
+    @impl true
+    def on_provider_failure(_provider, error, _metrics) do
+      # Block on server errors, continue on client errors
       case error do
         %{status: status} when status >= 500 -> :block
         _ -> :continue
       end
     end
+
+    @impl true
+    def select_provider(providers) when length(providers) > 0 do
+      # Simple random selection
+      {provider, opts} = Enum.random(providers)
+      {:ok, {provider, opts}}
+    end
+
+    def select_provider([]), do: :none_available
   end
   ```
   """
 
   @type error :: term()
-  @type failure_response :: :block | {:block, non_neg_integer()}
+  @type failure_response :: :block
   @type metrics :: map()
   @type ok_res :: {:ok, Tesla.Env.t()}
   @type provider :: module() | atom()
   @type providers :: [{provider(), keyword()}]
-  @type routing_decision :: :allow | :skip
-
-  @doc """
-  Called before attempting to use a provider.
-
-  This callback allows the router to decide whether a provider should be used
-  based on its current state, recent failures, load, or any other criteria.
-
-  ## Returns
-  - `:allow` - proceed with this provider
-  - `:skip` - skip this provider and try the next one
-
-  ## Parameters
-  - `provider` - The provider module that is about to be used
-  """
-  @callback should_use_provider?(provider()) :: routing_decision()
 
   @doc """
   Called when a provider successfully handles a request.
@@ -83,7 +69,6 @@ defmodule LlmComposer.ProviderRouter do
 
   ## Returns
   - `:block` - temporarily block this provider (using default blocking duration)
-  - `{:block, ms}` - block the provider for a specific duration in milliseconds
 
   ## Parameters
   - `provider` - The provider module that failed

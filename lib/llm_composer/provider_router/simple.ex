@@ -69,32 +69,6 @@ defmodule LlmComposer.ProviderRouter.Simple do
   end
 
   @doc """
-  Check if a provider should be used based on its blocking state.
-
-  Returns `:skip` if the provider is currently blocked due to recent failures,
-  `:allow` otherwise.
-  """
-  @impl LlmComposer.ProviderRouter
-  def should_use_provider?(provider) do
-    name = get_config(:name, __MODULE__)
-
-    case cache_mod().get(provider, name) do
-      {:ok, {blocked_until, failure_count}} ->
-        if System.monotonic_time(:millisecond) < blocked_until do
-          maybe_log(provider.name(), failure_count)
-          :skip
-        else
-          # Here we do not remove the data in ETS, this will be removed on success,
-          # or will be increased if fails remains
-          :allow
-        end
-
-      _ ->
-        :allow
-    end
-  end
-
-  @doc """
   Handle provider success by unblocking the provider and resetting its failure count.
 
   This removes any blocking state for the provider, allowing it to be used immediately
@@ -148,7 +122,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
       "[#{provider.name()}] blocked for #{backoff_ms} ms due to error #{inspect(error)}"
     )
 
-    {:block, backoff_ms}
+    :block
   end
 
   @doc """
@@ -168,6 +142,26 @@ defmodule LlmComposer.ProviderRouter.Simple do
   end
 
   # Private functions
+  @spec should_use_provider?(module()) :: :skip | :allow
+  defp should_use_provider?(provider) do
+    name = get_config(:name, __MODULE__)
+
+    case cache_mod().get(provider, name) do
+      {:ok, {blocked_until, failure_count}} ->
+        if System.monotonic_time(:millisecond) < blocked_until do
+          maybe_log(provider.name(), failure_count)
+          :skip
+        else
+          # Here we do not remove the data in ETS, this will be removed on success,
+          # or will be increased if fails remains
+          :allow
+        end
+
+      _ ->
+        :allow
+    end
+  end
+
   @spec get_config(atom(), term()) :: term()
   defp get_config(key, default) do
     :llm_composer
