@@ -602,8 +602,7 @@ config :llm_composer, :provider_router,
   block_on_errors: [                       # Error patterns to block on (default list below)
     {:status, 500..599},                    # Server errors
     :timeout,                               # Request timeouts
-    :econnrefused,                          # Connection refused
-    :network_error                          # Generic network errors
+    :econnrefused                           # Connection refused
   ]
 ```
 
