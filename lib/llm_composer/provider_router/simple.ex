@@ -19,30 +19,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
       name: LlmComposer.ProviderRouter.Simple,
       table_name: :llm_composer_provider_blocks
     ],
-    name: LlmComposer.ProviderRouter.Simple,  # Router instance name (default)
-    block_on_errors: [                       # Error patterns to block on (default list below)
-      {:status, 500..599},                    # Server errors
-      :timeout,                               # Request timeouts
-      :econnrefused,                          # Connection refused
-      :network_error                          # Generic network errors
-    ]
-  ```
-
-  **Configuration Notes:**
-
-  - **`block_on_errors`**: Completely replaces the default error patterns. If you provide this configuration, you must include all error patterns you want to block on, as it will not merge with the defaults.
-
-  - **`cache_mod`**: Must implement the `LlmComposer.Cache.Behaviour`. The default `LlmComposer.Cache.Ets` provides an ETS-based cache implementation.
-
-  - **`cache_opts`**: Options passed to the cache module. If you use a custom cache module, ensure these options are compatible with your implementation.
-
-  **Default error patterns** (used when `block_on_errors` is not configured):
-  ```elixir
-  [
-    {:status, 500..599},  # Server errors (5xx HTTP status codes)
-    :timeout,             # Request timeouts
-    :econnrefused         # Connection refused errors
-  ]
+    name: LlmComposer.ProviderRouter.Simple   # Router instance name (default)
   ```
 
   ## Backoff Strategy
@@ -63,15 +40,13 @@ defmodule LlmComposer.ProviderRouter.Simple do
   ## Behavior
 
   - **Success**: Provider is unblocked and failure count is reset
-  - **Failure**: If error matches configured patterns, provider is blocked for exponential backoff period
+  - **Failure**: Provider is blocked for exponential backoff period
   - **Blocking**: Blocked providers are skipped during provider selection
   - **Recovery**: Providers automatically become available after backoff period expires
   - **Persistence**: Blocking state persists across application restarts (stored in ETS with long TTL)
   """
 
   @behaviour LlmComposer.ProviderRouter
-
-  alias LlmComposer.Cache.Ets
 
   require Logger
 
@@ -104,9 +79,9 @@ defmodule LlmComposer.ProviderRouter.Simple do
     name = get_config(:name, __MODULE__)
 
     case cache_mod().get(provider, name) do
-      {:ok, {blocked_until, _failure_count}} ->
+      {:ok, {blocked_until, failure_count}} ->
         if System.monotonic_time(:millisecond) < blocked_until do
-          Logger.info("[#{provider.name()}] is currently blocked, skipping")
+          maybe_log(provider.name(), failure_count)
           :skip
         else
           # Here we do not remove the data in ETS, this will be removed on success,
@@ -128,48 +103,52 @@ defmodule LlmComposer.ProviderRouter.Simple do
   @impl LlmComposer.ProviderRouter
   def on_provider_success(provider, _resp, _metrics) do
     name = get_config(:name, __MODULE__)
-    cache_mod().delete(provider, name)
-    Logger.info("[#{provider.name()}] unblocked after success")
-    :ok
+
+    case cache_mod().get(provider, name) do
+      :miss ->
+        # Provider was not blocked, no action needed, and no log
+        :ok
+
+      _ ->
+        # Provider was blocked, so unblock it and log
+        cache_mod().delete(provider, name)
+        Logger.info("[#{provider.name()}] unblocked after success")
+        :ok
+    end
   end
 
   @doc """
   Handle provider failure and determine if the provider should be blocked.
 
-  If the error matches any of the configured blocking patterns, the provider
-  will be blocked for the configured backoff duration.
+  The provider will be blocked for the configured backoff duration.
   """
   @impl LlmComposer.ProviderRouter
   def on_provider_failure(provider, error, _metrics) do
     name = get_config(:name, __MODULE__)
 
-    if should_block_error?(error) do
-      min_backoff_ms = get_config(:min_backoff_ms, 1_000)
-      max_backoff_ms = get_config(:max_backoff_ms, :timer.minutes(5))
+    min_backoff_ms = get_config(:min_backoff_ms, 1_000)
+    max_backoff_ms = get_config(:max_backoff_ms, :timer.minutes(5))
 
-      current_state = cache_mod().get(provider, name)
+    current_state = cache_mod().get(provider, name)
 
-      failure_count =
-        case current_state do
-          {:ok, {_blocked_until, count}} when is_integer(count) -> count + 1
-          _ -> 1
-        end
+    failure_count =
+      case current_state do
+        {:ok, {_blocked_until, count}} when is_integer(count) -> count + 1
+        _ -> 1
+      end
 
-      backoff_ms =
-        min(max_backoff_ms, round(min_backoff_ms * :math.pow(2, failure_count - 1)))
+    backoff_ms =
+      min(max_backoff_ms, round(min_backoff_ms * :math.pow(2, failure_count - 1)))
 
-      blocked_until = System.monotonic_time(:millisecond) + backoff_ms
+    blocked_until = System.monotonic_time(:millisecond) + backoff_ms
 
-      cache_mod().put(provider, {blocked_until, failure_count}, @long_ttl_seconds, name)
+    cache_mod().put(provider, {blocked_until, failure_count}, @long_ttl_seconds, name)
 
-      Logger.info(
-        "[#{provider.name()}] blocked for #{backoff_ms} ms due to error #{inspect(error)}"
-      )
+    Logger.info(
+      "[#{provider.name()}] blocked for #{backoff_ms} ms due to error #{inspect(error)}"
+    )
 
-      {:block, backoff_ms}
-    else
-      :continue
-    end
+    {:block, backoff_ms}
   end
 
   @doc """
@@ -189,50 +168,6 @@ defmodule LlmComposer.ProviderRouter.Simple do
   end
 
   # Private functions
-
-  @spec should_block_error?(term()) :: boolean()
-  defp should_block_error?(error) do
-    block_patterns = get_config(:block_on_errors, default_block_patterns())
-
-    Enum.any?(block_patterns, &match_error_pattern?(&1, error))
-  end
-
-  @spec default_block_patterns() :: list()
-  defp default_block_patterns do
-    [
-      # Server errors
-      {:status, 500..599},
-      # Request timeouts
-      :timeout,
-      # Connection refused
-      :econnrefused
-    ]
-  end
-
-  @spec match_error_pattern?(term(), term()) :: boolean()
-  defp match_error_pattern?({:status, range}, %{status: status}) when is_integer(status) do
-    status in range
-  end
-
-  defp match_error_pattern?(:timeout, {:timeout, _}), do: true
-  defp match_error_pattern?(:timeout, %{reason: :timeout}), do: true
-  defp match_error_pattern?(:timeout, %{"error" => "timeout"}), do: true
-
-  defp match_error_pattern?(:econnrefused, {:econnrefused, _}), do: true
-  defp match_error_pattern?(:econnrefused, %{reason: :econnrefused}), do: true
-
-  defp match_error_pattern?(pattern, error) when is_atom(pattern) and is_atom(error) do
-    error == pattern
-  end
-
-  defp match_error_pattern?(pattern, error) when is_atom(pattern) and is_binary(error) do
-    error
-    |> String.downcase()
-    |> String.contains?(Atom.to_string(pattern))
-  end
-
-  defp match_error_pattern?(_pattern, _error), do: false
-
   @spec get_config(atom(), term()) :: term()
   defp get_config(key, default) do
     :llm_composer
@@ -248,5 +183,14 @@ defmodule LlmComposer.ProviderRouter.Simple do
   @spec cache_opts() :: keyword()
   defp cache_opts do
     get_config(:cache_opts, name: __MODULE__, table_name: @table_name)
+  end
+
+  @spec maybe_log(atom(), integer()) :: :ok
+  defp maybe_log(provider_name, count) do
+    if count < 3 do
+      Logger.info("[#{provider_name}] is currently blocked, skipping")
+    end
+
+    :ok
   end
 end

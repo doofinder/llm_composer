@@ -38,7 +38,7 @@ defmodule LlmComposer.ProviderRouter do
   """
 
   @type error :: term()
-  @type failure_response :: :continue | :block | {:block, non_neg_integer()}
+  @type failure_response :: :block | {:block, non_neg_integer()}
   @type metrics :: map()
   @type ok_res :: {:ok, Tesla.Env.t()}
   @type provider :: module() | atom()
@@ -82,7 +82,6 @@ defmodule LlmComposer.ProviderRouter do
   and whether the provider should be temporarily blocked.
 
   ## Returns
-  - `:continue` - mark the failure but keep the provider available for future requests
   - `:block` - temporarily block this provider (using default blocking duration)
   - `{:block, ms}` - block the provider for a specific duration in milliseconds
 

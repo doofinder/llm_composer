@@ -91,8 +91,8 @@ defmodule LlmComposer.ProviderRunner do
       "[#{provider.name()}] failed (#{inspect(error)}) in #{Float.round(metrics.latency_ms, 2)} ms"
     )
 
-    router.on_provider_failure(provider, error, metrics)
-
+    router.on_provider_failure(provider, err_res, metrics)
+    # if failure, we continue with next provider if any
     {:cont, err_res}
   end
 

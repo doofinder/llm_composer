@@ -598,29 +598,7 @@ config :llm_composer, :provider_router,
     name: LlmComposer.ProviderRouter.Simple,
     table_name: :llm_composer_provider_blocks
   ],
-  name: LlmComposer.ProviderRouter.Simple,  # Router instance name (default)
-  block_on_errors: [                       # Error patterns to block on (default list below)
-    {:status, 500..599},                    # Server errors
-    :timeout,                               # Request timeouts
-    :econnrefused                           # Connection refused
-  ]
-```
-
-**Configuration Notes:**
-
-- **`block_on_errors`**: Completely replaces the default error patterns. If you provide this configuration, you must include all error patterns you want to block on, as it will not merge with the defaults.
-
-- **`cache_mod`**: Must implement the `LlmComposer.Cache.Behaviour`. The default `LlmComposer.Cache.Ets` provides an ETS-based cache implementation.
-
-- **`cache_opts`**: Options passed to the cache module. If you use a custom cache module, ensure these options are compatible with your implementation.
-
-**Default error patterns** (used when `block_on_errors` is not configured):
-```elixir
-[
-  {:status, 500..599},  # Server errors (5xx HTTP status codes)
-  :timeout,             # Request timeouts
-  :econnrefused         # Connection refused errors
-]
+  name: LlmComposer.ProviderRouter.Simple   # Router instance name (default)
 ```
 
 #### Backoff Strategy
@@ -641,7 +619,7 @@ Examples with default settings:
 #### Behavior
 
 - **Success**: Provider is unblocked and failure count is reset
-- **Failure**: If error matches configured patterns, provider is blocked for exponential backoff period
+- **Failure**: Provider is blocked for exponential backoff period
 - **Blocking**: Blocked providers are skipped during provider selection
 - **Recovery**: Providers automatically become available after backoff period expires
 - **Persistence**: Blocking state persists across application restarts (stored in ETS with long TTL)
