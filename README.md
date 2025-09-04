@@ -762,6 +762,8 @@ end
 * Auto Function Execution: Automatically executes predefined functions, reducing manual intervention.
 * System Prompts: Customize the assistant's behavior by modifying the system prompt (e.g., creating different personalities or roles for your bot).
 
+---
+
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/llm_composer>.
