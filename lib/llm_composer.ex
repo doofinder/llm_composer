@@ -186,17 +186,16 @@ defmodule LlmComposer do
   @spec validate_settings(Settings.t()) :: :ok
   defp validate_settings(%Settings{
          providers: providers,
-         provider: provider,
-         provider_opts: provider_opts
+         provider: provider
        }) do
     cond do
-      providers != [] and (provider != nil or (provider_opts != nil and provider_opts != [])) ->
+      is_list(providers) and provider != nil ->
         raise ArgumentError,
               "Settings cannot contain both :providers and deprecated :provider/:provider_opts simultaneously. " <>
                 "Please use only :providers. " <>
                 "Current settings: providers=#{inspect(providers)}, provider=#{inspect(provider)}"
 
-      provider != nil or (provider_opts != nil and provider_opts != []) ->
+      provider != nil ->
         Logger.warning(@deprecated_msg)
         :ok
 
