@@ -14,6 +14,8 @@ defmodule LlmComposer.Helpers do
 
   require Logger
 
+  @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
+
   @type messages :: [term()]
   @type llmfunctions :: [Function.t()]
   @type action_result ::
@@ -86,7 +88,7 @@ defmodule LlmComposer.Helpers do
     %FunctionCall{fcall | result: res}
   end
 
-  defp serialize_fcall_result(res) when is_map(res) or is_list(res), do: Jason.encode!(res)
+  defp serialize_fcall_result(res) when is_map(res) or is_list(res), do: @json_mod.encode!(res)
   defp serialize_fcall_result(res) when is_binary(res) or is_tuple(res), do: res
   defp serialize_fcall_result(res), do: "#{res}"
 end

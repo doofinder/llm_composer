@@ -10,8 +10,6 @@ defmodule LlmComposer.Providers.Ollama do
   alias LlmComposer.LlmResponse
   alias LlmComposer.Providers.Utils
 
-  @uri Application.compile_env(:llm_composer, :ollama_uri, "http://localhost:11434")
-
   @impl LlmComposer.Provider
   def name, do: :ollama
 
@@ -21,7 +19,8 @@ defmodule LlmComposer.Providers.Ollama do
   """
   def run(messages, system_message, opts) do
     model = Keyword.get(opts, :model)
-    client = HttpClient.client(@uri, opts)
+    base_url = Utils.get_config(:ollama, :url, opts, "http://localhost:11434")
+    client = HttpClient.client(base_url, opts)
     req_opts = Utils.get_req_opts(opts)
 
     if model do
@@ -58,4 +57,6 @@ defmodule LlmComposer.Providers.Ollama do
   defp handle_response({:ok, resp}) do
     {:error, resp}
   end
+
+  defp handle_response({:error, _} = resp), do: resp
 end
