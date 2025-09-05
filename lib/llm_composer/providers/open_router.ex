@@ -27,7 +27,6 @@ defmodule LlmComposer.Providers.OpenRouter do
     base_url = get_base_url(opts)
     client = HttpClient.client(base_url, opts)
 
-    # headers = maybe_structured_output_headers([{"Authorization", "Bearer " <> api_key}], opts)
     headers = [{"Authorization", "Bearer " <> api_key}]
     req_opts = Utils.get_req_opts(opts)
 
@@ -123,7 +122,7 @@ defmodule LlmComposer.Providers.OpenRouter do
   defp maybe_provider_routing(base_request, opts) do
     provider_routing = Keyword.get(opts, :provider_routing)
 
-    if provider_routing && is_map(provider_routing) do
+    if is_map(provider_routing) do
       Map.put_new(base_request, :provider, provider_routing)
     else
       base_request
@@ -133,7 +132,7 @@ defmodule LlmComposer.Providers.OpenRouter do
   defp maybe_structured_output(base_request, opts) do
     response_schema = Keyword.get(opts, :response_schema)
 
-    if response_schema && is_map(response_schema) do
+    if is_map(response_schema) do
       Map.put_new(base_request, :response_format, %{
         "type" => "json_schema",
         "json_schema" => %{

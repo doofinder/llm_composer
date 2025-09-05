@@ -480,19 +480,12 @@ settings = %LlmComposer.Settings{
     {LlmComposer.Providers.OpenRouter, [
       model: "google/gemini-2.5-flash",
       response_schema: %{
-        type: "json_schema",
-        json_schema: %{
-          name: "my_response",
-          strict: true,
-          schema: %{
-            "type" => "object",
-            "properties" => %{
-              "answer" => %{"type" => "string"},
-              "confidence" => %{"type" => "number"}
-            },
-            "required" => ["answer"]
-          }
-        }
+        "type" => "object",
+        "properties" => %{
+          "answer" => %{"type" => "string"},
+          "confidence" => %{"type" => "number"}
+        },
+        "required" => ["answer"]
       }
     ]}
   ]

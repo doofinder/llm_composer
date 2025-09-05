@@ -37,7 +37,7 @@ defmodule LlmComposer.MixProject do
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:finch, "~> 0.18", optional: true},
       {:goth, "~> 1.4", optional: true},
-      {:jason, "~> 1.4", optional: not is_json_present?},
+      {:jason, "~> 1.4", optional: is_json_present?},
       {:tesla, "~> 1.14"}
     ]
   end
