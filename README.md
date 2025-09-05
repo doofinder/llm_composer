@@ -470,16 +470,16 @@ LlmComposer supports streaming responses for real-time output, which is particul
 
 ### Structured Outputs
 
-OpenRouter/Google/Openai supports structured outputs by allowing you to specify a `response_format` in the provider options. This enables the model to return responses conforming to a defined JSON schema, which is helpful for applications requiring strict formatting and validation of the output.
+OpenRouter/Google/Openai supports structured outputs by allowing you to specify a `response_schema` in the provider options. This enables the model to return responses conforming to a defined JSON schema, which is helpful for applications requiring strict formatting and validation of the output.
 
-To use structured outputs, include the `response_format` key inside your `provider_opts` in the settings, like this:
+To use structured outputs, include the `response_schema` key inside your `provider_opts` in the settings, like this:
 
 ```elixir
 settings = %LlmComposer.Settings{
   providers: [
     {LlmComposer.Providers.OpenRouter, [
       model: "google/gemini-2.5-flash",
-      response_format: %{
+      response_schema: %{
         type: "json_schema",
         json_schema: %{
           name: "my_response",

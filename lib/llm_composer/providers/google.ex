@@ -353,7 +353,8 @@ defmodule LlmComposer.Providers.Google do
     remove_additional_properties(schema)
   end
 
-  # Recursively remove "additionalProperties" keys from maps
+  # Recursively remove "additionalProperties" keys from maps, google api fails if provided.
+  # This key is present for some other providers but here we just remove it
   @spec remove_additional_properties(term()) :: term()
   defp remove_additional_properties(map) when is_map(map) do
     map
