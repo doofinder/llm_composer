@@ -294,7 +294,7 @@ defmodule LlmComposer.Providers.Google do
       response_schema ->
         Map.put(base_req, :generationConfig, %{
           responseMimeType: "application/json",
-          responseSchema: fix_schema(response_schema)
+          responseSchema: remove_additional_properties(response_schema)
         })
     end
   end
@@ -347,11 +347,6 @@ defmodule LlmComposer.Providers.Google do
 
   defp get_vertex_endpoint(_data, "global"), do: "aiplatform.googleapis.com"
   defp get_vertex_endpoint(_data, location_id), do: "#{location_id}-aiplatform.googleapis.com"
-
-  @spec fix_schema(map()) :: term()
-  defp fix_schema(schema) do
-    remove_additional_properties(schema)
-  end
 
   # Recursively remove "additionalProperties" keys from maps, google api fails if provided.
   # This key is present for some other providers but here we just remove it
