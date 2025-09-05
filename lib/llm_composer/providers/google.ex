@@ -40,7 +40,7 @@ defmodule LlmComposer.Providers.Google do
 
   ### Response Format Options
 
-  * `:response_format` - Map defining structured output schema for JSON responses
+  * `:response_schema` - Map defining structured output schema for JSON responses
 
   ## Vertex AI Configuration
 
@@ -287,7 +287,7 @@ defmodule LlmComposer.Providers.Google do
 
   @spec maybe_add_structured_outputs(map(), keyword()) :: map()
   defp maybe_add_structured_outputs(base_req, opts) do
-    case Keyword.get(opts, :response_format) do
+    case Keyword.get(opts, :response_schema) do
       nil ->
         base_req
 

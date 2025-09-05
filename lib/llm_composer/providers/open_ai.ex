@@ -84,16 +84,16 @@ defmodule LlmComposer.Providers.OpenAI do
   end
 
   defp maybe_structured_output(base_request, opts) do
-    response_format = Keyword.get(opts, :response_format)
+    response_schema = Keyword.get(opts, :response_schema)
 
-    if response_format && is_map(response_format) do
-      # Map.put_new(base_request, :response_format, response_format)
+    if response_schema && is_map(response_schema) do
+      # Map.put_new(base_request, :response_schema, response_schema)
       Map.put_new(base_request, :response_format, %{
         "type" => "json_schema",
         "json_schema" => %{
           "name" => "response",
           "strict" => true,
-          "schema" => response_format
+          "schema" => response_schema
         }
       })
     else
