@@ -470,7 +470,7 @@ LlmComposer supports streaming responses for real-time output, which is particul
 
 ### Structured Outputs
 
-OpenRouter/Google/Openai supports structured outputs by allowing you to specify a `response_schema` in the provider options. This enables the model to return responses conforming to a defined JSON schema, which is helpful for applications requiring strict formatting and validation of the output.
+OpenRouter/Google/OpenAI supports structured outputs by allowing you to specify a `response_schema` in the provider options. This enables the model to return responses conforming to a defined JSON schema, which is helpful for applications requiring strict formatting and validation of the output.
 
 To use structured outputs, include the `response_schema` key inside your `provider_opts` in the settings, like this:
 
@@ -494,7 +494,7 @@ settings = %LlmComposer.Settings{
 
 The model will then produce responses that adhere to the specified JSON schema, making it easier to parse and handle results programmatically.
 
-**Note:** This feature is currently supported only on the OpenRouter and Google provider in llm_composer.
+**Note:** This feature is currently supported on the OpenRouter, Google, and OpenAI providers in llm_composer.
 
 ### Bot with external function call
 
@@ -583,6 +583,7 @@ LlmComposer introduces a new provider routing mechanism to support multi-provide
 Configure the provider router in your application environment:
 
 ```elixir
+# all these options are the default, you can specify just the ones you want to override
 config :llm_composer, :provider_router,
   min_backoff_ms: 1_000,                    # 1 second minimum backoff (default)
   max_backoff_ms: :timer.minutes(5),        # 5 minutes maximum backoff (default)
