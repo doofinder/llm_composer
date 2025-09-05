@@ -56,6 +56,8 @@ defmodule LlmComposer do
   Please migrate your configuration to use the :providers list instead.
   """
 
+  @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
+
   @type messages :: [Message.t()]
 
   @doc """
@@ -162,15 +164,7 @@ defmodule LlmComposer do
   def parse_stream_response(stream) do
     stream
     |> Stream.filter(fn chunk -> chunk != "[DONE]" end)
-    |> Stream.map(fn data ->
-      case Jason.decode(data) do
-        {:ok, parsed} ->
-          parsed
-
-        {:error, _error} ->
-          nil
-      end
-    end)
+    |> Stream.map(fn data -> @json_mod.decode!(data) end)
     |> Stream.filter(fn content -> content != nil and content != "" end)
   end
 

@@ -4,6 +4,8 @@ defmodule LlmComposer.Providers.Utils do
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
+  @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
+
   @spec map_messages([Message.t()], atom) :: [map()]
   def map_messages(messages, provider \\ :open_ai)
 
@@ -153,7 +155,7 @@ defmodule LlmComposer.Providers.Utils do
         type: "function",
         id: call["id"],
         name: call["function"]["name"],
-        arguments: Jason.decode!(call["function"]["arguments"])
+        arguments: @json_mod.decode!(call["function"]["arguments"])
       }
     end)
   end
