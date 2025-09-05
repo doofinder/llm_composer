@@ -52,7 +52,7 @@ defmodule LlmComposer do
   require Logger
 
   @deprecated_msg """
-  The settings keys :provider and :provider_opts are deprecated and will be removed in version 0.11.0.
+  The settings keys :provider and :provider_opts are deprecated and will be removed in version 0.12.0.
   Please migrate your configuration to use the :providers list instead.
   """
 
@@ -97,7 +97,7 @@ defmodule LlmComposer do
 
     if settings.api_key && settings.api_key != "" do
       Logger.warning(
-        "The :api_key setting in Settings struct is deprecated and will be removed in version 0.11.0. Please specify :api_key inside each provider's options in the :providers list."
+        "The :api_key setting in Settings struct is deprecated and will be removed in version 0.12.0. Please specify :api_key inside each provider's options in the :providers list."
       )
     end
 

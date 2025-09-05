@@ -32,7 +32,7 @@ defmodule LlmComposer.ProviderRunner do
     end
   end
 
-  # old case, TODO: remove for llm_composer 0.11.0
+  # old case, TODO: remove for llm_composer 0.12.0
   def run(
         messages,
         %Settings{provider: provider, provider_opts: provider_opts} = settings,

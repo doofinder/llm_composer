@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+- **Implement multi-provider support with provider routing and failover:**
+  - Introduced a new `:providers` list in `LlmComposer.Settings` to replace deprecated `:provider` and `:provider_opts` keys.
+  - Added validation in `LlmComposer` to enforce/suggest exclusive use of `:providers` and warn about deprecated keys.
+  - Implemented `LlmComposer.ProviderRunner` to handle provider execution, supporting multiple providers with fallback logic.
+  - Added `LlmComposer.ProviderRouter` behaviour for routing strategies on provider selection, failure handling, and blocking.
+  - Provided a simple default provider router `LlmComposer.ProviderRouter.Simple` with exponential backoff blocking on provider failures.
+  - Refactored `LlmComposer.run_completion/3` to delegate to `ProviderRunner` for provider selection and execution.
+- Optimized `LlmComposer.Cache.Ets` by switching `put` and `delete` calls to asynchronous casts, improving performance.
+- Maintained backward compatibility with deprecated settings keys, issuing warnings and supporting legacy calls until version 0.12.0.
+- Changed `response_format` key to `response_schema` for better structured output definition that works across multiple providers.
+  - Structured outputs now available for OpenAI provider as well.
+  - Default JSON module is JSON; falls back to Jason if JSON is not loaded.
+
 ## [0.10.0] - 2025-09-03
 - **Add Google (Gemini) provider**: Full feature support including chat, functions, streaming, and structured outputs.
 - **Add Vertex AI integration**: Same Google provider but can be used with it's Vertex API. Enterprise support with OAuth 2.0 authentication via Goth library.
@@ -85,8 +98,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [0.5.3]: https://github.com/doofinder/llm_composer/compare/0.5.2...0.5.3
 [0.5.2]: https://github.com/doofinder/llm_composer/compare/0.5.1...0.5.2
 [0.5.1]: https://github.com/doofinder/llm_composer/compare/0.5.0...0.5.1
-[0.7.0]: https://github.com/doofinder/llm_composer/compare/0.6.0...0.7.0
-
 [0.3.5]: https://github.com/doofinder/llm_composer/compare/0.3.4...0.3.5
 [0.5.0]: https://github.com/doofinder/llm_composer/compare/0.3.5...0.5.0
 [0.3.4]: https://github.com/doofinder/llm_composer/compare/0.3.3...0.3.4
