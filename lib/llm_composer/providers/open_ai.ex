@@ -87,7 +87,6 @@ defmodule LlmComposer.Providers.OpenAI do
     response_schema = Keyword.get(opts, :response_schema)
 
     if response_schema && is_map(response_schema) do
-      # Map.put_new(base_request, :response_schema, response_schema)
       Map.put_new(base_request, :response_format, %{
         "type" => "json_schema",
         "json_schema" => %{
