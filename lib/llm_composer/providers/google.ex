@@ -359,7 +359,6 @@ defmodule LlmComposer.Providers.Google do
   defp remove_additional_properties(map) when is_map(map) do
     map
     |> Map.delete("additionalProperties")
-    # remove atom and string versions...
     |> Map.delete(:additionalProperties)
     |> Enum.map(fn {key, value} -> {key, remove_additional_properties(value)} end)
     |> Map.new()
