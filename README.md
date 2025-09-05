@@ -632,7 +632,7 @@ To use multi-provider support with routing and fallback, define your settings wi
 }
 ```
 
-The `LlmComposer.ProviderRunner` will handle provider selection, routing, and fallback automatically using the configured router.
+The `LlmComposer.ProvidersRunner` will handle provider selection, routing, and fallback automatically using the configured router.
 
 #### Fallback Logic
 

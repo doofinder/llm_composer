@@ -1,4 +1,4 @@
-defmodule LlmComposer.ProviderRunner do
+defmodule LlmComposer.ProvidersRunner do
   @moduledoc """
   Handles provider execution logic including fallback strategies, routing,
   and error handling for multiple provider configurations.

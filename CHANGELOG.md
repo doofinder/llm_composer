@@ -9,10 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Implement multi-provider support with provider routing and failover:**
   - Introduced a new `:providers` list in `LlmComposer.Settings` to replace deprecated `:provider` and `:provider_opts` keys.
   - Added validation in `LlmComposer` to enforce/suggest exclusive use of `:providers` and warn about deprecated keys.
-  - Implemented `LlmComposer.ProviderRunner` to handle provider execution, supporting multiple providers with fallback logic.
+  - Implemented `LlmComposer.ProvidersRunner` to handle provider execution, supporting multiple providers with fallback logic.
   - Added `LlmComposer.ProviderRouter` behaviour for routing strategies on provider selection, failure handling, and blocking.
   - Provided a simple default provider router `LlmComposer.ProviderRouter.Simple` with exponential backoff blocking on provider failures.
-  - Refactored `LlmComposer.run_completion/3` to delegate to `ProviderRunner` for provider selection and execution.
+  - Refactored `LlmComposer.run_completion/3` to delegate to `ProvidersRunner` for provider selection and execution.
 - Optimized `LlmComposer.Cache.Ets` by switching `put` and `delete` calls to asynchronous casts, improving performance.
 - Maintained backward compatibility with deprecated settings keys, issuing warnings and supporting legacy calls until version 0.12.0.
 - Changed `response_format` key to `response_schema` for better structured output definition that works across multiple providers.

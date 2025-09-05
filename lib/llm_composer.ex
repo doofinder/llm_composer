@@ -46,7 +46,7 @@ defmodule LlmComposer do
   alias LlmComposer.Helpers
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
-  alias LlmComposer.ProviderRunner
+  alias LlmComposer.ProvidersRunner
   alias LlmComposer.Settings
 
   require Logger
@@ -104,7 +104,7 @@ defmodule LlmComposer do
     system_msg = Message.new(:system, settings.system_prompt)
 
     messages
-    |> ProviderRunner.run(settings, system_msg)
+    |> ProvidersRunner.run(settings, system_msg)
     |> then(fn
       {:ok, res} ->
         # set previous response all the time
