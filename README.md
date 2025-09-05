@@ -616,7 +616,7 @@ Examples with default settings:
 - **Failure**: Provider is blocked for exponential backoff period
 - **Blocking**: Blocked providers are skipped during provider selection
 - **Recovery**: Providers automatically become available after backoff period expires
-- **Persistence**: Blocking state persists across application restarts (stored in ETS with long TTL)
+- **Persistence**: Blocking state is stored in ETS for fast access during runtime. To achieve persistence across restarts, you can implement a custom cache backend that stores data on disk or in a database.
 
 #### Usage
 
