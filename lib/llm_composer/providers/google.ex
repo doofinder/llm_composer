@@ -294,7 +294,7 @@ defmodule LlmComposer.Providers.Google do
       response_schema ->
         Map.put(base_req, :generationConfig, %{
           responseMimeType: "application/json",
-          responseSchema: response_schema
+          responseSchema: fix_schema(response_schema)
         })
     end
   end
@@ -347,4 +347,26 @@ defmodule LlmComposer.Providers.Google do
 
   defp get_vertex_endpoint(_data, "global"), do: "aiplatform.googleapis.com"
   defp get_vertex_endpoint(_data, location_id), do: "#{location_id}-aiplatform.googleapis.com"
+
+  @spec fix_schema(map()) :: term()
+  defp fix_schema(schema) do
+    remove_additional_properties(schema)
+  end
+
+  # Recursively remove "additionalProperties" keys from maps
+  @spec remove_additional_properties(term()) :: term()
+  defp remove_additional_properties(map) when is_map(map) do
+    map
+    |> Map.delete("additionalProperties")
+    |> Enum.map(fn {key, value} -> {key, remove_additional_properties(value)} end)
+    |> Map.new()
+  end
+
+  # Handle lists by recursively processing each element
+  defp remove_additional_properties(list) when is_list(list) do
+    Enum.map(list, &remove_additional_properties/1)
+  end
+
+  # Return other types unchanged
+  defp remove_additional_properties(value), do: value
 end

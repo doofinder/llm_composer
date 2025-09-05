@@ -27,7 +27,8 @@ defmodule LlmComposer.Providers.OpenRouter do
     base_url = get_base_url(opts)
     client = HttpClient.client(base_url, opts)
 
-    headers = maybe_structured_output_headers([{"Authorization", "Bearer " <> api_key}], opts)
+    # headers = maybe_structured_output_headers([{"Authorization", "Bearer " <> api_key}], opts)
+    headers = [{"Authorization", "Bearer " <> api_key}]
     req_opts = Utils.get_req_opts(opts)
 
     if model do
@@ -129,22 +130,19 @@ defmodule LlmComposer.Providers.OpenRouter do
     end
   end
 
-  defp maybe_structured_output_headers(headers, opts) do
-    has_json_schema? =
-      Keyword.has_key?(opts, :response_format) && opts[:response_format].type == "json_schema"
-
-    if has_json_schema? do
-      [{"Content-Type", "application/json"} | headers]
-    else
-      headers
-    end
-  end
-
   defp maybe_structured_output(base_request, opts) do
     response_format = Keyword.get(opts, :response_format)
 
     if response_format && is_map(response_format) do
-      Map.put_new(base_request, :response_format, response_format)
+      # Map.put_new(base_request, :response_format, response_format)
+      Map.put_new(base_request, :response_format, %{
+        "type" => "json_schema",
+        "json_schema" => %{
+          "name" => "response",
+          "strict" => true,
+          "schema" => response_format
+        }
+      })
     else
       base_request
     end

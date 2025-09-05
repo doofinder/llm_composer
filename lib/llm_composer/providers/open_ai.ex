@@ -58,6 +58,7 @@ defmodule LlmComposer.Providers.OpenAI do
 
     base_request
     |> Map.merge(req_params)
+    |> maybe_structured_output(opts)
     |> Utils.cleanup_body()
   end
 
@@ -79,6 +80,24 @@ defmodule LlmComposer.Providers.OpenAI do
     case Utils.get_config(:open_ai, :api_key, opts) do
       nil -> raise MissingKeyError
       key -> key
+    end
+  end
+
+  defp maybe_structured_output(base_request, opts) do
+    response_format = Keyword.get(opts, :response_format)
+
+    if response_format && is_map(response_format) do
+      # Map.put_new(base_request, :response_format, response_format)
+      Map.put_new(base_request, :response_format, %{
+        "type" => "json_schema",
+        "json_schema" => %{
+          "name" => "response",
+          "strict" => true,
+          "schema" => response_format
+        }
+      })
+    else
+      base_request
     end
   end
 end
