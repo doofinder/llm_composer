@@ -8,6 +8,8 @@ defmodule LlmComposer.LlmResponse do
 
   @llm_providers [:open_ai, :ollama, :open_router, :bedrock, :google]
 
+  @type provider() :: :open_ai | :ollama | :open_router | :bedrock | :google
+
   @type t() :: %__MODULE__{
           actions: [[FunctionCall.t()]] | [FunctionCall.t()],
           input_tokens: pos_integer() | nil,
@@ -15,7 +17,7 @@ defmodule LlmComposer.LlmResponse do
           metadata: map(),
           output_tokens: pos_integer() | nil,
           previous_response: map() | nil,
-          provider: atom(),
+          provider: provider(),
           raw: map(),
           status: :ok | :error,
           stream: nil | Enum.t()
