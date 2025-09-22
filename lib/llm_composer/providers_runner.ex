@@ -17,6 +17,7 @@ defmodule LlmComposer.ProvidersRunner do
   """
   @spec run(messages(), Settings.t(), Message.t()) :: {:ok, any()} | {:error, atom()}
   def run(messages, %Settings{providers: [{provider, provider_opts}]} = settings, system_msg) do
+    # only one provider, directly run it.
     provider_opts = get_provider_opts(provider_opts, settings)
     provider.run(messages, system_msg, provider_opts)
   end
@@ -28,7 +29,7 @@ defmodule LlmComposer.ProvidersRunner do
     if Process.whereis(router) == nil do
       {:error, :provider_router_not_started}
     else
-      do_run(router, providers, messages, system_msg, settings)
+      execute_with_fallback(router, providers, messages, system_msg, settings)
     end
   end
 
@@ -47,9 +48,15 @@ defmodule LlmComposer.ProvidersRunner do
     {:error, :no_providers_configured}
   end
 
-  @spec do_run(module(), [{module(), keyword()}], messages(), Message.t(), Settings.t()) ::
+  @spec execute_with_fallback(
+          module(),
+          [{module(), keyword()}],
+          messages(),
+          Message.t(),
+          Settings.t()
+        ) ::
           {:ok, any()} | {:error, atom()}
-  defp do_run(router, all_providers, messages, system_msg, settings) do
+  defp execute_with_fallback(router, all_providers, messages, system_msg, settings) do
     case router.select_provider(all_providers) do
       {:ok, {selected_provider, provider_opts}} ->
         provider_opts = get_provider_opts(provider_opts, settings)
@@ -67,7 +74,7 @@ defmodule LlmComposer.ProvidersRunner do
             ok_res
 
           {:cont, _err_res} ->
-            do_run(router, all_providers, messages, system_msg, settings)
+            execute_with_fallback(router, all_providers, messages, system_msg, settings)
         end
 
       :none_available ->
