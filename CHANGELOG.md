@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.11.0] - 2025-09-23
+
 - **Implement multi-provider support with provider routing and failover:**
   - Introduced a new `:providers` list in `LlmComposer.Settings` to replace deprecated `:provider` and `:provider_opts` keys.
   - Added validation in `LlmComposer` to enforce/suggest exclusive use of `:providers` and warn about deprecated keys.
@@ -87,7 +89,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.10.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.11.0...HEAD
+[0.11.0]: https://github.com/doofinder/llm_composer/compare/0.10.0...0.11.0
 [0.10.0]: https://github.com/doofinder/llm_composer/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/doofinder/llm_composer/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/doofinder/llm_composer/compare/0.7.0...0.8.0
