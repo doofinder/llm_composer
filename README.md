@@ -54,7 +54,7 @@ The following table shows which features are supported by each provider:
 | Streaming | ✅ | ✅ | ✅ | ❌ | ✅ |
 | Function Calls | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Auto Function Execution | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Structured Outputs | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Structured Outputs | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ |
 

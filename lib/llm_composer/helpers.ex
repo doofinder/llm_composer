@@ -64,7 +64,26 @@ defmodule LlmComposer.Helpers do
         &Message.new(:function_result, serialize_fcall_result(&1.result), %{fcall: &1})
       )
 
-    new_messages = messages ++ [oldres.main_response] ++ results
+    original =
+      case oldres do
+        %LlmComposer.LlmResponse{main_response: %Message{metadata: metadata}} -> Map.get(metadata, :original)
+        _ -> nil
+      end
+
+    assistant_msg =
+      cond do
+        is_map(original) and (Map.has_key?(original, "tool_calls") or Map.has_key?(original, "parts")) ->
+          # some providers (OpenAI/OpenRouter/Google) require the assistant message
+          # to include the original tool_calls / functionCall structure and have nil content,
+          # so we recreate the assistant message with metadata.original preserved.
+          Message.new(:assistant, nil, %{original: original})
+
+        true ->
+          # fallback to the existing main_response
+          oldres.main_response
+      end
+
+    new_messages = messages ++ [assistant_msg] ++ results
 
     run_completion_fn.(new_messages)
   end
