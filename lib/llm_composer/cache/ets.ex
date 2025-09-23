@@ -26,12 +26,12 @@ defmodule LlmComposer.Cache.Ets do
 
   @impl LlmComposer.Cache.Behaviour
   def put(key, value, ttl_seconds, server \\ __MODULE__) do
-    GenServer.call(server, {:put, key, value, ttl_seconds})
+    GenServer.cast(server, {:put, key, value, ttl_seconds})
   end
 
   @impl LlmComposer.Cache.Behaviour
   def delete(key, server \\ __MODULE__) do
-    GenServer.call(server, {:delete, key})
+    GenServer.cast(server, {:delete, key})
   end
 
   # Server callbacks
@@ -63,15 +63,16 @@ defmodule LlmComposer.Cache.Ets do
     end
   end
 
-  def handle_call({:put, key, value, ttl_seconds}, _from, %{table: table} = state) do
+  @impl GenServer
+  def handle_cast({:put, key, value, ttl_seconds}, %{table: table} = state) do
     expires_at = System.system_time(:second) + ttl_seconds
     :ets.insert(table, {key, value, expires_at})
-    {:reply, :ok, state}
+    {:noreply, state}
   end
 
-  def handle_call({:delete, key}, _from, %{table: table} = state) do
+  def handle_cast({:delete, key}, %{table: table} = state) do
     :ets.delete(table, key)
-    {:reply, :ok, state}
+    {:noreply, state}
   end
 
   @impl GenServer

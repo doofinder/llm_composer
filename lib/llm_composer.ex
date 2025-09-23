@@ -11,8 +11,9 @@ defmodule LlmComposer do
   ```elixir
   # Define the settings for your LlmComposer instance
   settings = %LlmComposer.Settings{
-    provider: LlmComposer.Providers.OpenAI,
-    provider_opts: [model: "gpt-4o-mini"],
+    providers: [
+      {LlmComposer.Providers.OpenAI,  [model: "gpt-4.1-mini"]}
+    ],
     system_prompt: "You are a helpful assistant.",
     user_prompt_prefix: "",
     auto_exec_functions: false,
@@ -45,9 +46,17 @@ defmodule LlmComposer do
   alias LlmComposer.Helpers
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
+  alias LlmComposer.ProvidersRunner
   alias LlmComposer.Settings
 
   require Logger
+
+  @deprecated_msg """
+  The settings keys :provider and :provider_opts are deprecated and will be removed in version 0.12.0.
+  Please migrate your configuration to use the :providers list instead.
+  """
+
+  @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
 
   @type messages :: [Message.t()]
 
@@ -63,6 +72,8 @@ defmodule LlmComposer do
   """
   @spec simple_chat(Settings.t(), String.t()) :: Helpers.action_result()
   def simple_chat(%Settings{} = settings, msg) do
+    validate_settings(settings)
+
     messages = [Message.new(:user, user_prompt(settings, msg, %{}))]
 
     run_completion(settings, messages)
@@ -82,18 +93,18 @@ defmodule LlmComposer do
   @spec run_completion(Settings.t(), messages(), LlmResponse.t() | nil) ::
           Helpers.action_result()
   def run_completion(settings, messages, previous_response \\ nil) do
+    validate_settings(settings)
+
+    if settings.api_key && settings.api_key != "" do
+      Logger.warning(
+        "The :api_key setting in Settings struct is deprecated and will be removed in version 0.12.0. Please specify :api_key inside each provider's options in the :providers list."
+      )
+    end
+
     system_msg = Message.new(:system, settings.system_prompt)
 
-    provider_opts =
-      Keyword.merge(settings.provider_opts,
-        functions: settings.functions,
-        stream_response: settings.stream_response,
-        api_key: settings.api_key,
-        track_costs: settings.track_costs
-      )
-
     messages
-    |> settings.provider.run(system_msg, provider_opts)
+    |> ProvidersRunner.run(settings, system_msg)
     |> then(fn
       {:ok, res} ->
         # set previous response all the time
@@ -133,13 +144,13 @@ defmodule LlmComposer do
       provider_opts: [model: "llama3.2"],
       stream_response: true
     }
-    
+
     messages = [
       %LlmComposer.Message{type: :user, content: "Tell me a short story"}
     ]
-    
+
     {:ok, res} = LlmComposer.run_completion(settings, messages)
-    
+
     # Process the stream and print each parsed chunk
     res.stream
     |> LlmComposer.parse_stream_response()
@@ -153,15 +164,7 @@ defmodule LlmComposer do
   def parse_stream_response(stream) do
     stream
     |> Stream.filter(fn chunk -> chunk != "[DONE]" end)
-    |> Stream.map(fn data ->
-      case Jason.decode(data) do
-        {:ok, parsed} ->
-          parsed
-
-        {:error, _error} ->
-          nil
-      end
-    end)
+    |> Stream.map(fn data -> @json_mod.decode!(data) end)
     |> Stream.filter(fn content -> content != nil and content != "" end)
   end
 
@@ -178,5 +181,26 @@ defmodule LlmComposer do
     |> Helpers.maybe_complete_chat(messages, fn new_messages ->
       run_completion(settings, new_messages, res)
     end)
+  end
+
+  @spec validate_settings(Settings.t()) :: :ok
+  defp validate_settings(%Settings{
+         providers: providers,
+         provider: provider
+       }) do
+    cond do
+      is_list(providers) and provider != nil ->
+        raise ArgumentError,
+              "Settings cannot contain both :providers and deprecated :provider/:provider_opts simultaneously. " <>
+                "Please use only :providers. " <>
+                "Current settings: providers=#{inspect(providers)}, provider=#{inspect(provider)}"
+
+      provider != nil ->
+        Logger.warning(@deprecated_msg)
+        :ok
+
+      true ->
+        :ok
+    end
   end
 end

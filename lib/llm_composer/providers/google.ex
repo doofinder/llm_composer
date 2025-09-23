@@ -30,7 +30,7 @@ defmodule LlmComposer.Providers.Google do
 
   * `:api_key` - Google API key (overrides application config, for Google AI API only)
   * `:vertex` - Vertex AI configuration map (see Vertex AI section below)
-  * `:google_goth` - Name of the Goth process for Vertex AI authentication (overrides application config)
+  * `:goth` - Name of the Goth process for Vertex AI authentication (overrides application config)
 
   ### Request Options
 
@@ -40,7 +40,7 @@ defmodule LlmComposer.Providers.Google do
 
   ### Response Format Options
 
-  * `:response_format` - Map defining structured output schema for JSON responses
+  * `:response_schema` - Map defining structured output schema for JSON responses
 
   ## Vertex AI Configuration
 
@@ -87,11 +87,12 @@ defmodule LlmComposer.Providers.Google do
   ])
 
   # Configure LlmComposer to use your Goth process
-  Application.put_env(:llm_composer, :google_goth, MyApp.Goth)
+  Application.put_env(:llm_composer, :google, goth: MyApp.Goth)
 
   # Provider options
   opts = [
     model: "gemini-2.5-flash",
+    goth: MyApp.Goth,
     vertex: %{
       project_id: "my-gcp-project",
       location_id: "global"
@@ -119,7 +120,7 @@ defmodule LlmComposer.Providers.Google do
   end
 
   # Configure in config.exs
-  config :llm_composer, :google_goth, MyApp.Goth
+  config :llm_composer, :google, goth: MyApp.Goth
   ```
 
   ## Authentication
@@ -127,7 +128,7 @@ defmodule LlmComposer.Providers.Google do
   ### Google AI API
   Set your API key in application config:
   ```elixir
-  config :llm_composer, :google_key, "your-google-ai-api-key"
+  config :llm_composer, :google, api_key: "your-google-ai-api-key"
   ```
 
   Or pass it directly in options:
@@ -153,14 +154,14 @@ defmodule LlmComposer.Providers.Google do
 
   Configure the Goth process name in your application config:
   ```elixir
-  config :llm_composer, :google_goth, MyApp.Goth
+  config :llm_composer, :google, goth: MyApp.Goth
   ```
 
   Or pass it directly in provider options:
   ```elixir
   opts = [
     model: "gemini-pro",
-    google_goth: MyApp.Goth,
+    goth: MyApp.Goth,
     vertex: %{project_id: "my-project", location_id: "global"}
   ]
   ```
@@ -199,12 +200,6 @@ defmodule LlmComposer.Providers.Google do
   alias LlmComposer.Providers.Utils
 
   require Logger
-
-  @base_url Application.compile_env(
-              :llm_composer,
-              :google_url,
-              "https://generativelanguage.googleapis.com/v1beta/models/"
-            )
 
   @impl LlmComposer.Provider
   def name, do: :google
@@ -274,8 +269,8 @@ defmodule LlmComposer.Providers.Google do
     {:error, reason}
   end
 
-  defp get_key do
-    case Application.get_env(:llm_composer, :google_key) do
+  defp get_key(opts) do
+    case Utils.get_config(:google, :api_key, opts) do
       nil -> raise MissingKeyError
       key -> key
     end
@@ -292,14 +287,14 @@ defmodule LlmComposer.Providers.Google do
 
   @spec maybe_add_structured_outputs(map(), keyword()) :: map()
   defp maybe_add_structured_outputs(base_req, opts) do
-    case Keyword.get(opts, :response_format) do
+    case Keyword.get(opts, :response_schema) do
       nil ->
         base_req
 
       response_schema ->
         Map.put(base_req, :generationConfig, %{
           responseMimeType: "application/json",
-          responseSchema: response_schema
+          responseSchema: remove_additional_properties(response_schema)
         })
     end
   end
@@ -314,12 +309,21 @@ defmodule LlmComposer.Providers.Google do
   defp get_request_data(opts) do
     case Keyword.get(opts, :vertex) do
       nil ->
-        token = Keyword.get(opts, :api_key) || get_key()
+        token = get_key(opts)
+
+        base_url =
+          Utils.get_config(
+            :google,
+            :url,
+            opts,
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+          )
+
         headers = [{"X-GOOG-API-KEY", token}]
-        {@base_url, headers}
+        {base_url, headers}
 
       %{project_id: project_id, location_id: location_id} = vertex ->
-        name = Keyword.get(opts, :google_goth) || Application.get_env(:llm_composer, :google_goth)
+        name = Utils.get_config(:google, :goth, opts)
 
         %{token: token} = Goth.fetch!(name)
 
@@ -343,4 +347,23 @@ defmodule LlmComposer.Providers.Google do
 
   defp get_vertex_endpoint(_data, "global"), do: "aiplatform.googleapis.com"
   defp get_vertex_endpoint(_data, location_id), do: "#{location_id}-aiplatform.googleapis.com"
+
+  # Recursively remove "additionalProperties" keys from maps, google api fails if provided.
+  # This key is present for some other providers but here we just remove it
+  @spec remove_additional_properties(term()) :: term()
+  defp remove_additional_properties(map) when is_map(map) do
+    map
+    |> Map.delete("additionalProperties")
+    |> Map.delete(:additionalProperties)
+    |> Enum.map(fn {key, value} -> {key, remove_additional_properties(value)} end)
+    |> Map.new()
+  end
+
+  # Handle lists by recursively processing each element
+  defp remove_additional_properties(list) when is_list(list) do
+    Enum.map(list, &remove_additional_properties/1)
+  end
+
+  # Return other types unchanged
+  defp remove_additional_properties(value), do: value
 end

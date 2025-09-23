@@ -14,12 +14,6 @@ defmodule LlmComposer.Providers.OpenRouter do
 
   require Logger
 
-  @base_url Application.compile_env(
-              :llm_composer,
-              :open_router_url,
-              "https://openrouter.ai/api/v1"
-            )
-
   @impl LlmComposer.Provider
   def name, do: :open_router
 
@@ -29,10 +23,11 @@ defmodule LlmComposer.Providers.OpenRouter do
   """
   def run(messages, system_message, opts) do
     model = Keyword.get(opts, :model)
-    api_key = Keyword.get(opts, :api_key) || get_key()
-    client = HttpClient.client(@base_url, opts)
+    api_key = get_key(opts)
+    base_url = get_base_url(opts)
+    client = HttpClient.client(base_url, opts)
 
-    headers = maybe_structured_output_headers([{"Authorization", "Bearer " <> api_key}], opts)
+    headers = [{"Authorization", "Bearer " <> api_key}]
     req_opts = Utils.get_req_opts(opts)
 
     if model do
@@ -46,8 +41,10 @@ defmodule LlmComposer.Providers.OpenRouter do
     end
   end
 
-  @spec get_base_url() :: binary
-  def get_base_url, do: @base_url
+  # function required for costs tracking
+  @spec get_base_url(keyword()) :: binary
+  def get_base_url(opts \\ []),
+    do: Utils.get_config(:open_router, :url, opts, "https://openrouter.ai/api/v1")
 
   defp build_request(messages, system_message, model, opts) do
     tools =
@@ -105,8 +102,8 @@ defmodule LlmComposer.Providers.OpenRouter do
     {:error, reason}
   end
 
-  defp get_key do
-    case Application.get_env(:llm_composer, :open_router_key) do
+  defp get_key(opts) do
+    case Utils.get_config(:open_router, :api_key, opts) do
       nil -> raise MissingKeyError
       key -> key
     end
@@ -125,29 +122,25 @@ defmodule LlmComposer.Providers.OpenRouter do
   defp maybe_provider_routing(base_request, opts) do
     provider_routing = Keyword.get(opts, :provider_routing)
 
-    if provider_routing && is_map(provider_routing) do
+    if is_map(provider_routing) do
       Map.put_new(base_request, :provider, provider_routing)
     else
       base_request
     end
   end
 
-  defp maybe_structured_output_headers(headers, opts) do
-    has_json_schema? =
-      Keyword.has_key?(opts, :response_format) && opts[:response_format].type == "json_schema"
-
-    if has_json_schema? do
-      [{"Content-Type", "application/json"} | headers]
-    else
-      headers
-    end
-  end
-
   defp maybe_structured_output(base_request, opts) do
-    response_format = Keyword.get(opts, :response_format)
+    response_schema = Keyword.get(opts, :response_schema)
 
-    if response_format && is_map(response_format) do
-      Map.put_new(base_request, :response_format, response_format)
+    if is_map(response_schema) do
+      Map.put_new(base_request, :response_format, %{
+        "type" => "json_schema",
+        "json_schema" => %{
+          "name" => "response",
+          "strict" => true,
+          "schema" => response_schema
+        }
+      })
     else
       base_request
     end
