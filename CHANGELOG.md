@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.11.1] - 2025-09-23
+
 - Added OpenRouter function-call support and provider message-mapping fixes; preserved assistant tool_calls during auto-executed functions.
 
 ## [0.11.0] - 2025-09-23
@@ -91,7 +93,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.11.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.11.1...HEAD
+[0.11.1]: https://github.com/doofinder/llm_composer/compare/0.11.0...0.11.1
 [0.11.0]: https://github.com/doofinder/llm_composer/compare/0.10.0...0.11.0
 [0.10.0]: https://github.com/doofinder/llm_composer/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/doofinder/llm_composer/compare/0.8.0...0.9.0
