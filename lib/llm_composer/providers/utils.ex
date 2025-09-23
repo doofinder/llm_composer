@@ -46,9 +46,7 @@ defmodule LlmComposer.Providers.Utils do
     |> Enum.reject(&is_nil/1)
   end
 
-  def map_messages(messages, :open_router) do
-    map_messages(messages, :open_ai)
-  end
+  def map_messages(messages, :open_router), do: map_messages(messages, :open_ai)
 
   def map_messages(messages, :google) do
     messages
