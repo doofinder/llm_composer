@@ -25,12 +25,7 @@ defmodule LlmComposer.ProvidersRunner do
   def run(messages, %Settings{providers: providers} = settings, system_msg)
       when is_list(providers) and length(providers) > 1 do
     router = get_provider_router()
-
-    if Process.whereis(router) == nil do
-      {:error, :provider_router_not_started}
-    else
-      execute_with_fallback(router, providers, messages, system_msg, settings)
-    end
+    execute_with_fallback(router, providers, messages, system_msg, settings)
   end
 
   # old case, TODO: remove for llm_composer 0.12.0
