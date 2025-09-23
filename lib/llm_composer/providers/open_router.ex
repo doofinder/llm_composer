@@ -56,7 +56,7 @@ defmodule LlmComposer.Providers.OpenRouter do
       model: model,
       tools: tools,
       stream: Keyword.get(opts, :stream_response),
-      messages: Utils.map_messages([system_message | messages])
+      messages: Utils.map_messages([system_message | messages], name())
     }
 
     req_params = Keyword.get(opts, :request_params, %{})

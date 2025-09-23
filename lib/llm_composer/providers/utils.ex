@@ -46,6 +46,8 @@ defmodule LlmComposer.Providers.Utils do
     |> Enum.reject(&is_nil/1)
   end
 
+  def map_messages(messages, :open_router), do: map_messages(messages, :open_ai)
+
   def map_messages(messages, :google) do
     messages
     |> Stream.map(fn
@@ -173,7 +175,7 @@ defmodule LlmComposer.Providers.Utils do
   end
 
   defp transform_fn_to_tool(%LlmComposer.Function{} = function, provider)
-       when provider in [:open_ai, :ollama] do
+       when provider in [:open_ai, :ollama, :open_router] do
     %{
       type: "function",
       function: %{

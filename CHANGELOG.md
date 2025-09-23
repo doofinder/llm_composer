@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+- Added OpenRouter function-call support and provider message-mapping fixes; preserved assistant tool_calls during auto-executed functions.
+
 ## [0.11.0] - 2025-09-23
 
 - **Implement multi-provider support with provider routing and failover:**
