@@ -520,7 +520,8 @@ defmodule StreamingChat do
     res.stream
     |> LlmComposer.parse_stream_response()
     |> Enum.each(fn data ->
-      IO.write(data)  # Print each chunk in real-time
+      # Print each chunk in real-time, it is a Map with google structure for this case
+      IO.inspect(data)
     end)
   end
 end
