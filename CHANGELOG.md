@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+- Updated README a bit more docs and examples. Included in new release for hex docs too.
+
 ## [0.11.1] - 2025-09-23
 
 - Added OpenRouter function-call support and provider message-mapping fixes; preserved assistant tool_calls during auto-executed functions.
