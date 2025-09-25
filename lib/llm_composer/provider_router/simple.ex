@@ -56,7 +56,7 @@ defmodule LlmComposer.ProviderRouter.Simple do
                 :llm_composer_provider_blocks
               )
 
-  @long_ttl_seconds :timer.hours(24) * 10
+  @long_ttl_seconds 24 * 3600 * 10
 
   @doc """
   Initialize the ETS table for storing provider blocking state.

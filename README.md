@@ -532,13 +532,6 @@ end
 StreamingChat.run_streaming_chat()
 ```
 
-Example of execution:
-
-```
-The Roman Empire grew to become one of the largest empires in history through a combination of military prowess, strategic expansion, political innovation, and cultural assimilation...
-[Content streams in real-time as the model generates it]
-```
-
 The streaming response allows you to display content to users as it's being generated, providing a better user experience for longer responses.
 
 ### Structured Outputs

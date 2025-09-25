@@ -19,7 +19,7 @@ defmodule LlmComposer.Providers.OpenAI do
   Reference: https://platform.openai.com/docs/api-reference/chat/create
   """
   def run(messages, system_message, opts) do
-    model = Keyword.fetch!(opts, :model)
+    model = Keyword.get(opts, :model)
     api_key = get_key(opts)
     base_url = Utils.get_config(:open_ai, :url, opts, "https://api.openai.com/v1")
     client = HttpClient.client(base_url, opts)
