@@ -30,6 +30,7 @@ defmodule LlmComposer.MixProject do
     is_json_present? = Code.ensure_loaded?(JSON)
 
     [
+      {:bypass, "~> 2.1", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:decimal, "~> 2.3", optional: true},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
