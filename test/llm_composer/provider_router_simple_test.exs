@@ -1,9 +1,9 @@
 defmodule LlmComposer.ProviderRouterSimpleTest do
   use ExUnit.Case, async: true
 
-  alias LlmComposer.Providers.OpenAI
-  alias LlmComposer.Providers.Google
   alias LlmComposer.ProviderRouter.Simple
+  alias LlmComposer.Providers.Google
+  alias LlmComposer.Providers.OpenAI
   alias LlmComposer.Settings
 
   setup do
