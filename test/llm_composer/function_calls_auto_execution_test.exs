@@ -649,6 +649,7 @@ defmodule LlmComposer.FunctionCallsAutoExecutionTest do
   end
 
   # Test helper functions
+  @spec calculator(map()) :: integer() | float() | {:error, String.t()}
   def calculator(%{"expression" => expression}) do
     # Simple calculator for testing
     case expression do
