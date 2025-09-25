@@ -3,6 +3,10 @@
 ## Build/Test Commands
 - **Run tests**: `mix test`
 - **Run single test**: `mix test test/path_to_test.exs`
+- **Run tests with coverage**: `mix test --cover`
+- **Coverage console report**: `mix coveralls`
+- **Coverage HTML report**: `mix coveralls.html`
+- **Coverage JSON report**: `mix coveralls.json`
 - **Format code**: `mix format`
 - **Lint code**: `mix credo`
 - **Type check**: `mix dialyzer`

@@ -10,24 +10,17 @@ defmodule LlmComposer.Providers.OpenAITest do
   end
 
   test "simple chat with 'hi' returns expected response", %{bypass: bypass} do
-    # Mock the OpenAI API response
     Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
-      # Verify the request structure
       {:ok, body, _conn} = Plug.Conn.read_body(conn)
-
-      # Parse the request body to verify it contains our message
       request_data = Jason.decode!(body)
 
-      # Check that messages contain our "hi" message
       messages = request_data["messages"]
       user_message = Enum.find(messages, &(&1["role"] == "user"))
       assert user_message["content"] == "hi"
 
-      # Check that system message is included
       system_message = Enum.find(messages, &(&1["role"] == "system"))
       assert system_message["content"] == "You are a helpful assistant"
 
-      # Return a mock response
       response_body = %{
         "id" => "chatcmpl-123",
         "object" => "chat.completion",
@@ -55,12 +48,11 @@ defmodule LlmComposer.Providers.OpenAITest do
       |> Plug.Conn.resp(200, Jason.encode!(response_body))
     end)
 
-    # Create settings with mocked URL
     settings = %Settings{
       providers: [
         {OpenAI,
          [
-           model: "gpt-3.5-turbo",
+           model: "gpt-4.1-mini",
            api_key: "test-key",
            url: endpoint_url(bypass.port)
          ]}
@@ -68,10 +60,7 @@ defmodule LlmComposer.Providers.OpenAITest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Test the simple chat
     {:ok, response} = LlmComposer.simple_chat(settings, "hi")
-
-    # Verify the response
     assert response.main_response.type == :assistant
     assert response.main_response.content == "Hello! How can I help you today?"
     assert response.input_tokens == 20
@@ -80,7 +69,6 @@ defmodule LlmComposer.Providers.OpenAITest do
   end
 
   test "handles API errors gracefully", %{bypass: bypass} do
-    # Mock an error response
     Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
       error_body = %{
         "error" => %{
@@ -99,7 +87,7 @@ defmodule LlmComposer.Providers.OpenAITest do
       providers: [
         {OpenAI,
          [
-           model: "gpt-3.5-turbo",
+           model: "gpt-4.1-mini",
            api_key: "invalid-key",
            url: endpoint_url(bypass.port)
          ]}
@@ -107,20 +95,18 @@ defmodule LlmComposer.Providers.OpenAITest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should return an error
     result = LlmComposer.simple_chat(settings, "hi")
     assert {:error, _} = result
   end
 
   test "handles network errors", %{bypass: bypass} do
-    # Simulate network failure
     Bypass.down(bypass)
 
     settings = %Settings{
       providers: [
         {OpenAI,
          [
-           model: "gpt-3.5-turbo",
+           model: "gpt-4.1-mini",
            api_key: "test-key",
            url: endpoint_url(bypass.port)
          ]}
@@ -128,7 +114,6 @@ defmodule LlmComposer.Providers.OpenAITest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should return an error due to network failure
     result = LlmComposer.simple_chat(settings, "hi")
     assert {:error, _} = result
   end
@@ -138,15 +123,13 @@ defmodule LlmComposer.Providers.OpenAITest do
       providers: [
         {OpenAI,
          [
-           model: "gpt-3.5-turbo",
-           # No api_key provided
+           model: "gpt-4.1-mini",
            url: endpoint_url(bypass.port)
          ]}
       ],
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should raise MissingKeyError
     assert_raise LlmComposer.Errors.MissingKeyError, fn ->
       LlmComposer.simple_chat(settings, "hi")
     end
@@ -157,7 +140,6 @@ defmodule LlmComposer.Providers.OpenAITest do
       providers: [
         {OpenAI,
          [
-           # No model provided
            api_key: "test-key",
            url: endpoint_url(bypass.port)
          ]}
@@ -165,7 +147,6 @@ defmodule LlmComposer.Providers.OpenAITest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should return error for missing model
     result = LlmComposer.simple_chat(settings, "hi")
     assert {:error, :model_not_provided} = result
   end

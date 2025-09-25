@@ -11,24 +11,17 @@ defmodule LlmComposer.Providers.OpenRouterTest do
   end
 
   test "simple chat with 'hi' returns expected response", %{bypass: bypass} do
-    # Mock the OpenRouter API response
     Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
-      # Verify the request structure
       {:ok, body, _conn} = Plug.Conn.read_body(conn)
-
-      # Parse the request body to verify it contains our message
       request_data = Jason.decode!(body)
 
-      # Check that messages contain our "hi" message
       messages = request_data["messages"]
       user_message = Enum.find(messages, &(&1["role"] == "user"))
       assert user_message["content"] == "hi"
 
-      # Check that system message is included
       system_message = Enum.find(messages, &(&1["role"] == "system"))
       assert system_message["content"] == "You are a helpful assistant"
 
-      # Return a mock response
       response_body = %{
         "id" => "chatcmpl-router-123",
         "object" => "chat.completion",
@@ -56,7 +49,6 @@ defmodule LlmComposer.Providers.OpenRouterTest do
       |> Plug.Conn.resp(200, Jason.encode!(response_body))
     end)
 
-    # Create settings with mocked URL
     settings = %Settings{
       providers: [
         {OpenRouter,
@@ -69,10 +61,7 @@ defmodule LlmComposer.Providers.OpenRouterTest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Test the simple chat
     {:ok, response} = LlmComposer.simple_chat(settings, "hi")
-
-    # Verify the response
     assert response.main_response.type == :assistant
     assert response.main_response.content == "Hello! How can I help you today?"
     assert response.input_tokens == 20
@@ -85,7 +74,6 @@ defmodule LlmComposer.Providers.OpenRouterTest do
       {:ok, body, _conn} = Plug.Conn.read_body(conn)
       request_data = Jason.decode!(body)
 
-      # Check that fallback models are included
       assert request_data["models"] == ["anthropic/claude-3-haiku:beta", "openai/gpt-3.5-turbo"]
 
       response_body = %{
@@ -120,7 +108,6 @@ defmodule LlmComposer.Providers.OpenRouterTest do
       {:ok, body, _conn} = Plug.Conn.read_body(conn)
       request_data = Jason.decode!(body)
 
-      # Check that provider routing is included
       expected_routing = %{"order" => ["Anthropic", "OpenAI"], "allow_fallbacks" => true}
       assert request_data["provider"] == expected_routing
 
@@ -185,7 +172,6 @@ defmodule LlmComposer.Providers.OpenRouterTest do
   end
 
   test "handles API errors gracefully", %{bypass: bypass} do
-    # Mock an error response
     Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
       error_body = %{
         "error" => %{
@@ -212,13 +198,11 @@ defmodule LlmComposer.Providers.OpenRouterTest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should return an error
     result = LlmComposer.simple_chat(settings, "hi")
     assert {:error, _} = result
   end
 
   test "handles network errors", %{bypass: bypass} do
-    # Simulate network failure
     Bypass.down(bypass)
 
     settings = %Settings{
@@ -233,7 +217,6 @@ defmodule LlmComposer.Providers.OpenRouterTest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should return an error due to network failure
     result = LlmComposer.simple_chat(settings, "hi")
     assert {:error, _} = result
   end
@@ -244,14 +227,12 @@ defmodule LlmComposer.Providers.OpenRouterTest do
         {OpenRouter,
          [
            model: "anthropic/claude-3-haiku:beta",
-           # No api_key provided
            url: endpoint_url(bypass.port)
          ]}
       ],
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should raise MissingKeyError
     assert_raise LlmComposer.Errors.MissingKeyError, fn ->
       LlmComposer.simple_chat(settings, "hi")
     end
@@ -262,7 +243,6 @@ defmodule LlmComposer.Providers.OpenRouterTest do
       providers: [
         {OpenRouter,
          [
-           # No model provided
            api_key: "test-key",
            url: endpoint_url(bypass.port)
          ]}
@@ -270,7 +250,6 @@ defmodule LlmComposer.Providers.OpenRouterTest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should return error for missing model
     result = LlmComposer.simple_chat(settings, "hi")
     assert {:error, :model_not_provided} = result
   end
@@ -288,7 +267,6 @@ defmodule LlmComposer.Providers.OpenRouterTest do
       {:ok, body, _conn} = Plug.Conn.read_body(conn)
       request_data = Jason.decode!(body)
 
-      # Check that structured output is included
       response_format = request_data["response_format"]
       assert response_format["type"] == "json_schema"
       assert response_format["json_schema"]["name"] == "response"

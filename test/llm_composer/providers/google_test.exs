@@ -10,28 +10,21 @@ defmodule LlmComposer.Providers.GoogleTest do
   end
 
   test "simple chat with 'hi' returns expected response", %{bypass: bypass} do
-    # Mock the Google AI API response
     Bypass.expect_once(
       bypass,
       "POST",
-      "/v1beta/models/gemini-1.5-flash:generateContent",
+      "/v1beta/models/gemini-2.5-flash:generateContent",
       fn conn ->
-        # Verify the request structure
         {:ok, body, _conn} = Plug.Conn.read_body(conn)
-
-        # Parse the request body to verify it contains our message
         request_data = Jason.decode!(body)
 
-        # Check that contents contain our "hi" message
         contents = request_data["contents"]
         user_content = Enum.find(contents, &(&1["role"] == "user"))
         assert user_content["parts"] == [%{"text" => "hi"}]
 
-        # Check that system instruction is included
         system_instruction = request_data["system_instruction"]
         assert system_instruction["parts"] == [%{"text" => "You are a helpful assistant"}]
 
-        # Return a mock response
         response_body = %{
           "candidates" => [
             %{
@@ -56,12 +49,11 @@ defmodule LlmComposer.Providers.GoogleTest do
       end
     )
 
-    # Create settings with mocked URL
     settings = %Settings{
       providers: [
         {Google,
          [
-           model: "gemini-1.5-flash",
+           model: "gemini-2.5-flash",
            api_key: "test-key",
            url: endpoint_url(bypass.port)
          ]}
@@ -69,10 +61,7 @@ defmodule LlmComposer.Providers.GoogleTest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Test the simple chat
     {:ok, response} = LlmComposer.simple_chat(settings, "hi")
-
-    # Verify the response
     assert response.main_response.type == :assistant
     assert response.main_response.content == "Hello! How can I help you today?"
     assert response.input_tokens == 20
@@ -92,12 +81,11 @@ defmodule LlmComposer.Providers.GoogleTest do
     Bypass.expect_once(
       bypass,
       "POST",
-      "/v1beta/models/gemini-1.5-flash:generateContent",
+      "/v1beta/models/gemini-2.5-flash:generateContent",
       fn conn ->
         {:ok, body, _conn} = Plug.Conn.read_body(conn)
         request_data = Jason.decode!(body)
 
-        # Check that structured output is included
         generation_config = request_data["generationConfig"]
         assert generation_config["responseMimeType"] == "application/json"
         assert generation_config["responseSchema"]["type"] == "object"
@@ -128,7 +116,7 @@ defmodule LlmComposer.Providers.GoogleTest do
       providers: [
         {Google,
          [
-           model: "gemini-1.5-flash",
+           model: "gemini-2.5-flash",
            response_schema: schema,
            api_key: "test-key",
            url: endpoint_url(bypass.port)
@@ -158,12 +146,11 @@ defmodule LlmComposer.Providers.GoogleTest do
     Bypass.expect_once(
       bypass,
       "POST",
-      "/v1beta/models/gemini-1.5-flash:generateContent",
+      "/v1beta/models/gemini-2.5-flash:generateContent",
       fn conn ->
         {:ok, body, _conn} = Plug.Conn.read_body(conn)
         request_data = Jason.decode!(body)
 
-        # Check that tools are included
         tools = request_data["tools"]
         assert is_list(tools)
         assert length(tools) == 1
@@ -199,7 +186,7 @@ defmodule LlmComposer.Providers.GoogleTest do
       providers: [
         {Google,
          [
-           model: "gemini-1.5-flash",
+           model: "gemini-2.5-flash",
            functions: functions,
            api_key: "test-key",
            url: endpoint_url(bypass.port)
@@ -212,11 +199,10 @@ defmodule LlmComposer.Providers.GoogleTest do
   end
 
   test "handles API errors gracefully", %{bypass: bypass} do
-    # Mock an error response
     Bypass.expect_once(
       bypass,
       "POST",
-      "/v1beta/models/gemini-1.5-flash:generateContent",
+      "/v1beta/models/gemini-2.5-flash:generateContent",
       fn conn ->
         error_body = %{
           "error" => %{
@@ -236,7 +222,7 @@ defmodule LlmComposer.Providers.GoogleTest do
       providers: [
         {Google,
          [
-           model: "gemini-1.5-flash",
+           model: "gemini-2.5-flash",
            api_key: "invalid-key",
            url: endpoint_url(bypass.port)
          ]}
@@ -244,20 +230,18 @@ defmodule LlmComposer.Providers.GoogleTest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should return an error
     result = LlmComposer.simple_chat(settings, "hi")
     assert {:error, _} = result
   end
 
   test "handles network errors", %{bypass: bypass} do
-    # Simulate network failure
     Bypass.down(bypass)
 
     settings = %Settings{
       providers: [
         {Google,
          [
-           model: "gemini-1.5-flash",
+           model: "gemini-2.5-flash",
            api_key: "test-key",
            url: endpoint_url(bypass.port)
          ]}
@@ -265,7 +249,6 @@ defmodule LlmComposer.Providers.GoogleTest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should return an error due to network failure
     result = LlmComposer.simple_chat(settings, "hi")
     assert {:error, _} = result
   end
@@ -275,15 +258,13 @@ defmodule LlmComposer.Providers.GoogleTest do
       providers: [
         {Google,
          [
-           model: "gemini-1.5-flash",
-           # No api_key provided
+           model: "gemini-2.5-flash",
            url: endpoint_url(bypass.port)
          ]}
       ],
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should raise MissingKeyError
     assert_raise LlmComposer.Errors.MissingKeyError, fn ->
       LlmComposer.simple_chat(settings, "hi")
     end
@@ -294,7 +275,6 @@ defmodule LlmComposer.Providers.GoogleTest do
       providers: [
         {Google,
          [
-           # No model provided
            api_key: "test-key",
            url: endpoint_url(bypass.port)
          ]}
@@ -302,7 +282,6 @@ defmodule LlmComposer.Providers.GoogleTest do
       system_prompt: "You are a helpful assistant"
     }
 
-    # Should return error for missing model
     result = LlmComposer.simple_chat(settings, "hi")
     assert {:error, :model_not_provided} = result
   end
@@ -311,9 +290,8 @@ defmodule LlmComposer.Providers.GoogleTest do
     Bypass.expect_once(
       bypass,
       "POST",
-      "/v1beta/models/gemini-1.5-flash:streamGenerateContent",
+      "/v1beta/models/gemini-2.5-flash:streamGenerateContent",
       fn conn ->
-        # Verify it's hitting the streaming endpoint
         response_body = %{
           "candidates" => [
             %{
@@ -335,7 +313,7 @@ defmodule LlmComposer.Providers.GoogleTest do
       providers: [
         {Google,
          [
-           model: "gemini-1.5-flash",
+           model: "gemini-2.5-flash",
            stream_response: true,
            api_key: "test-key",
            url: endpoint_url(bypass.port)
@@ -353,11 +331,9 @@ defmodule LlmComposer.Providers.GoogleTest do
       "properties" => %{
         "answer" => %{"type" => "string"}
       },
-      # This should be removed
       "additionalProperties" => false,
       "nested" => %{
         "type" => "object",
-        # This should also be removed
         "additionalProperties" => true
       }
     }
@@ -365,7 +341,7 @@ defmodule LlmComposer.Providers.GoogleTest do
     Bypass.expect_once(
       bypass,
       "POST",
-      "/v1beta/models/gemini-1.5-flash:generateContent",
+      "/v1beta/models/gemini-2.5-flash:generateContent",
       fn conn ->
         {:ok, body, _conn} = Plug.Conn.read_body(conn)
         request_data = Jason.decode!(body)
@@ -373,7 +349,6 @@ defmodule LlmComposer.Providers.GoogleTest do
         generation_config = request_data["generationConfig"]
         response_schema = generation_config["responseSchema"]
 
-        # Check that additionalProperties are removed
         refute Map.has_key?(response_schema, "additionalProperties")
         refute Map.has_key?(response_schema["nested"], "additionalProperties")
 
@@ -392,7 +367,7 @@ defmodule LlmComposer.Providers.GoogleTest do
       providers: [
         {Google,
          [
-           model: "gemini-1.5-flash",
+           model: "gemini-2.5-flash",
            response_schema: schema,
            api_key: "test-key",
            url: endpoint_url(bypass.port)
