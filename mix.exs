@@ -15,7 +15,6 @@ defmodule LlmComposer.MixProject do
         source_ref: "master"
       ],
       source_url: "https://github.com/doofinder/llm_composer",
-      # Enable test coverage
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         coveralls: :test,
