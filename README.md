@@ -5,10 +5,11 @@
 ## Table of Contents
 
 - [Installation](#installation)
+- [Tesla Configuration](#tesla-configuration)
 - [Provider Compatibility](#provider-compatibility)
 - [Usage](#usage)
   - [Simple Bot Definition](#simple-bot-definition)
-  - [Using old messages](#using-old-messages)
+  - [Using message history](#using-message-history)
   - [Using Ollama Backend](#using-ollama-backend)
   - [Using OpenRouter](#using-openrouter)
   - [Using AWS Bedrock](#using-aws-bedrock)
@@ -39,10 +40,28 @@ by adding `llm_composer` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.8.0"}
+    {:llm_composer, "~> 0.11.0"}
   ]
 end
 ```
+
+### Tesla Configuration
+
+LlmComposer uses Tesla for HTTP requests. You can configure the Tesla adapter globally for optimal performance, especially when using streaming responses:
+
+```elixir
+# In your config/config.exs or application startup
+Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
+
+# Start Finch in your application supervision tree or manually
+{:ok, _finch} = Finch.start_link(name: MyFinch, pools: %{default: [protocols: [:http1]]})
+```
+
+**Recommended Tesla adapters:**
+- **Finch** (recommended): Best for streaming and production use
+- **Gun**: For advanced HTTP/2 support
+
+**Note:** When using streaming responses, Finch is the recommended adapter as it provides better streaming support and performance.
 
 ## Provider Compatibility
 
@@ -70,7 +89,7 @@ The following table shows which features are supported by each provider:
 
 ### Simple Bot Definition
 
-To create a basic chatbot using LlmComposer, you need to define a module that uses the `LlmComposer.Caller` behavior. The example below demonstrates a simple configuration with OpenAI as the model provider:
+To create a basic chatbot using LlmComposer, you need to define a Settings struct and use either `run_completion` or `simple_chat`. The example below demonstrates a simple configuration with OpenAI as the model provider:
 
 ```elixir
 Application.put_env(:llm_composer, :open_ai, api_key: "<your api key>")
@@ -108,7 +127,7 @@ LlmComposer.Message.new(
 
 This will trigger a conversation with the assistant based on the provided system prompt.
 
-### Using old messages
+### Using message history
 
 For more control over the interactions, basically to send the messages history and track the context, you can use the `run_completion/3` function directly.
 
@@ -190,7 +209,7 @@ Example of execution:
 ```
 mix run sample_ollama.ex
 
-17:08:34.271 [debug] input_tokens=, output_tokens=
+17:08:34.271 [debug] input_tokens=<empty>, output_tokens=<empty>
 LlmComposer.Message.new(
   :assistant,
   "How can I assist you today?",
@@ -207,7 +226,7 @@ LlmComposer.Message.new(
 
 ### Using OpenRouter
 
-LlmComposer supports integration with [OpenRouter](https://openrouter.ai/), giving you access to a variety of LLM models through a single API compatible with OpenAI's interface. Also supports, the OpenRouter's feature of setting fallback models.
+LlmComposer supports integration with [OpenRouter](https://openrouter.ai/), giving you access to a variety of LLM models through a single API compatible with OpenAI's interface. It also supports OpenRouter's feature of setting fallback models.
 
 To use OpenRouter with LlmComposer, you'll need to:
 
@@ -259,7 +278,7 @@ LlmComposer.Message.new(
 
 ### Using AWS Bedrock
 
-LlmComposer also integrates with [Bedrock](https://aws.amazon.com/es/bedrock/) via its Converse API. This allows you tu use Bedrock as provider with any of its supported models.
+LlmComposer also integrates with [Bedrock](https://aws.amazon.com/es/bedrock/) via its Converse API. This allows you to use Bedrock as a provider with any of its supported models.
 
 Currently, function execution is **not supported** with Bedrock.
 
@@ -347,7 +366,7 @@ Add Goth to your dependencies for Vertex AI authentication:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.8.0"},
+    {:llm_composer, "~> 0.11.0"},
     {:goth, "~> 1.4"}  # Required for Vertex AI
   ]
 end
@@ -370,42 +389,48 @@ credentials = Jason.decode!(google_json)
 
 # Optional: Configure HTTP client for Goth with retries
 http_client = fn opts ->
-  client = Tesla.client([
-    {Tesla.Middleware.Retry,
-     delay: 500,
-     max_retries: 2,
-     max_delay: 1_000,
-     should_retry: fn
-       {:ok, %{status: status}}, _env, _context when status in [400, 500] -> true
-       {:ok, _reason}, _env, _context -> false
-       {:error, _reason}, %Tesla.Env{method: :post}, _context -> false
-       {:error, _reason}, %Tesla.Env{method: :put}, %{retries: 2} -> false
-       {:error, _reason}, _env, _context -> true
-     end
-   }
-  ])
+  client =
+    Tesla.client([
+      {Tesla.Middleware.Retry,
+       delay: 500,
+       max_retries: 2,
+       max_delay: 1_000,
+       should_retry: fn
+         {:ok, %{status: status}}, _env, _context when status in [400, 500] -> true
+         {:ok, _reason}, _env, _context -> false
+         {:error, _reason}, %Tesla.Env{method: :post}, _context -> false
+         {:error, _reason}, %Tesla.Env{method: :put}, %{retries: 2} -> false
+         {:error, _reason}, _env, _context -> true
+       end}
+    ])
+
   Tesla.request(client, opts)
 end
 
 # Start Goth process
-{:ok, _pid} = Goth.start_link([
-  source: {:service_account, credentials},
-  http_client: http_client,  # Optional: improves reliability
-  name: MyApp.Goth
-])
+{:ok, _pid} =
+  Goth.start_link(
+    source: {:service_account, credentials},
+    # Optional: improves reliability
+    http_client: http_client,
+    name: MyApp.Goth
+  )
 
 # Configure LlmComposer to use your Goth process
 Application.put_env(:llm_composer, :google, goth: MyApp.Goth)
 
 defmodule MyVertexChat do
   @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.Google,
-    provider_opts: [
-      model: "gemini-2.5-flash",
-      vertex: %{
-        project_id: "my-gcp-project",
-        location_id: "global"  # or specific region like "us-central1"
-      }
+    providers: [
+      {LlmComposer.Providers.Google,
+       [
+         model: "gemini-2.5-flash",
+         vertex: %{
+           project_id: "my-gcp-project",
+           # or specific region like "us-central1"
+           location_id: "global"
+         }
+       ]}
     ],
     system_prompt: "You are a helpful assistant."
   }
@@ -468,26 +493,75 @@ LlmComposer supports streaming responses for real-time output, which is particul
 1. Calculate tokens using libraries like `tiktoken` for OpenAI provider.
 2. Read token data from the last stream object if the provider supplies it (currently only OpenRouter supports this).
 
+Here's a complete example of how to use streaming with Google's Gemini:
+
+```elixir
+# Configure the Google API key
+Application.put_env(:llm_composer, :google, api_key: "<your google api key>")
+Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
+
+defmodule StreamingChat do
+  @settings %LlmComposer.Settings{
+    providers: [
+      {LlmComposer.Providers.Google, [model: "gemini-2.5-flash"]}
+    ],
+    system_prompt: "You are a helpful assistant.",
+    stream_response: true
+  }
+
+  def run_streaming_chat() do
+    messages = [
+      %LlmComposer.Message{type: :user, content: "How did the Roman Empire grow so big?"}
+    ]
+    
+    {:ok, res} = LlmComposer.run_completion(@settings, messages)
+
+    # Process the stream and display each chunk as it arrives
+    res.stream
+    |> LlmComposer.parse_stream_response()
+    |> Enum.each(fn data ->
+      # Print each chunk in real-time, it is a Map with google structure for this case
+      IO.inspect(data)
+    end)
+  end
+end
+
+# Start Finch for HTTP streaming support
+{:ok, _finch} = Finch.start_link(name: MyFinch, pools: %{default: [protocols: [:http1]]})
+
+StreamingChat.run_streaming_chat()
+```
+
+Example of execution:
+
+```
+The Roman Empire grew to become one of the largest empires in history through a combination of military prowess, strategic expansion, political innovation, and cultural assimilation...
+[Content streams in real-time as the model generates it]
+```
+
+The streaming response allows you to display content to users as it's being generated, providing a better user experience for longer responses.
+
 ### Structured Outputs
 
 OpenRouter/Google/OpenAI supports structured outputs by allowing you to specify a `response_schema` in the provider options. This enables the model to return responses conforming to a defined JSON schema, which is helpful for applications requiring strict formatting and validation of the output.
 
-To use structured outputs, include the `response_schema` key inside your `provider_opts` in the settings, like this:
+To use structured outputs, include the `response_schema` key inside the provider options (the second element of each provider tuple) in the settings, like this:
 
 ```elixir
 settings = %LlmComposer.Settings{
   providers: [
-    {LlmComposer.Providers.OpenRouter, [
-      model: "google/gemini-2.5-flash",
-      response_schema: %{
-        "type" => "object",
-        "properties" => %{
-          "answer" => %{"type" => "string"},
-          "confidence" => %{"type" => "number"}
-        },
-        "required" => ["answer"]
-      }
-    ]}
+    {LlmComposer.Providers.OpenRouter,
+     [
+       model: "google/gemini-2.5-flash",
+       response_schema: %{
+         "type" => "object",
+         "properties" => %{
+           "answer" => %{"type" => "string"},
+           "confidence" => %{"type" => "number"}
+         },
+         "required" => ["answer"]
+       }
+     ]}
   ]
 }
 ```
@@ -634,6 +708,74 @@ To use multi-provider support with routing and fallback, define your settings wi
 
 The `LlmComposer.ProvidersRunner` will handle provider selection, routing, and fallback automatically using the configured router.
 
+#### Complete Example
+
+Here's a comprehensive example showing how to set up and use the provider router with multiple providers:
+
+```elixir
+Application.put_env(:llm_composer, :open_ai, api_key: "<your openai api key>")
+Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api key>")
+# Configure Ollama with wrong URL to demonstrate failover
+Application.put_env(:llm_composer, :ollama, url: "http://localhost:99999")
+
+defmodule MultiProviderChat do
+  @settings %LlmComposer.Settings{
+    providers: [
+      # Primary provider - will fail due to wrong URL, demonstrating failover
+      {LlmComposer.Providers.Ollama, [model: "llama3.1"]},
+      # Fallback provider - will be used when Ollama fails
+      {LlmComposer.Providers.OpenAI, [model: "gpt-4.1-mini"]},
+      # Additional fallback provider
+      {LlmComposer.Providers.OpenRouter, [model: "google/gemini-2.5-flash"]}
+    ],
+    system_prompt: "You are a helpful math assistant."
+  }
+
+  def chat_with_fallback(message) do
+    messages = [
+      %LlmComposer.Message{type: :user, content: message}
+    ]
+
+    case LlmComposer.run_completion(@settings, messages) do
+      {:ok, response} ->
+        IO.puts("Response received from provider")
+        response.main_response
+
+      {:error, reason} ->
+        IO.puts("All providers failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def demo_fallback_behavior() do
+    # Make multiple requests to demonstrate fallback behavior
+    # If the first provider fails, it will be blocked and subsequent requests
+    # will automatically use the next available provider
+
+    Enum.each(1..5, fn i ->
+      IO.puts("\n--- Request #{i} ---")
+      result = chat_with_fallback("What is #{i} + #{i}?")
+      IO.inspect(result, label: "Result")
+
+      Process.sleep(1000)
+    end)
+  end
+end
+
+# Start the provider router (required for multi-provider support)
+# In production, add this to your application's supervision tree
+{:ok, _router_pid} = LlmComposer.ProviderRouter.Simple.start_link([])
+
+# Optional: Configure custom router settings
+# Application.put_env(:llm_composer, :provider_router, [
+#   name: MyCustomRouter,
+#   min_backoff_ms: 2_000,
+#   max_backoff_ms: :timer.minutes(10)
+# ])
+
+MultiProviderChat.demo_fallback_behavior()
+```
+
 #### Fallback Logic
 
 The router will skip providers that are currently blocked due to recent failures and try the next available provider in the list. Providers are blocked with an exponential backoff strategy, increasing the block duration on repeated failures.
@@ -658,8 +800,9 @@ Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api 
 
 defmodule MyCostTrackingChat do
   @settings %LlmComposer.Settings{
-    provider: LlmComposer.Providers.OpenRouter,
-    provider_opts: [model: "meta-llama/llama-3.2-3b-instruct"],
+    providers: [
+      {LlmComposer.Providers.OpenRouter, [model: "meta-llama/llama-3.2-3b-instruct"]}
+    ],
     system_prompt: "You are a helpful assistant.",
     track_costs: true
   }
@@ -721,7 +864,7 @@ Add the decimal dependency to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.8.0"},
+    {:llm_composer, "~> 0.11.0"},
     {:decimal, "~> 2.3"}  # Required for cost tracking
   ]
 end
