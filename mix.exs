@@ -14,7 +14,13 @@ defmodule LlmComposer.MixProject do
         extras: ["README.md"],
         source_ref: "master"
       ],
-      source_url: "https://github.com/doofinder/llm_composer"
+      source_url: "https://github.com/doofinder/llm_composer",
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test
+      ]
     ]
   end
 
@@ -30,10 +36,12 @@ defmodule LlmComposer.MixProject do
     is_json_present? = Code.ensure_loaded?(JSON)
 
     [
+      {:bypass, "~> 2.1", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:decimal, "~> 2.3", optional: true},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_aws, "~> 2.5", optional: true},
+      {:excoveralls, "~> 0.18", only: :test},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:finch, "~> 0.18", optional: true},
       {:goth, "~> 1.4", optional: true},
