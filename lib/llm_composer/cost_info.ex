@@ -135,67 +135,51 @@ defmodule LlmComposer.CostInfo do
   @spec maybe_calculate(t()) :: t()
   defp maybe_calculate(%LlmComposer.CostInfo{} = cost_info) do
     cost_info
-    |> maybe_calculate_component(:input)
-    |> maybe_calculate_component(:output)
-    |> maybe_calculate_total()
+    |> calculate_component_costs()
+    |> set_total_cost()
   end
 
-  @spec maybe_calculate_component(t(), :input | :output) :: t()
-  defp maybe_calculate_component(%__MODULE__{} = cost_info, :input) do
-    cond do
-      not is_nil(cost_info.input_cost) ->
-        cost_info
-
-      is_nil(cost_info.input_price_per_million) ->
-        cost_info
-
-      true ->
-        price = cost_info.input_price_per_million
-        tokens = Decimal.new(cost_info.input_tokens)
-        per_million = Decimal.new(1_000_000)
-
-        input_cost =
-          tokens
-          |> Decimal.div(per_million)
-          |> Decimal.mult(price)
-
-        %{cost_info | input_cost: input_cost}
-    end
+  @spec calculate_component_costs(t()) :: t()
+  defp calculate_component_costs(%LlmComposer.CostInfo{} = cost_info) do
+    %{
+      cost_info
+      | input_cost:
+          calculate_cost(
+            cost_info.input_cost,
+            cost_info.input_tokens,
+            cost_info.input_price_per_million
+          ),
+        output_cost:
+          calculate_cost(
+            cost_info.output_cost,
+            cost_info.output_tokens,
+            cost_info.output_price_per_million
+          )
+    }
   end
 
-  defp maybe_calculate_component(%__MODULE__{} = cost_info, :output) do
-    cond do
-      not is_nil(cost_info.output_cost) ->
-        cost_info
+  @spec calculate_cost(Decimal.t() | nil, non_neg_integer(), Decimal.t() | nil) ::
+          Decimal.t() | nil
+  defp calculate_cost(existing_cost, _tokens, _price) when is_map(existing_cost),
+    do: existing_cost
 
-      is_nil(cost_info.output_price_per_million) ->
-        cost_info
+  defp calculate_cost(_existing_cost, _tokens, nil), do: nil
 
-      true ->
-        price = cost_info.output_price_per_million
-        tokens = Decimal.new(cost_info.output_tokens)
-        per_million = Decimal.new(1_000_000)
-
-        output_cost =
-          tokens
-          |> Decimal.div(per_million)
-          |> Decimal.mult(price)
-
-        %{cost_info | output_cost: output_cost}
-    end
+  defp calculate_cost(nil, tokens, price) do
+    tokens
+    |> Decimal.new()
+    |> Decimal.div(Decimal.new(1_000_000))
+    |> Decimal.mult(price)
   end
 
-  @spec maybe_calculate_total(t()) :: t()
-  defp maybe_calculate_total(%__MODULE__{} = cost_info) do
-    cond do
-      not is_nil(cost_info.total_cost) ->
-        cost_info
+  @spec set_total_cost(t()) :: t()
+  defp set_total_cost(%__MODULE__{total_cost: total} = cost_info) when is_map(total),
+    do: cost_info
 
-      not is_nil(cost_info.input_cost) and not is_nil(cost_info.output_cost) ->
-        %{cost_info | total_cost: Decimal.add(cost_info.input_cost, cost_info.output_cost)}
-
-      true ->
-        cost_info
-    end
+  defp set_total_cost(%__MODULE__{input_cost: input, output_cost: output} = cost_info)
+       when is_map(input) and is_map(output) do
+    %{cost_info | total_cost: Decimal.add(input, output)}
   end
+
+  defp set_total_cost(%__MODULE__{} = cost_info), do: cost_info
 end
