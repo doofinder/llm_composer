@@ -224,8 +224,7 @@ defmodule LlmComposer.Providers.Google do
         {"generateContent", []}
       end
 
-    req_opts =
-      Utils.get_req_opts(opts)
+    req_opts = Utils.get_req_opts(opts)
 
     if model do
       messages
@@ -350,9 +349,7 @@ defmodule LlmComposer.Providers.Google do
             "https://generativelanguage.googleapis.com/v1beta/models/"
           )
 
-        headers = [{"x-goog-api-key", token}]
-
-        # Google expects the API key as a query parameter (?key=...)
+        headers = [{"X-GOOG-API-KEY", token}]
         {base_url, headers}
 
       %{project_id: project_id, location_id: location_id} = vertex ->

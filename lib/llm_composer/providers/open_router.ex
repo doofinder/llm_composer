@@ -89,13 +89,7 @@ defmodule LlmComposer.Providers.OpenRouter do
         output_tokens = get_in(body, ["usage", "completion_tokens"])
         model = body["model"]
 
-        provider = extract_provider(model)
-
-        case PricingFetcher.fetch_pricing(%{
-               "model" => model,
-               "provider" => provider,
-               "usage" => body["usage"]
-             }) do
+        case PricingFetcher.fetch_pricing(body) do
           %{
             input_price_per_million: input_price,
             output_price_per_million: output_price,
@@ -168,13 +162,5 @@ defmodule LlmComposer.Providers.OpenRouter do
     else
       base_request
     end
-  end
-
-  @spec extract_provider(String.t()) :: String.t()
-  defp extract_provider(model) do
-    model
-    |> String.split("/")
-    |> List.first()
-    |> String.capitalize()
   end
 end
