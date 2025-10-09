@@ -74,6 +74,7 @@ The following table shows which features are supported by each provider:
 | Function Calls | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Auto Function Execution | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Structured Outputs | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Cost Tracking | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ |
 
@@ -275,6 +276,47 @@ LlmComposer.Message.new(
   "Doofinder is an excellent site search solution for ecommerce websites. Here are some reasons why Doofinder is considered awesome:...
 )
 ```
+
+#### Automatic Cost Tracking with OpenRouter
+
+OpenRouter supports automatic cost tracking without manual pricing configuration. When `track_costs: true` is enabled, LlmComposer automatically fetches real-time pricing data from OpenRouter's API and calculates costs based on actual token usage.
+
+```elixir
+# Configure the OpenRouter API key
+Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api key>")
+
+defmodule MyOpenRouterAutoCostChat do
+  @settings %LlmComposer.Settings{
+    providers: [
+      {LlmComposer.Providers.OpenRouter,
+       [
+         model: "anthropic/claude-3-haiku:beta",
+         track_costs: true  # Enables automatic cost tracking
+       ]}
+    ],
+    system_prompt: "You are a helpful assistant."
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
+end
+
+{:ok, res} = MyOpenRouterAutoCostChat.simple_chat("Explain quantum computing")
+
+# Access automatic cost information
+IO.puts("Input cost: #{Decimal.to_string(res.cost_info.input_cost, :normal)}$")
+IO.puts("Output cost: #{Decimal.to_string(res.cost_info.output_cost, :normal)}$")
+IO.puts("Total cost: #{Decimal.to_string(res.cost_info.total_cost, :normal)}$")
+```
+
+**Features:**
+- **Automatic Pricing**: Fetches up-to-date prices from OpenRouter API without manual configuration
+- **Granular Tracking**: Provides breakdown of input vs. output costs
+- **Caching**: Prices are cached for 24 hours to reduce API calls
+- **Error Handling**: Gracefully falls back if pricing data is unavailable
+
+**Note:** Automatic cost tracking requires the Decimal package: `{:decimal, "~> 2.3"}`
 
 ### Using AWS Bedrock
 
@@ -777,7 +819,9 @@ This mechanism ensures high availability and resilience by automatically failing
 
 ### Cost Tracking
 
-LlmComposer provides built-in cost tracking functionality, for **OpenRouter backend only**, to monitor token usage and associated costs across different providers. This feature helps you keep track of API expenses and optimize your usage.
+LlmComposer provides built-in cost tracking functionality for **OpenAI**, **OpenRouter**, and **Google** providers to monitor token usage and associated costs. This feature helps you keep track of API expenses and optimize your usage by providing detailed cost breakdowns per request.
+
+**OpenRouter** supports automatic cost tracking that fetches real-time pricing data from the API, eliminating the need for manual pricing configuration.
 
 #### Requirements
 
@@ -786,37 +830,52 @@ To use cost tracking, you need:
 1. **Decimal package**: Add `{:decimal, "~> 2.0"}` to your dependencies in `mix.exs`
 2. **Cache backend**: A cache implementation for storing cost data (LlmComposer provides an ETS-based cache by default, or you can implement a custom one using `LlmComposer.Cache.Behaviour`)
 
-#### Basic Cost Tracking Example
+#### Basic Cost Tracking Example with OpenAI
 
 ```elixir
-Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api key>")
+Application.put_env(:llm_composer, :open_ai, api_key: "<your openai api key>")
 
 defmodule MyCostTrackingChat do
   @settings %LlmComposer.Settings{
     providers: [
-      {LlmComposer.Providers.OpenRouter, [model: "meta-llama/llama-3.2-3b-instruct"]}
+      {LlmComposer.Providers.OpenAI,
+       [
+         model: "gpt-4.1-mini",
+         track_costs: true,
+         input_price_per_million: "0.150",
+         output_price_per_million: "0.600"
+       ]}
     ],
-    system_prompt: "You are a helpful assistant.",
-    track_costs: true
+    system_prompt: "You are a helpful assistant."
   }
 
   def run_chat_with_costs() do
     messages = [
       %LlmComposer.Message{type: :user, content: "How much is 1 + 1?"}
     ]
-    
+
     {:ok, res} = LlmComposer.run_completion(@settings, messages)
-    
+
     # Access cost information from the response
     IO.puts("Input tokens: #{res.input_tokens}")
     IO.puts("Output tokens: #{res.output_tokens}")
-    IO.puts("Total cost: #{Decimal.to_string(res.metadata.total_cost, :normal)}$")
-    
+    IO.puts("Input cost: #{Decimal.to_string(res.cost_info.input_cost, :normal)}$")
+    IO.puts("Output cost: #{Decimal.to_string(res.cost_info.output_cost, :normal)}$")
+    IO.puts("Total cost: #{Decimal.to_string(res.cost_info.total_cost, :normal)}$")
+
     res
   end
 end
 
-# Start the cache backend (required for cost tracking)
+MyCostTrackingChat.run_chat_with_costs()
+```
+
+#### Cost Tracking with OpenRouter
+
+```elixir
+Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api key>")
+
+# Start the cache backend (required for automatic pricing fetching)
 # The default ETS cache can be overridden by configuring a custom cache module:
 #
 # config :llm_composer, cache_mod: MyCustomCache
@@ -825,30 +884,42 @@ end
 # which defines callbacks for get/1, put/3, and delete/1 operations.
 {:ok, _} = LlmComposer.Cache.Ets.start_link()
 
-MyCostTrackingChat.run_chat_with_costs()
-```
+defmodule MyOpenRouterCostTrackingChat do
+  @settings %LlmComposer.Settings{
+    providers: [
+      {LlmComposer.Providers.OpenRouter,
+       [
+         model: "anthropic/claude-3-haiku:beta",
+         track_costs: true,
+         # these are optional, if not provided, this data is fetched from openrouter api and cached with ets
+         # input_price_per_million: "0.250",
+         # output_price_per_million: "1.250"
+       ]}
+    ],
+    system_prompt: "You are a helpful assistant."
+  }
 
-#### Starting Cache in a Supervision Tree
-
-For production applications, you should start the cache as part of your application's supervision tree:
-
-```elixir
-# In your application.ex file
-defmodule MyApp.Application do
-  use Application
-
-  def start(_type, _args) do
-    children = [
-      # Other supervisors/workers...
-      LlmComposer.Cache.Ets,
-      # ... rest of your children
+  def run_chat_with_costs() do
+    messages = [
+      %LlmComposer.Message{type: :user, content: "Explain quantum computing briefly"}
     ]
 
-    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
-    Supervisor.start_link(children, opts)
+    {:ok, res} = LlmComposer.run_completion(@settings, messages)
+
+    # Access cost information from the response
+    IO.puts("Provider: #{res.cost_info.provider_name}")
+    IO.puts("Model: #{res.cost_info.provider_model}")
+    IO.puts("Total tokens: #{res.cost_info.total_tokens}")
+    IO.puts("Total cost: #{Decimal.to_string(res.cost_info.total_cost, :normal)}$")
+
+    res
   end
 end
+
+MyOpenRouterCostTrackingChat.run_chat_with_costs()
 ```
+
+**Note:** When `input_price_per_million` and `output_price_per_million` are not provided, pricing data is automatically fetched from OpenRouter's API and cached using ETS. This requires the ETS cache GenServer to be started. See the [Starting Cache in a Supervision Tree](#starting-cache-in-a-supervision-tree) section for setup instructions. If you provide the pricing manually, the cache is not required.
 
 #### Dependencies Setup
 
@@ -863,7 +934,7 @@ def deps do
 end
 ```
 
-**Note:** Cost tracking calculates expenses based on the provider's pricing model and token usage. The cache backend stores pricing information to avoid repeated lookups and improve performance.
+**Note:** Cost tracking calculates expenses based on the pricing parameters you provide in the provider options. You must specify `input_price_per_million` and `output_price_per_million` when `track_costs: true` is enabled. Costs are calculated automatically using the `CostInfo` struct and are included in the response.
 
 ### Additional Features
 * Auto Function Execution: Automatically executes predefined functions, reducing manual intervention.
