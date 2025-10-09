@@ -6,10 +6,11 @@ defmodule LlmComposer.Providers.OpenRouter do
   """
   @behaviour LlmComposer.Provider
 
+  alias LlmComposer.CostInfo
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
-  alias LlmComposer.Providers.OpenRouter.TrackCosts
+  alias LlmComposer.Providers.OpenRouter.PricingFetcher
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -82,23 +83,46 @@ defmodule LlmComposer.Providers.OpenRouter do
       end
     end
 
-    metadata =
-      if Keyword.get(completion_opts, :track_costs) and Code.ensure_loaded?(Decimal) do
-        Logger.debug("retrieving cost of completion")
-        TrackCosts.track_costs(body)
-      else
-        %{}
+    cost_info =
+      if Keyword.get(completion_opts, :track_costs) do
+        input_tokens = get_in(body, ["usage", "prompt_tokens"])
+        output_tokens = get_in(body, ["usage", "completion_tokens"])
+        model = body["model"]
+
+        provider = extract_provider(model)
+
+        case PricingFetcher.fetch_pricing(%{
+               "model" => model,
+               "provider" => provider,
+               "usage" => body["usage"]
+             }) do
+          %{
+            input_price_per_million: input_price,
+            output_price_per_million: output_price,
+            total_cost: _total_cost
+          } ->
+            pricing_opts = [
+              input_price_per_million: input_price,
+              output_price_per_million: output_price,
+              currency: "USD"
+            ]
+
+            CostInfo.new(name(), model, input_tokens, output_tokens, pricing_opts)
+
+          _ ->
+            nil
+        end
       end
 
     actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions, metadata: metadata}}
+    {:ok, %{response: body, actions: actions, cost_info: cost_info}}
   end
 
-  defp handle_response({:ok, resp}, _request_opts) do
+  defp handle_response({:ok, resp}, _opts) do
     {:error, resp}
   end
 
-  defp handle_response({:error, reason}, _request_opts) do
+  defp handle_response({:error, reason}, _opts) do
     {:error, reason}
   end
 
@@ -144,5 +168,13 @@ defmodule LlmComposer.Providers.OpenRouter do
     else
       base_request
     end
+  end
+
+  @spec extract_provider(String.t()) :: String.t()
+  defp extract_provider(model) do
+    model
+    |> String.split("/")
+    |> List.first()
+    |> String.capitalize()
   end
 end

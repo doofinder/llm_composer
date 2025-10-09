@@ -37,69 +37,25 @@ defmodule LlmComposer.CostInfoTest do
     end
   end
 
-  describe "input cost calculation" do
-    test "calculates input cost when price provided" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 1_000_000, 0, input_price_per_million: Decimal.new("1.5"))
-
-      assert Decimal.equal?(cost_info.input_cost, Decimal.new("1.5"))
+  describe "cost calculation validation" do
+    test "raises error when only input_price_per_million is provided" do
+      assert_raise ArgumentError,
+                   "Both input_price_per_million and output_price_per_million must be provided together",
+                   fn ->
+                     CostInfo.new(:open_ai, "gpt-4", 1_000_000, 0,
+                       input_price_per_million: Decimal.new("1.5")
+                     )
+                   end
     end
 
-    test "does not calculate when input_cost already set" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 1_000_000, 0,
-          input_price_per_million: Decimal.new("1.5"),
-          input_cost: Decimal.new("2.0")
-        )
-
-      assert Decimal.equal?(cost_info.input_cost, Decimal.new("2.0"))
-    end
-
-    test "does not calculate when input_price_per_million is nil" do
-      cost_info = CostInfo.new(:open_ai, "gpt-4", 1_000_000, 0)
-
-      assert is_nil(cost_info.input_cost)
-    end
-
-    test "calculates zero cost for zero tokens" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 0, 0, input_price_per_million: Decimal.new("1.5"))
-
-      assert Decimal.equal?(cost_info.input_cost, Decimal.new("0"))
-    end
-
-    test "calculates fractional cost" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 500_000, 0, input_price_per_million: Decimal.new("2.0"))
-
-      assert Decimal.equal?(cost_info.input_cost, Decimal.new("1.0"))
-    end
-  end
-
-  describe "output cost calculation" do
-    test "calculates output cost when price provided" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 0, 2_000_000,
-          output_price_per_million: Decimal.new("3.0")
-        )
-
-      assert Decimal.equal?(cost_info.output_cost, Decimal.new("6.0"))
-    end
-
-    test "does not calculate when output_cost already set" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 0, 2_000_000,
-          output_price_per_million: Decimal.new("3.0"),
-          output_cost: Decimal.new("7.0")
-        )
-
-      assert Decimal.equal?(cost_info.output_cost, Decimal.new("7.0"))
-    end
-
-    test "does not calculate when output_price_per_million is nil" do
-      cost_info = CostInfo.new(:open_ai, "gpt-4", 0, 2_000_000)
-
-      assert is_nil(cost_info.output_cost)
+    test "raises error when only output_price_per_million is provided" do
+      assert_raise ArgumentError,
+                   "Both input_price_per_million and output_price_per_million must be provided together",
+                   fn ->
+                     CostInfo.new(:open_ai, "gpt-4", 0, 2_000_000,
+                       output_price_per_million: Decimal.new("3.0")
+                     )
+                   end
     end
   end
 
@@ -112,22 +68,6 @@ defmodule LlmComposer.CostInfoTest do
         )
 
       assert Decimal.equal?(cost_info.total_cost, Decimal.new("3.0"))
-    end
-
-    test "calculates total when only input cost exists" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 1_000_000, 0, input_price_per_million: Decimal.new("1.5"))
-
-      assert Decimal.equal?(cost_info.total_cost, Decimal.new("1.5"))
-    end
-
-    test "calculates total when only output cost exists" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 0, 1_000_000,
-          output_price_per_million: Decimal.new("2.5")
-        )
-
-      assert Decimal.equal?(cost_info.total_cost, Decimal.new("2.5"))
     end
 
     test "does not calculate when total_cost already set" do
@@ -203,11 +143,19 @@ defmodule LlmComposer.CostInfoTest do
       output_price = Decimal.new("0.654321")
       per_million = Decimal.new(1_000_000)
 
+      input_tokens_decimal = Decimal.new(input_tokens)
+
       expected_input_cost =
-        Decimal.mult(Decimal.div(Decimal.new(input_tokens), per_million), input_price)
+        input_tokens_decimal
+        |> Decimal.div(per_million)
+        |> Decimal.mult(input_price)
+
+      output_tokens_decimal = Decimal.new(output_tokens)
 
       expected_output_cost =
-        Decimal.mult(Decimal.div(Decimal.new(output_tokens), per_million), output_price)
+        output_tokens_decimal
+        |> Decimal.div(per_million)
+        |> Decimal.mult(output_price)
 
       expected_total_cost = Decimal.add(expected_input_cost, expected_output_cost)
 

@@ -6,6 +6,7 @@ defmodule LlmComposer.Providers.OpenAI do
   """
   @behaviour LlmComposer.Provider
 
+  alias LlmComposer.CostInfo
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
@@ -34,7 +35,7 @@ defmodule LlmComposer.Providers.OpenAI do
       messages
       |> build_request(system_message, model, opts)
       |> then(&Tesla.post(client, "/chat/completions", &1, headers: headers, opts: req_opts))
-      |> handle_response()
+      |> handle_response(opts)
       |> LlmResponse.new(name())
     else
       {:error, :model_not_provided}
@@ -62,17 +63,40 @@ defmodule LlmComposer.Providers.OpenAI do
     |> Utils.cleanup_body()
   end
 
-  @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}) when status in [200] do
+  @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
+  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, opts)
+       when status in [200] do
     actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions}}
+
+    cost_info =
+      if Keyword.get(opts, :track_costs) do
+        input_tokens = get_in(body, ["usage", "prompt_tokens"])
+        output_tokens = get_in(body, ["usage", "completion_tokens"])
+        model = body["model"]
+
+        pricing_opts =
+          Enum.reject(
+            [
+              input_price_per_million:
+                opts[:input_price_per_million] && Decimal.new(opts[:input_price_per_million]),
+              output_price_per_million:
+                opts[:output_price_per_million] && Decimal.new(opts[:output_price_per_million]),
+              currency: "USD"
+            ],
+            &is_nil(elem(&1, 1))
+          )
+
+        CostInfo.new(name(), model, input_tokens, output_tokens, pricing_opts)
+      end
+
+    {:ok, %{response: body, actions: actions, cost_info: cost_info}}
   end
 
-  defp handle_response({:ok, resp}) do
+  defp handle_response({:ok, resp}, _opts) do
     {:error, resp}
   end
 
-  defp handle_response({:error, reason}) do
+  defp handle_response({:error, reason}, _opts) do
     {:error, reason}
   end
 

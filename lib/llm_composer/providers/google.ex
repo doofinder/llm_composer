@@ -194,6 +194,7 @@ defmodule LlmComposer.Providers.Google do
   """
   @behaviour LlmComposer.Provider
 
+  alias LlmComposer.CostInfo
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
@@ -215,21 +216,28 @@ defmodule LlmComposer.Providers.Google do
 
     client = HttpClient.client(base_url, opts)
 
-    req_opts = Utils.get_req_opts(opts)
-
     # stream or generate?
-    suffix =
+    {suffix, query} =
       if Keyword.get(opts, :stream_response) do
-        "streamGenerateContent?alt=sse"
+        {"streamGenerateContent", [{"alt", "sse"}]}
       else
-        "generateContent"
+        {"generateContent", []}
       end
+
+    req_opts =
+      Utils.get_req_opts(opts)
 
     if model do
       messages
       |> build_request(system_message, opts)
-      |> then(&Tesla.post(client, "/#{model}:#{suffix}", &1, headers: headers, opts: req_opts))
-      |> handle_response()
+      |> then(
+        &Tesla.post(client, "/#{model}:#{suffix}", &1,
+          headers: headers,
+          query: query,
+          opts: req_opts
+        )
+      )
+      |> handle_response(opts)
       |> LlmResponse.new(name())
     else
       {:error, :model_not_provided}
@@ -255,17 +263,40 @@ defmodule LlmComposer.Providers.Google do
     |> Utils.cleanup_body()
   end
 
-  @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}) do
+  @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
+  defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}, opts) do
     actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions}}
+
+    cost_info =
+      if Keyword.get(opts, :track_costs) do
+        usage = body["usageMetadata"]
+        input_tokens = usage["promptTokenCount"]
+        output_tokens = usage["candidatesTokenCount"]
+        model = Keyword.get(opts, :model)
+
+        pricing_opts =
+          Enum.reject(
+            [
+              input_price_per_million:
+                opts[:input_price_per_million] && Decimal.new(opts[:input_price_per_million]),
+              output_price_per_million:
+                opts[:output_price_per_million] && Decimal.new(opts[:output_price_per_million]),
+              currency: "USD"
+            ],
+            &is_nil(elem(&1, 1))
+          )
+
+        CostInfo.new(name(), model, input_tokens, output_tokens, pricing_opts)
+      end
+
+    {:ok, %{response: body, actions: actions, cost_info: cost_info}}
   end
 
-  defp handle_response({:ok, resp}) do
+  defp handle_response({:ok, resp}, _opts) do
     {:error, resp}
   end
 
-  defp handle_response({:error, reason}) do
+  defp handle_response({:error, reason}, _opts) do
     {:error, reason}
   end
 
@@ -319,7 +350,9 @@ defmodule LlmComposer.Providers.Google do
             "https://generativelanguage.googleapis.com/v1beta/models/"
           )
 
-        headers = [{"X-GOOG-API-KEY", token}]
+        headers = [{"x-goog-api-key", token}]
+
+        # Google expects the API key as a query parameter (?key=...)
         {base_url, headers}
 
       %{project_id: project_id, location_id: location_id} = vertex ->

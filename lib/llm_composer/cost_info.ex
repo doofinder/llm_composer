@@ -6,13 +6,18 @@ defmodule LlmComposer.CostInfo do
   across different LLM providers. It supports both streaming and non-streaming responses
   and can automatically calculate costs when provided with pricing information.
 
+  ## Pricing Requirements
+
+  When providing pricing information, both `input_price_per_million` and `output_price_per_million`
+  must be provided together. Providing only one will raise an `ArgumentError`.
+
   ## Fields
 
   * `:input_tokens` - Number of tokens in the input/prompt
   * `:output_tokens` - Number of tokens in the output/completion
   * `:total_tokens` - Total tokens used (input + output)
   * `:input_cost` - Cost for input tokens (using Decimal for precision)
-  * `:output_cost` - Cost for output tokens (using Decimal for precision)  
+  * `:output_cost` - Cost for output tokens (using Decimal for precision)
   * `:total_cost` - Total cost for the request (using Decimal for precision)
   * `:currency` - Currency code (e.g., "USD", "EUR")
   * `:provider_model` - The actual model used by the provider
@@ -96,15 +101,35 @@ defmodule LlmComposer.CostInfo do
 
   @spec new(String.t() | atom(), String.t(), non_neg_integer(), non_neg_integer(), keyword()) :: t
   def new(provider_name, model, input_tokens, output_tokens, options \\ []) do
-    %LlmComposer.CostInfo{
-      provider_name: provider_name,
-      provider_model: model,
-      input_tokens: input_tokens,
-      output_tokens: output_tokens,
-      total_tokens: input_tokens + output_tokens
-    }
-    |> struct!(options)
-    |> maybe_calculate()
+    cost_info =
+      struct!(
+        %LlmComposer.CostInfo{
+          provider_name: provider_name,
+          provider_model: model,
+          input_tokens: input_tokens,
+          output_tokens: output_tokens,
+          total_tokens: input_tokens + output_tokens
+        },
+        options
+      )
+
+    # Validate that if any price is provided, both must be provided
+    input_price = cost_info.input_price_per_million
+    output_price = cost_info.output_price_per_million
+
+    maybe_calculate(
+      cond do
+        is_nil(input_price) and is_nil(output_price) ->
+          cost_info
+
+        is_nil(input_price) or is_nil(output_price) ->
+          raise ArgumentError,
+                "Both input_price_per_million and output_price_per_million must be provided together"
+
+        true ->
+          cost_info
+      end
+    )
   end
 
   @spec maybe_calculate(t()) :: t()
@@ -129,7 +154,10 @@ defmodule LlmComposer.CostInfo do
         tokens = Decimal.new(cost_info.input_tokens)
         per_million = Decimal.new(1_000_000)
 
-        input_cost = Decimal.mult(Decimal.div(tokens, per_million), price)
+        input_cost =
+          tokens
+          |> Decimal.div(per_million)
+          |> Decimal.mult(price)
 
         %{cost_info | input_cost: input_cost}
     end
@@ -148,7 +176,10 @@ defmodule LlmComposer.CostInfo do
         tokens = Decimal.new(cost_info.output_tokens)
         per_million = Decimal.new(1_000_000)
 
-        output_cost = Decimal.mult(Decimal.div(tokens, per_million), price)
+        output_cost =
+          tokens
+          |> Decimal.div(per_million)
+          |> Decimal.mult(price)
 
         %{cost_info | output_cost: output_cost}
     end
@@ -156,22 +187,15 @@ defmodule LlmComposer.CostInfo do
 
   @spec maybe_calculate_total(t()) :: t()
   defp maybe_calculate_total(%__MODULE__{} = cost_info) do
-    if not is_nil(cost_info.total_cost) do
-      cost_info
-    else
-      case {cost_info.input_cost, cost_info.output_cost} do
-        {i, o} when not is_nil(i) and not is_nil(o) ->
-          %{cost_info | total_cost: Decimal.add(i, o)}
+    cond do
+      not is_nil(cost_info.total_cost) ->
+        cost_info
 
-        {i, nil} when not is_nil(i) ->
-          %{cost_info | total_cost: i}
+      not is_nil(cost_info.input_cost) and not is_nil(cost_info.output_cost) ->
+        %{cost_info | total_cost: Decimal.add(cost_info.input_cost, cost_info.output_cost)}
 
-        {nil, o} when not is_nil(o) ->
-          %{cost_info | total_cost: o}
-
-        _ ->
-          cost_info
-      end
+      true ->
+        cost_info
     end
   end
 end
