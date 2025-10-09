@@ -83,30 +83,7 @@ defmodule LlmComposer.Providers.OpenRouter do
       end
     end
 
-    cost_info =
-      if Keyword.get(completion_opts, :track_costs) do
-        input_tokens = get_in(body, ["usage", "prompt_tokens"])
-        output_tokens = get_in(body, ["usage", "completion_tokens"])
-        model = body["model"]
-
-        case PricingFetcher.fetch_pricing(body) do
-          %{
-            input_price_per_million: input_price,
-            output_price_per_million: output_price,
-            total_cost: _total_cost
-          } ->
-            pricing_opts = [
-              input_price_per_million: input_price,
-              output_price_per_million: output_price,
-              currency: "USD"
-            ]
-
-            CostInfo.new(name(), model, input_tokens, output_tokens, pricing_opts)
-
-          _ ->
-            nil
-        end
-      end
+    cost_info = Utils.build_cost_info(name(), completion_opts, body)
 
     actions = Utils.extract_actions(body)
     {:ok, %{response: body, actions: actions, cost_info: cost_info}}

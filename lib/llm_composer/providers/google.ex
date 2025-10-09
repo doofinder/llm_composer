@@ -266,27 +266,7 @@ defmodule LlmComposer.Providers.Google do
   defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}, opts) do
     actions = Utils.extract_actions(body)
 
-    cost_info =
-      if Keyword.get(opts, :track_costs) do
-        usage = body["usageMetadata"]
-        input_tokens = usage["promptTokenCount"]
-        output_tokens = usage["candidatesTokenCount"]
-        model = Keyword.get(opts, :model)
-
-        pricing_opts =
-          Enum.reject(
-            [
-              input_price_per_million:
-                opts[:input_price_per_million] && Decimal.new(opts[:input_price_per_million]),
-              output_price_per_million:
-                opts[:output_price_per_million] && Decimal.new(opts[:output_price_per_million]),
-              currency: "USD"
-            ],
-            &is_nil(elem(&1, 1))
-          )
-
-        CostInfo.new(name(), model, input_tokens, output_tokens, pricing_opts)
-      end
+    cost_info = Utils.build_cost_info(name(), opts, body)
 
     {:ok, %{response: body, actions: actions, cost_info: cost_info}}
   end

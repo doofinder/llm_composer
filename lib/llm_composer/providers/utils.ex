@@ -1,8 +1,10 @@
 defmodule LlmComposer.Providers.Utils do
   @moduledoc false
 
+  alias LlmComposer.CostInfo
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
+  alias LlmComposer.Providers.OpenRouter.PricingFetcher
 
   @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
 
@@ -192,5 +194,96 @@ defmodule LlmComposer.Providers.Utils do
       "description" => function.description,
       "parameters" => function.schema
     }
+  end
+
+  @spec build_cost_info(atom(), keyword(), map()) :: CostInfo.t() | nil
+  def build_cost_info(provider_name, opts, body) do
+    if Keyword.get(opts, :track_costs) do
+      {input_tokens, output_tokens} = extract_tokens(provider_name, body)
+      model = get_model(provider_name, opts, body)
+      pricing_opts = get_pricing_opts(provider_name, opts, body)
+
+      CostInfo.new(provider_name, model, input_tokens, output_tokens, pricing_opts)
+    end
+  end
+
+  # Extract tokens based on provider-specific response structure
+  defp extract_tokens(:open_ai, body) do
+    if is_map(body) and Map.has_key?(body, "usage") do
+      input = get_in(body, ["usage", "prompt_tokens"]) || 0
+      output = get_in(body, ["usage", "completion_tokens"]) || 0
+      {input, output}
+    else
+      {nil, nil}
+    end
+  end
+
+  # Same structure as OpenAI
+  defp extract_tokens(:open_router, body), do: extract_tokens(:open_ai, body)
+
+  defp extract_tokens(:google, body) do
+    if is_map(body) and Map.has_key?(body, "usageMetadata") do
+      usage = body["usageMetadata"] || %{}
+      input = usage["promptTokenCount"] || 0
+      output = usage["candidatesTokenCount"] || 0
+      {input, output}
+    else
+      {nil, nil}
+    end
+  end
+
+  # Get model based on provider-specific logic
+  defp get_model(:open_ai, _opts, body), do: body["model"]
+  defp get_model(:open_router, _opts, body), do: body["model"]
+  defp get_model(:google, opts, _body), do: Keyword.get(opts, :model)
+
+  # Get pricing options based on provider-specific logic
+  defp get_pricing_opts(:open_router, opts, body) do
+    # Prefer explicit pricing from opts if provided
+
+    explicit =
+      if not is_nil(opts[:input_price_per_million]) and
+           not is_nil(opts[:output_price_per_million]) do
+        Enum.reject(
+          [
+            input_price_per_million:
+              opts[:input_price_per_million] && Decimal.new(opts[:input_price_per_million]),
+            output_price_per_million:
+              opts[:output_price_per_million] && Decimal.new(opts[:output_price_per_million]),
+            currency: "USD"
+          ],
+          &is_nil(elem(&1, 1))
+        )
+      end
+
+    if is_nil(explicit) or explicit == [] do
+      # Fallback to dynamic pricing fetcher (may return nil)
+      case PricingFetcher.fetch_pricing(body) do
+        %{input_price_per_million: input_price, output_price_per_million: output_price} ->
+          [
+            input_price_per_million: input_price,
+            output_price_per_million: output_price,
+            currency: "USD"
+          ]
+
+        _ ->
+          []
+      end
+    else
+      explicit
+    end
+  end
+
+  defp get_pricing_opts(provider, opts, _body) when provider in [:open_ai, :google] do
+    Enum.reject(
+      [
+        input_price_per_million:
+          opts[:input_price_per_million] && Decimal.new(opts[:input_price_per_million]),
+        output_price_per_million:
+          opts[:output_price_per_million] && Decimal.new(opts[:output_price_per_million]),
+        currency: "USD"
+      ],
+      &is_nil(elem(&1, 1))
+    )
   end
 end
