@@ -11,44 +11,61 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
 
   @spec fetch_pricing(map()) :: map() | nil
   def fetch_pricing(%{"model" => model, "provider" => provider, "usage" => usage}) do
-    endpoint = get_endpoint_data(model, provider)
-
-    if is_nil(endpoint) do
-      Logger.warning("No endpoint found for model=#{model} provider=#{provider}")
-      nil
+    with {:ok, endpoint} <- validate_endpoint(model, provider),
+         {:ok, pricing} <- validate_pricing(endpoint, model, provider) do
+      build_pricing_result(pricing, usage, endpoint, model, provider)
     else
-      pricing = endpoint["pricing"]
-
-      if is_nil(pricing) or not is_map(pricing) do
-        Logger.warning("Invalid pricing data for model=#{model} provider=#{provider}")
-        nil
-      else
-        completion_per_token = Decimal.new(pricing["completion"])
-        prompt_per_token = Decimal.new(pricing["prompt"])
-
-        input_price_per_million = Decimal.mult(prompt_per_token, Decimal.new(1_000_000))
-        output_price_per_million = Decimal.mult(completion_per_token, Decimal.new(1_000_000))
-
-        cost = calculate_cost(usage, endpoint)
-
-        Logger.debug(
-          "model=#{model} provider=#{provider} cost=#{Decimal.to_string(cost, :normal)}$"
-        )
-
-        %{
-          input_price_per_million: input_price_per_million,
-          output_price_per_million: output_price_per_million,
-          total_cost: cost
-        }
-      end
+      {:error, _reason} -> nil
     end
   rescue
     e ->
       Logger.error(
-        "Error fetching pricing for model=#{model} provider=#{provider}: #{Exception.message(e)}"
+        "Error fetching pricing for model=#{inspect(model)} provider=#{inspect(provider)}: #{Exception.message(e)}"
       )
 
       nil
+  end
+
+  @spec validate_endpoint(binary, binary) :: {:ok, map()} | {:error, :no_endpoint}
+  defp validate_endpoint(model, provider) do
+    case get_endpoint_data(model, provider) do
+      nil ->
+        Logger.warning("No endpoint found for model=#{model} provider=#{provider}")
+        {:error, :no_endpoint}
+
+      endpoint ->
+        {:ok, endpoint}
+    end
+  end
+
+  @spec validate_pricing(map(), binary, binary) :: {:ok, map()} | {:error, :invalid_pricing}
+  defp validate_pricing(%{"pricing" => pricing}, _model, _provider)
+       when is_map(pricing) do
+    {:ok, pricing}
+  end
+
+  defp validate_pricing(_endpoint, model, provider) do
+    Logger.warning("Invalid pricing data for model=#{model} provider=#{provider}")
+    {:error, :invalid_pricing}
+  end
+
+  @spec build_pricing_result(map(), map(), map(), binary, binary) :: map()
+  defp build_pricing_result(pricing, usage, endpoint, model, provider) do
+    completion_per_token = Decimal.new(pricing["completion"])
+    prompt_per_token = Decimal.new(pricing["prompt"])
+
+    input_price_per_million = Decimal.mult(prompt_per_token, Decimal.new(1_000_000))
+    output_price_per_million = Decimal.mult(completion_per_token, Decimal.new(1_000_000))
+
+    cost = calculate_cost(usage, endpoint)
+
+    Logger.debug("model=#{model} provider=#{provider} cost=#{Decimal.to_string(cost, :normal)}$")
+
+    %{
+      input_price_per_million: input_price_per_million,
+      output_price_per_million: output_price_per_million,
+      total_cost: cost
+    }
   end
 
   @spec calculate_cost(map(), map()) :: Decimal.t()
