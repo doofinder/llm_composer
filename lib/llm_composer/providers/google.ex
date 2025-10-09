@@ -194,7 +194,6 @@ defmodule LlmComposer.Providers.Google do
   """
   @behaviour LlmComposer.Provider
 
-  alias LlmComposer.CostInfo
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse

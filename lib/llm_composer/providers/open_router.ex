@@ -6,11 +6,9 @@ defmodule LlmComposer.Providers.OpenRouter do
   """
   @behaviour LlmComposer.Provider
 
-  alias LlmComposer.CostInfo
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
-  alias LlmComposer.Providers.OpenRouter.PricingFetcher
   alias LlmComposer.Providers.Utils
 
   require Logger

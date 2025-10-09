@@ -10,10 +10,10 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
   @cache_mod Application.compile_env(:llm_composer, :cache_mod, LlmComposer.Cache.Ets)
 
   @spec fetch_pricing(map()) :: map() | nil
-  def fetch_pricing(%{"model" => model, "provider" => provider, "usage" => usage}) do
+  def fetch_pricing(%{"model" => model, "provider" => provider, "usage" => _usage}) do
     with {:ok, endpoint} <- validate_endpoint(model, provider),
          {:ok, pricing} <- validate_pricing(endpoint, model, provider) do
-      build_pricing_result(pricing, usage, endpoint, model, provider)
+      build_pricing_result(pricing, model, provider)
     else
       {:error, _reason} -> nil
     end
@@ -49,37 +49,22 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
     {:error, :invalid_pricing}
   end
 
-  @spec build_pricing_result(map(), map(), map(), binary, binary) :: map()
-  defp build_pricing_result(pricing, usage, endpoint, model, provider) do
+  @spec build_pricing_result(map(), binary, binary) :: map()
+  defp build_pricing_result(pricing, model, provider) do
     completion_per_token = Decimal.new(pricing["completion"])
     prompt_per_token = Decimal.new(pricing["prompt"])
 
     input_price_per_million = Decimal.mult(prompt_per_token, Decimal.new(1_000_000))
     output_price_per_million = Decimal.mult(completion_per_token, Decimal.new(1_000_000))
 
-    cost = calculate_cost(usage, endpoint)
-
-    Logger.debug("model=#{model} provider=#{provider} cost=#{Decimal.to_string(cost, :normal)}$")
+    Logger.debug(
+      "model=#{model} provider=#{provider} input_price=$#{Decimal.to_string(input_price_per_million, :normal)}/M output_price=$#{Decimal.to_string(output_price_per_million, :normal)}/M"
+    )
 
     %{
       input_price_per_million: input_price_per_million,
-      output_price_per_million: output_price_per_million,
-      total_cost: cost
+      output_price_per_million: output_price_per_million
     }
-  end
-
-  @spec calculate_cost(map(), map()) :: Decimal.t()
-  defp calculate_cost(
-         %{"completion_tokens" => completion, "prompt_tokens" => prompt},
-         %{"pricing" => %{"completion" => completion_costs, "prompt" => prompt_costs}}
-       ) do
-    completion_decimal = Decimal.new(completion_costs)
-    prompt_decimal = Decimal.new(prompt_costs)
-
-    completion_cost = Decimal.mult(completion_decimal, Decimal.new(to_string(completion)))
-    prompt_cost = Decimal.mult(prompt_decimal, Decimal.new(to_string(prompt)))
-
-    Decimal.add(completion_cost, prompt_cost)
   end
 
   @spec get_endpoint_data(binary, binary) :: map() | nil
