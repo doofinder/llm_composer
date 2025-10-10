@@ -821,7 +821,7 @@ This mechanism ensures high availability and resilience by automatically failing
 
 LlmComposer provides built-in cost tracking functionality for **OpenAI**, **OpenRouter**, and **Google** providers to monitor token usage and associated costs. This feature helps you keep track of API expenses and optimize your usage by providing detailed cost breakdowns per request.
 
-**OpenRouter** supports automatic cost tracking that fetches real-time pricing data from the API, eliminating the need for manual pricing configuration.
+**OpenAI**, **OpenRouter**, and **Google** support automatic cost tracking that fetches real-time pricing data from their respective APIs (models.dev API for OpenAI/Google, OpenRouter API for OpenRouter), eliminating the need for manual pricing configuration.
 
 #### Requirements
 
@@ -830,20 +830,24 @@ To use cost tracking, you need:
 1. **Decimal package**: Add `{:decimal, "~> 2.0"}` to your dependencies in `mix.exs`
 2. **Cache backend**: A cache implementation for storing cost data (LlmComposer provides an ETS-based cache by default, or you can implement a custom one using `LlmComposer.Cache.Behaviour`)
 
-#### Basic Cost Tracking Example with OpenAI
+#### Automatic Cost Tracking (OpenAI)
 
 ```elixir
 Application.put_env(:llm_composer, :open_ai, api_key: "<your openai api key>")
 
-defmodule MyCostTrackingChat do
+# Start the cache backend (required for automatic pricing fetching)
+{:ok, _} = LlmComposer.Cache.Ets.start_link()
+
+defmodule MyOpenAICostTrackingChat do
   @settings %LlmComposer.Settings{
     providers: [
       {LlmComposer.Providers.OpenAI,
        [
-         model: "gpt-4.1-mini",
-         track_costs: true,
-         input_price_per_million: "0.150",
-         output_price_per_million: "0.600"
+         model: "gpt-4o-mini",
+         track_costs: true
+         # these are optional, if not provided, this data is fetched from models.dev api and cached with ets
+         # input_price_per_million: "0.150",
+         # output_price_per_million: "0.600"
        ]}
     ],
     system_prompt: "You are a helpful assistant."
@@ -851,37 +855,32 @@ defmodule MyCostTrackingChat do
 
   def run_chat_with_costs() do
     messages = [
-      %LlmComposer.Message{type: :user, content: "How much is 1 + 1?"}
+      %LlmComposer.Message{type: :user, content: "Explain quantum computing briefly"}
     ]
 
     {:ok, res} = LlmComposer.run_completion(@settings, messages)
 
     # Access cost information from the response
-    IO.puts("Input tokens: #{res.input_tokens}")
-    IO.puts("Output tokens: #{res.output_tokens}")
-    IO.puts("Input cost: #{Decimal.to_string(res.cost_info.input_cost, :normal)}$")
-    IO.puts("Output cost: #{Decimal.to_string(res.cost_info.output_cost, :normal)}$")
+    IO.puts("Provider: #{res.cost_info.provider_name}")
+    IO.puts("Model: #{res.cost_info.provider_model}")
+    IO.puts("Total tokens: #{res.cost_info.total_tokens}")
     IO.puts("Total cost: #{Decimal.to_string(res.cost_info.total_cost, :normal)}$")
 
     res
   end
 end
 
-MyCostTrackingChat.run_chat_with_costs()
+MyOpenAICostTrackingChat.run_chat_with_costs()
 ```
 
-#### Cost Tracking with OpenRouter
+**Google** also supports automatic cost tracking via models.dev (same setup as OpenAI).
+
+#### Automatic Cost Tracking (OpenRouter)
 
 ```elixir
 Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api key>")
 
 # Start the cache backend (required for automatic pricing fetching)
-# The default ETS cache can be overridden by configuring a custom cache module:
-#
-# config :llm_composer, cache_mod: MyCustomCache
-#
-# Your custom cache module must implement the LlmComposer.Cache.Behaviour
-# which defines callbacks for get/1, put/3, and delete/1 operations.
 {:ok, _} = LlmComposer.Cache.Ets.start_link()
 
 defmodule MyOpenRouterCostTrackingChat do
@@ -919,7 +918,77 @@ end
 MyOpenRouterCostTrackingChat.run_chat_with_costs()
 ```
 
-**Note:** When `input_price_per_million` and `output_price_per_million` are not provided, pricing data is automatically fetched from OpenRouter's API and cached using ETS. This requires the ETS cache GenServer to be started. See the [Starting Cache in a Supervision Tree](#starting-cache-in-a-supervision-tree) section for setup instructions. If you provide the pricing manually, the cache is not required.
+#### Manual Pricing (Explicit Prices — no cache required)
+
+If you prefer to provide explicit prices for input/output tokens, you can do so and no ETS cache is required. This is useful when you already know your pricing or want to override automatic fetching.
+
+```elixir
+Application.put_env(:llm_composer, :google, api_key: "<your google api key>")
+
+defmodule MyManualCostTrackingChat do
+  @settings %LlmComposer.Settings{
+    providers: [
+      {LlmComposer.Providers.Google,
+       [
+         model: "gemini-2.5-flash",
+         track_costs: true,
+         input_price_per_million: "0.075",
+         output_price_per_million: "0.300"
+       ]}
+    ],
+    system_prompt: "You are a helpful assistant."
+  }
+
+  def run_chat_with_costs() do
+    messages = [
+      %LlmComposer.Message{type: :user, content: "How much is 1 + 1?"}
+    ]
+
+    {:ok, res} = LlmComposer.run_completion(@settings, messages)
+
+    # Access cost information from the response
+    IO.puts("Input tokens: #{res.input_tokens}")
+    IO.puts("Output tokens: #{res.output_tokens}")
+    IO.puts("Input cost: #{Decimal.to_string(res.cost_info.input_cost, :normal)}$")
+    IO.puts("Output cost: #{Decimal.to_string(res.cost_info.output_cost, :normal)}$")
+    IO.puts("Total cost: #{Decimal.to_string(res.cost_info.total_cost, :normal)}$")
+
+    res
+  end
+end
+
+MyManualCostTrackingChat.run_chat_with_costs()
+```
+
+
+#### Starting Cache in a Supervision Tree
+
+For production applications, add the ETS cache to your supervision tree to ensure it's available for automatic pricing fetching:
+
+```elixir
+# In your application.ex
+defmodule MyApp.Application do
+  use Application
+
+  def start(_type, _args) do
+    children = [
+      # Other children...
+      LlmComposer.Cache.Ets,  # Add this for automatic pricing caching
+      # ... rest of your children
+    ]
+
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+end
+```
+
+You can also start it manually in development or testing:
+
+```elixir
+# Start the cache manually
+{:ok, _} = LlmComposer.Cache.Ets.start_link()
+```
 
 #### Dependencies Setup
 
@@ -934,7 +1003,7 @@ def deps do
 end
 ```
 
-**Note:** Cost tracking calculates expenses based on the pricing parameters you provide in the provider options. You must specify `input_price_per_million` and `output_price_per_million` when `track_costs: true` is enabled. Costs are calculated automatically using the `CostInfo` struct and are included in the response.
+**Note:** Automatic pricing requires starting the ETS cache (see Starting Cache section). Manual pricing does not require the cache. If automatic pricing sources (models.dev or OpenRouter API) are unavailable, token counts are still tracked, but costs will be nil. All cost information is available in the `CostInfo` struct within responses.
 
 ### Additional Features
 * Auto Function Execution: Automatically executes predefined functions, reducing manual intervention.
