@@ -14,7 +14,7 @@ defmodule LlmComposer.HttpClient do
 
   @spec adapter() :: term()
   defp adapter do
-    Application.get_env(:llm_composer, :tesla_adapter)
+    Application.get_env(:llm_composer, :tesla_adapter, Tesla.Adapter.Mint)
   end
 
   @spec middlewares(binary(), keyword()) :: list(term())

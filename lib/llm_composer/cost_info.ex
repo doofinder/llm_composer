@@ -144,13 +144,13 @@ defmodule LlmComposer.CostInfo do
     %{
       cost_info
       | input_cost:
-          calculate_cost(
+          LlmComposer.Pricing.calculate_cost(
             cost_info.input_cost,
             cost_info.input_tokens,
             cost_info.input_price_per_million
           ),
         output_cost:
-          calculate_cost(
+          LlmComposer.Pricing.calculate_cost(
             cost_info.output_cost,
             cost_info.output_tokens,
             cost_info.output_price_per_million
@@ -158,21 +158,8 @@ defmodule LlmComposer.CostInfo do
     }
   end
 
-  @spec calculate_cost(Decimal.t() | nil, non_neg_integer(), Decimal.t() | nil) ::
-          Decimal.t() | nil
-  defp calculate_cost(existing_cost, _tokens, _price) when is_map(existing_cost),
-    do: existing_cost
-
-  defp calculate_cost(_existing_cost, _tokens, nil), do: nil
-
-  defp calculate_cost(nil, tokens, price) do
-    tokens
-    |> Decimal.new()
-    |> Decimal.div(Decimal.new(1_000_000))
-    |> Decimal.mult(price)
-  end
-
   @spec set_total_cost(t()) :: t()
+  # already set case
   defp set_total_cost(%__MODULE__{total_cost: total} = cost_info) when is_map(total),
     do: cost_info
 
