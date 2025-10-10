@@ -7,10 +7,8 @@ defmodule LlmComposer.Providers.OpenRouterTest do
   alias LlmComposer.Settings
 
   setup_all do
-    case Ets.start_link() do
-      {:ok, _} -> :ok
-      {:error, {:already_started, _}} -> :ok
-    end
+    Ets.start_link()
+    :ok
   end
 
   setup do

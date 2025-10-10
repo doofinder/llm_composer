@@ -6,7 +6,7 @@ defmodule LlmComposer.PricingTest do
 
   setup do
     # Start the cache for testing
-    start_supervised!(Ets)
+    Ets.start_link()
     :ok
   end
 

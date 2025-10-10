@@ -5,10 +5,7 @@ defmodule LlmComposer.Providers.UtilsTest do
   alias LlmComposer.Providers.Utils
 
   setup_all do
-    case Ets.start_link() do
-      {:ok, _} -> :ok
-      {:error, {:already_started, _}} -> :ok
-    end
+    Ets.start_link()
 
     :ok
   end
