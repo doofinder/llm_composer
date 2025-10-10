@@ -126,7 +126,7 @@ defmodule LlmComposer.Pricing do
 
   def models_dev_fetcher(_provider, _model), do: nil
 
-  @spec fetch_and_cache_models_dev_data(term, binary, binary) :: map | nil
+  @spec fetch_and_cache_models_dev_data(term(), atom(), binary()) :: map() | nil
   defp fetch_and_cache_models_dev_data(cache_key, provider, model) do
     client = HttpClient.client("https://models.dev/", [])
 
