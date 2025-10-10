@@ -149,7 +149,10 @@ defmodule LlmComposer.Pricing do
 
   @spec extract_pricing_from_data(map(), atom(), String.t()) :: map() | nil
   defp extract_pricing_from_data(data, provider, model) do
-    provider_key = provider |> Atom.to_string() |> String.replace("_", "")
+    provider_key =
+      provider
+      |> Atom.to_string()
+      |> String.replace("_", "")
 
     case get_in(data, [provider_key, "models", model, "cost"]) do
       %{"input" => input, "output" => output} ->
@@ -158,8 +161,14 @@ defmodule LlmComposer.Pricing do
         )
 
         %{
-          input_price_per_million: input |> to_string() |> Decimal.new(),
-          output_price_per_million: output |> to_string() |> Decimal.new()
+          input_price_per_million:
+            input
+            |> to_string()
+            |> Decimal.new(),
+          output_price_per_million:
+            output
+            |> to_string()
+            |> Decimal.new()
         }
 
       nil ->

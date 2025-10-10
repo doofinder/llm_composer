@@ -1,11 +1,12 @@
 defmodule LlmComposer.PricingTest do
   use ExUnit.Case, async: true
 
+  alias LlmComposer.Cache.Ets
   alias LlmComposer.Pricing
 
   setup do
     # Start the cache for testing
-    start_supervised!(LlmComposer.Cache.Ets)
+    start_supervised!(Ets)
     :ok
   end
 
@@ -100,7 +101,7 @@ defmodule LlmComposer.PricingTest do
       }
 
       # Pre-populate cache
-      LlmComposer.Cache.Ets.put("models_dev_api", data, 3600)
+      Ets.put("models_dev_api", data, 3600)
 
       result = Pricing.models_dev_fetcher(:open_ai, "gpt-4")
 
@@ -114,7 +115,7 @@ defmodule LlmComposer.PricingTest do
 
     test "returns nil when model not found in cached data" do
       data = %{"open_ai" => %{"models" => %{}}}
-      LlmComposer.Cache.Ets.put("models_dev_api", data, 3600)
+      Ets.put("models_dev_api", data, 3600)
 
       result = Pricing.models_dev_fetcher(:open_ai, "unknown-model")
       assert result == nil
@@ -131,7 +132,7 @@ defmodule LlmComposer.PricingTest do
         }
       }
 
-      LlmComposer.Cache.Ets.put("models_dev_api", data, 3600)
+      Ets.put("models_dev_api", data, 3600)
 
       result = Pricing.models_dev_fetcher(:open_ai, "gpt-4")
       assert result == nil
