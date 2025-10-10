@@ -4,6 +4,12 @@ defmodule LlmComposer.Providers.UtilsTest do
   alias LlmComposer.CostInfo
   alias LlmComposer.Providers.Utils
 
+  setup do
+    # Start the cache for testing
+    start_supervised!(LlmComposer.Cache.Ets)
+    :ok
+  end
+
   describe "build_cost_info/3" do
     test "returns nil when track_costs is false" do
       opts = [track_costs: false]
@@ -45,17 +51,18 @@ defmodule LlmComposer.Providers.UtilsTest do
     end
 
     test "OpenAI provider - builds CostInfo without pricing options" do
-      opts = [track_costs: true, model: "gpt-4"]
+      # Use a model that won't be found in models.dev to test fallback to nil pricing
+      opts = [track_costs: true, model: "non-existent-model"]
 
       body = %{
-        "model" => "gpt-4",
+        "model" => "non-existent-model",
         "usage" => %{"prompt_tokens" => 100, "completion_tokens" => 50}
       }
 
       cost_info = Utils.build_cost_info(:open_ai, opts, body)
 
       assert cost_info.provider_name == :open_ai
-      assert cost_info.provider_model == "gpt-4"
+      assert cost_info.provider_model == "non-existent-model"
       assert cost_info.input_tokens == 100
       assert cost_info.output_tokens == 50
       assert cost_info.total_tokens == 150
@@ -116,7 +123,8 @@ defmodule LlmComposer.Providers.UtilsTest do
     end
 
     test "Google provider - builds CostInfo without pricing options" do
-      opts = [track_costs: true, model: "gemini-2.5-flash"]
+      # Use a model that won't be found in models.dev to test fallback to nil pricing
+      opts = [track_costs: true, model: "non-existent-model"]
 
       body = %{
         "usageMetadata" => %{
@@ -128,7 +136,7 @@ defmodule LlmComposer.Providers.UtilsTest do
       cost_info = Utils.build_cost_info(:google, opts, body)
 
       assert cost_info.provider_name == :google
-      assert cost_info.provider_model == "gemini-2.5-flash"
+      assert cost_info.provider_model == "non-existent-model"
       assert cost_info.input_tokens == 100
       assert cost_info.output_tokens == 50
       assert cost_info.total_tokens == 150
