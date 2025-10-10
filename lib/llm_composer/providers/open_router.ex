@@ -9,7 +9,6 @@ defmodule LlmComposer.Providers.OpenRouter do
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
-  alias LlmComposer.Providers.OpenRouter.TrackCosts
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -82,23 +81,17 @@ defmodule LlmComposer.Providers.OpenRouter do
       end
     end
 
-    metadata =
-      if Keyword.get(completion_opts, :track_costs) and Code.ensure_loaded?(Decimal) do
-        Logger.debug("retrieving cost of completion")
-        TrackCosts.track_costs(body)
-      else
-        %{}
-      end
+    cost_info = Utils.build_cost_info(name(), completion_opts, body)
 
     actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions, metadata: metadata}}
+    {:ok, %{response: body, actions: actions, cost_info: cost_info}}
   end
 
-  defp handle_response({:ok, resp}, _request_opts) do
+  defp handle_response({:ok, resp}, _opts) do
     {:error, resp}
   end
 
-  defp handle_response({:error, reason}, _request_opts) do
+  defp handle_response({:error, reason}, _opts) do
     {:error, reason}
   end
 

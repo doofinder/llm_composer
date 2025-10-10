@@ -2,11 +2,18 @@ defmodule LlmComposer.Providers.OpenRouterTest do
   use ExUnit.Case, async: true
   import ExUnit.CaptureLog
 
+  alias LlmComposer.Cache.Ets
   alias LlmComposer.Providers.OpenRouter
   alias LlmComposer.Settings
 
+  setup_all do
+    Ets.start_link()
+    :ok
+  end
+
   setup do
     bypass = Bypass.open()
+
     {:ok, bypass: bypass}
   end
 

@@ -3,6 +3,7 @@ defmodule LlmComposer.LlmResponse do
   Module to parse and easily handle llm responses.
   """
 
+  alias LlmComposer.CostInfo
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
@@ -12,6 +13,7 @@ defmodule LlmComposer.LlmResponse do
 
   @type t() :: %__MODULE__{
           actions: [[FunctionCall.t()]] | [FunctionCall.t()],
+          cost_info: CostInfo.t() | nil,
           input_tokens: pos_integer() | nil,
           main_response: Message.t() | nil,
           metadata: map(),
@@ -25,6 +27,7 @@ defmodule LlmComposer.LlmResponse do
 
   defstruct [
     :actions,
+    :cost_info,
     :main_response,
     :input_tokens,
     :output_tokens,
@@ -58,6 +61,7 @@ defmodule LlmComposer.LlmResponse do
     {:ok,
      %__MODULE__{
        actions: [],
+       cost_info: nil,
        input_tokens: nil,
        output_tokens: nil,
        stream: stream,
@@ -85,6 +89,7 @@ defmodule LlmComposer.LlmResponse do
     {:ok,
      %__MODULE__{
        actions: actions,
+       cost_info: Map.get(provider_response, :cost_info),
        input_tokens: get_in(raw_response, ["usage", "prompt_tokens"]),
        output_tokens: get_in(raw_response, ["usage", "completion_tokens"]),
        main_response: response,
@@ -96,7 +101,8 @@ defmodule LlmComposer.LlmResponse do
   end
 
   def new(
-        {status, %{actions: actions, response: %{"message" => message} = raw_response}},
+        {status,
+         provider_response = %{actions: actions, response: %{"message" => message} = raw_response}},
         :ollama = provider
       ) do
     response =
@@ -107,6 +113,7 @@ defmodule LlmComposer.LlmResponse do
     {:ok,
      %__MODULE__{
        actions: actions,
+       cost_info: Map.get(provider_response, :cost_info),
        main_response: response,
        provider: provider,
        raw: raw_response,
@@ -114,13 +121,17 @@ defmodule LlmComposer.LlmResponse do
      }}
   end
 
-  def new({status, %{actions: actions, response: response}}, :bedrock = provider) do
+  def new(
+        {status, provider_response = %{actions: actions, response: response}},
+        :bedrock = provider
+      ) do
     [%{"text" => message_content}] = response["output"]["message"]["content"]
     role = String.to_existing_atom(response["output"]["message"]["role"])
 
     {:ok,
      %__MODULE__{
        actions: actions,
+       cost_info: Map.get(provider_response, :cost_info),
        input_tokens: response["usage"]["inputTokens"],
        output_tokens: response["usage"]["outputTokens"],
        main_response:
@@ -131,7 +142,10 @@ defmodule LlmComposer.LlmResponse do
      }}
   end
 
-  def new({status, %{actions: actions, response: response}}, :google = provider) do
+  def new(
+        {status, provider_response = %{actions: actions, response: response}},
+        :google = provider
+      ) do
     [first_candidate | _] = response["candidates"]
     content = first_candidate["content"]
 
@@ -152,6 +166,7 @@ defmodule LlmComposer.LlmResponse do
     {:ok,
      %__MODULE__{
        actions: actions,
+       cost_info: Map.get(provider_response, :cost_info),
        input_tokens: usage["promptTokenCount"],
        output_tokens: usage["candidatesTokenCount"],
        main_response: Message.new(role, message_content, %{original: content}),
