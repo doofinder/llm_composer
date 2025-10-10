@@ -4,6 +4,7 @@ defmodule LlmComposer.Providers.Utils do
   alias LlmComposer.CostInfo
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
+  alias LlmComposer.Pricing
 
   @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
 
@@ -240,6 +241,6 @@ defmodule LlmComposer.Providers.Utils do
   defp get_pricing_opts(provider, opts, body) do
     # For OpenRouter, we need to pass the body for API-based pricing
     opts_with_body = if provider == :open_router, do: Keyword.put(opts, :body, body), else: opts
-    LlmComposer.Pricing.fetch_pricing(provider, opts_with_body) || []
+    Pricing.fetch_pricing(provider, opts_with_body) || []
   end
 end
