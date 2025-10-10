@@ -29,11 +29,13 @@ defmodule LlmComposer.Pricing do
     end
   end
 
-  @spec calculate_cost(Decimal.t() | nil, non_neg_integer(), Decimal.t() | nil) ::
+  @spec calculate_cost(Decimal.t() | nil, non_neg_integer() | nil, Decimal.t() | nil) ::
           Decimal.t() | nil
   def calculate_cost(%Decimal{} = existing_cost, _tokens, _price), do: existing_cost
 
   def calculate_cost(_existing_cost, _tokens, nil), do: nil
+
+  def calculate_cost(_existing_cost, nil, _price), do: nil
 
   def calculate_cost(nil, tokens, price) do
     tokens

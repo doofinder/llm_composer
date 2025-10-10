@@ -87,7 +87,7 @@ defmodule LlmComposer.PricingTest do
   describe "models_dev_fetcher/2 with cached data" do
     test "extracts pricing correctly from cached data" do
       data = %{
-        "open_ai" => %{
+        "openai" => %{
           "models" => %{
             "gpt-4" => %{
               "cost" => %{
@@ -114,7 +114,7 @@ defmodule LlmComposer.PricingTest do
     end
 
     test "returns nil when model not found in cached data" do
-      data = %{"open_ai" => %{"models" => %{}}}
+      data = %{"openai" => %{"models" => %{}}}
       Ets.put("models_dev_api", data, 3600)
 
       result = Pricing.models_dev_fetcher(:open_ai, "unknown-model")
@@ -123,7 +123,7 @@ defmodule LlmComposer.PricingTest do
 
     test "returns nil when cost structure is invalid in cached data" do
       data = %{
-        "open_ai" => %{
+        "openai" => %{
           "models" => %{
             "gpt-4" => %{
               "cost" => %{"invalid" => "structure"}

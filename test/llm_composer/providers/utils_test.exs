@@ -1,7 +1,6 @@
 defmodule LlmComposer.Providers.UtilsTest do
   use ExUnit.Case
 
-  alias LlmComposer.CostInfo
   alias LlmComposer.Providers.Utils
 
   setup do
