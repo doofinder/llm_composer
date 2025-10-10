@@ -1,11 +1,15 @@
 defmodule LlmComposer.Providers.UtilsTest do
   use ExUnit.Case
 
+  alias LlmComposer.Cache.Ets
   alias LlmComposer.Providers.Utils
 
-  setup do
-    # Start the cache for testing
-    start_supervised!(LlmComposer.Cache.Ets)
+  setup_all do
+    case Ets.start_link() do
+      {:ok, _} -> :ok
+      {:error, {:already_started, _}} -> :ok
+    end
+
     :ok
   end
 

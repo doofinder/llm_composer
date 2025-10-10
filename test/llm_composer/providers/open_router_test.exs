@@ -6,14 +6,15 @@ defmodule LlmComposer.Providers.OpenRouterTest do
   alias LlmComposer.Providers.OpenRouter
   alias LlmComposer.Settings
 
+  setup_all do
+    case Ets.start_link() do
+      {:ok, _} -> :ok
+      {:error, {:already_started, _}} -> :ok
+    end
+  end
+
   setup do
     bypass = Bypass.open()
-
-    {:ok, _} =
-      case Ets.start_link([]) do
-        {:ok, _} -> :ok
-        {:error, {:already_started, _}} -> :ok
-      end
 
     {:ok, bypass: bypass}
   end

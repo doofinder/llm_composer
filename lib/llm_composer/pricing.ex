@@ -174,12 +174,12 @@ defmodule LlmComposer.Pricing do
         }
 
       nil ->
-        Logger.debug("No pricing found for #{provider}/#{model} in models.dev data")
+        Logger.debug("No pricing found for #{provider_key}/#{model} in models.dev data")
         nil
 
       invalid_cost ->
         Logger.warning(
-          "Invalid cost structure for #{provider}/#{model}: #{inspect(invalid_cost)}"
+          "Invalid cost structure for #{provider_key}/#{model}: #{inspect(invalid_cost)}"
         )
 
         nil
