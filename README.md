@@ -27,7 +27,8 @@
   - [Provider Router Simple](#provider-router-simple)
   - [Cost Tracking](#cost-tracking)
     - [Requirements](#requirements)
-    - [Basic Cost Tracking Example](#basic-cost-tracking-example)
+    - [Automatic Cost Tracking](#automatic-cost-tracking)
+    - [Manual Pricing](#manual-pricing)
     - [Starting Cache in a Supervision Tree](#starting-cache-in-a-supervision-tree)
     - [Dependencies Setup](#dependencies-setup)
   - [Additional Features](#additional-features)
@@ -830,9 +831,12 @@ To use cost tracking, you need:
 1. **Decimal package**: Add `{:decimal, "~> 2.0"}` to your dependencies in `mix.exs`
 2. **Cache backend**: A cache implementation for storing cost data (LlmComposer provides an ETS-based cache by default, or you can implement a custom one using `LlmComposer.Cache.Behaviour`)
 
-#### Automatic Cost Tracking (OpenAI)
+#### Automatic Cost Tracking
+
+**OpenAI** and **Google** support automatic cost tracking via the models.dev dataset. When you enable `track_costs: true` and do not supply explicit prices, LlmComposer will fetch pricing from models.dev and cache it (ETS). Start the cache before using automatic pricing.
 
 ```elixir
+# OpenAI automatic pricing example
 Application.put_env(:llm_composer, :open_ai, api_key: "<your openai api key>")
 
 # Start the cache backend (required for automatic pricing fetching)
@@ -873,9 +877,12 @@ end
 MyOpenAICostTrackingChat.run_chat_with_costs()
 ```
 
-**Google** also supports automatic cost tracking via models.dev (same setup as OpenAI).
+**Google** uses the same setup (replace provider with `LlmComposer.Providers.Google` and model with e.g. `"gemini-2.5-flash"`).
+
 
 #### Automatic Cost Tracking (OpenRouter)
+
+OpenRouter also supports automatic pricing via its API. Start the cache and enable `track_costs: true`; prices will be fetched and cached if not provided.
 
 ```elixir
 Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api key>")
