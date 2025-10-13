@@ -153,6 +153,17 @@ defmodule LlmComposer.Providers.Utils do
     end
   end
 
+  @spec build_cost_info(atom(), keyword(), map()) :: CostInfo.t() | nil
+  def build_cost_info(provider_name, opts, body) do
+    if Keyword.get(opts, :track_costs) do
+      {input_tokens, output_tokens} = extract_tokens(provider_name, body)
+      model = get_model(provider_name, opts, body)
+      pricing_opts = get_pricing_opts(provider_name, opts, body)
+
+      CostInfo.new(provider_name, model, input_tokens, output_tokens, pricing_opts)
+    end
+  end
+
   defp get_action(%{"message" => %{"tool_calls" => calls}}) do
     Enum.map(calls, fn call ->
       %FunctionCall{
@@ -194,17 +205,6 @@ defmodule LlmComposer.Providers.Utils do
       "description" => function.description,
       "parameters" => function.schema
     }
-  end
-
-  @spec build_cost_info(atom(), keyword(), map()) :: CostInfo.t() | nil
-  def build_cost_info(provider_name, opts, body) do
-    if Keyword.get(opts, :track_costs) do
-      {input_tokens, output_tokens} = extract_tokens(provider_name, body)
-      model = get_model(provider_name, opts, body)
-      pricing_opts = get_pricing_opts(provider_name, opts, body)
-
-      CostInfo.new(provider_name, model, input_tokens, output_tokens, pricing_opts)
-    end
   end
 
   # Extract tokens based on provider-specific response structure
