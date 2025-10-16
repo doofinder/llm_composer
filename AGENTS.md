@@ -37,7 +37,8 @@ lib
 │   │   ├── behaviour.ex
 │   │   └── ets.ex
 │   ├── cost
-│   │   ├── open_router_pricing_fetcher.ex
+│   │   ├── cost_assembler.ex
+│   │   ├── fetchers
 │   │   └── pricing.ex
 │   ├── cost_info.ex
 │   ├── errors.ex
@@ -64,6 +65,8 @@ lib
 └── llm_composer.ex
 test
 ├── llm_composer
+│   ├── cost
+│   │   └── cost_assembler_test.exs
 │   ├── cost_info_test.exs
 │   ├── function_calls_auto_execution_test.exs
 │   ├── pricing_test.exs
