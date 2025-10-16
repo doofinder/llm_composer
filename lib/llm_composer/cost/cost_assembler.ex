@@ -92,7 +92,7 @@ defmodule LlmComposer.Cost.CostAssembler do
   end
 
   defp prepare_pricing_opts(:google, _raw_response, opts) do
-    Keyword.put(opts, :model, Keyword.get(opts, :model))
+    opts
   end
 
   defp prepare_pricing_opts(_provider, _raw_response, opts) do

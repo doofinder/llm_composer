@@ -11,35 +11,6 @@ defmodule LlmComposer.PricingTest do
     :ok
   end
 
-  describe "calculate_cost/3" do
-    test "returns existing cost when provided" do
-      existing_cost = Decimal.new("1.50")
-      result = Pricing.calculate_cost(existing_cost, 1000, Decimal.new("0.002"))
-      assert result == existing_cost
-    end
-
-    test "returns nil when price is nil" do
-      result = Pricing.calculate_cost(nil, 1000, nil)
-      assert result == nil
-    end
-
-    test "calculates cost correctly" do
-      tokens = 150_000
-      # $0.002 per million tokens
-      price_per_million = Decimal.new("0.002")
-      # 150_000 / 1_000_000 * 0.002 = 0.0003
-      expected_cost = Decimal.new("0.00030")
-
-      result = Pricing.calculate_cost(nil, tokens, price_per_million)
-      assert result == expected_cost
-    end
-
-    test "handles zero tokens" do
-      result = Pricing.calculate_cost(nil, 0, Decimal.new("0.002"))
-      assert Decimal.equal?(result, Decimal.new("0"))
-    end
-  end
-
   describe "fetch_pricing/2" do
     test "returns explicit pricing when provided" do
       opts = [

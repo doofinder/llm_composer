@@ -61,8 +61,6 @@ defmodule LlmComposer.CostInfo do
     }
   """
 
-  alias LlmComposer.Cost.Pricing
-
   @enforce_keys [
     :input_tokens,
     :output_tokens,
@@ -100,6 +98,21 @@ defmodule LlmComposer.CostInfo do
           total_tokens: non_neg_integer(),
           metadata: map()
         }
+
+  @spec calculate_cost(Decimal.t() | nil, non_neg_integer() | nil, Decimal.t() | nil) ::
+          Decimal.t() | nil
+  def calculate_cost(%Decimal{} = existing_cost, _tokens, _price), do: existing_cost
+
+  def calculate_cost(_existing_cost, _tokens, nil), do: nil
+
+  def calculate_cost(_existing_cost, nil, _price), do: nil
+
+  def calculate_cost(nil, tokens, price) do
+    tokens
+    |> Decimal.new()
+    |> Decimal.div(Decimal.new(1_000_000))
+    |> Decimal.mult(price)
+  end
 
   @spec new(String.t() | atom(), String.t(), non_neg_integer(), non_neg_integer(), keyword()) :: t
   def new(provider_name, model, input_tokens, output_tokens, options \\ []) do
@@ -146,13 +159,13 @@ defmodule LlmComposer.CostInfo do
     %{
       cost_info
       | input_cost:
-          Pricing.calculate_cost(
+          calculate_cost(
             cost_info.input_cost,
             cost_info.input_tokens,
             cost_info.input_price_per_million
           ),
         output_cost:
-          Pricing.calculate_cost(
+          calculate_cost(
             cost_info.output_cost,
             cost_info.output_tokens,
             cost_info.output_price_per_million
