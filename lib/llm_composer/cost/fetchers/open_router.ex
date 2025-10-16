@@ -1,5 +1,15 @@
-defmodule LlmComposer.Cost.OpenRouterPricingFetcher do
-  @moduledoc false
+defmodule LlmComposer.Cost.Fetchers.OpenRouter do
+  @moduledoc """
+  OpenRouter-specific pricing fetcher.
+
+  Fetches pricing information from OpenRouter's models API for the specified model
+  and provider combination. Uses 24-hour caching to minimize API calls.
+
+  ## Implementation Notes
+
+  OpenRouter's pricing API requires both model and provider parameters because
+  the same model can be served by different providers with different pricing.
+  """
 
   import LlmComposer.Providers.OpenRouter, only: [get_base_url: 0]
 
