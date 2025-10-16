@@ -2,7 +2,7 @@ defmodule LlmComposer.PricingTest do
   use ExUnit.Case, async: true
 
   alias LlmComposer.Cache.Ets
-  alias LlmComposer.Pricing
+  alias LlmComposer.Cost.Pricing
 
   setup do
     # Start the cache for testing

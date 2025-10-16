@@ -34,7 +34,7 @@ defmodule LlmComposer.Providers.OpenRouter do
       |> build_request(system_message, model, opts)
       |> then(&Tesla.post(client, "/chat/completions", &1, headers: headers, opts: req_opts))
       |> handle_response(opts)
-      |> LlmResponse.new(name())
+      |> LlmResponse.new(name(), opts)
     else
       {:error, :model_not_provided}
     end
@@ -81,10 +81,8 @@ defmodule LlmComposer.Providers.OpenRouter do
       end
     end
 
-    cost_info = Utils.build_cost_info(name(), completion_opts, body)
-
     actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions, cost_info: cost_info}}
+    {:ok, %{response: body, actions: actions}}
   end
 
   defp handle_response({:ok, resp}, _opts) do

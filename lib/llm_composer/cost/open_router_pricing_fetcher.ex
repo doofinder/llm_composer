@@ -1,4 +1,4 @@
-defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
+defmodule LlmComposer.Cost.OpenRouterPricingFetcher do
   @moduledoc false
 
   import LlmComposer.Providers.OpenRouter, only: [get_base_url: 0]
@@ -10,7 +10,7 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
   @cache_mod Application.compile_env(:llm_composer, :cache_mod, LlmComposer.Cache.Ets)
 
   @spec fetch_pricing(map()) :: map() | nil
-  def fetch_pricing(%{"model" => model, "provider" => provider, "usage" => _usage}) do
+  def fetch_pricing(%{"model" => model, "provider" => provider} = _body) do
     with {:ok, endpoint} <- validate_endpoint(model, provider),
          {:ok, pricing} <- validate_pricing(endpoint, model, provider) do
       build_pricing_result(pricing, model, provider)
@@ -26,7 +26,6 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
       nil
   end
 
-  @spec validate_endpoint(binary, binary) :: {:ok, map()} | {:error, :no_endpoint}
   defp validate_endpoint(model, provider) do
     case get_endpoint_data(model, provider) do
       nil ->
@@ -38,9 +37,7 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
     end
   end
 
-  @spec validate_pricing(map(), binary, binary) :: {:ok, map()} | {:error, :invalid_pricing}
-  defp validate_pricing(%{"pricing" => pricing}, _model, _provider)
-       when is_map(pricing) do
+  defp validate_pricing(%{"pricing" => pricing}, _model, _provider) when is_map(pricing) do
     {:ok, pricing}
   end
 
@@ -49,7 +46,6 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
     {:error, :invalid_pricing}
   end
 
-  @spec build_pricing_result(map(), binary, binary) :: map()
   defp build_pricing_result(pricing, model, provider) do
     completion_per_token = Decimal.new(pricing["completion"])
     prompt_per_token = Decimal.new(pricing["prompt"])
@@ -67,7 +63,6 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
     }
   end
 
-  @spec get_endpoint_data(binary, binary) :: map() | nil
   defp get_endpoint_data(model, provider) do
     case fetch_model_endpoints_with_cache(model, provider, get_base_url()) do
       nil ->
@@ -80,7 +75,6 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
     end
   end
 
-  @spec fetch_model_endpoints_with_cache(binary, binary, binary) :: map() | nil
   defp fetch_model_endpoints_with_cache(model, provider, base_url) do
     key = model
 
@@ -118,7 +112,6 @@ defmodule LlmComposer.Providers.OpenRouter.PricingFetcher do
     end
   end
 
-  @spec get_endpoint(list(map()), binary) :: map() | nil
   defp get_endpoint(endpoints, provider) do
     endpoints
     |> Enum.filter(&(&1["provider_name"] == provider))

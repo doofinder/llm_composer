@@ -1,6 +1,6 @@
-defmodule LlmComposer.Pricing do
+defmodule LlmComposer.Cost.Pricing do
   @moduledoc """
-  Centralized pricing retrieval and calculation module.
+  Centralized pricing retrieval and calculation module (moved under cost/).
 
   Supports multiple pricing sources with caching:
   - Explicit provider options
@@ -8,8 +8,8 @@ defmodule LlmComposer.Pricing do
   - models.dev API (OpenAI/Google only)
   """
 
+  alias LlmComposer.Cost.OpenRouterPricingFetcher
   alias LlmComposer.HttpClient
-  alias LlmComposer.Providers.OpenRouter.PricingFetcher
 
   require Logger
 
@@ -65,7 +65,7 @@ defmodule LlmComposer.Pricing do
     if is_nil(body) do
       nil
     else
-      case PricingFetcher.fetch_pricing(body) do
+      case OpenRouterPricingFetcher.fetch_pricing(body) do
         %{input_price_per_million: input_price, output_price_per_million: output_price} ->
           [
             input_price_per_million: input_price,

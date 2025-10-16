@@ -1,10 +1,8 @@
 defmodule LlmComposer.Providers.Utils do
   @moduledoc false
 
-  alias LlmComposer.CostInfo
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
-  alias LlmComposer.Pricing
 
   @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
 
@@ -153,17 +151,6 @@ defmodule LlmComposer.Providers.Utils do
     end
   end
 
-  @spec build_cost_info(atom(), keyword(), map()) :: CostInfo.t() | nil
-  def build_cost_info(provider_name, opts, body) do
-    if Keyword.get(opts, :track_costs) do
-      {input_tokens, output_tokens} = extract_tokens(provider_name, body)
-      model = get_model(provider_name, opts, body)
-      pricing_opts = get_pricing_opts(provider_name, opts, body)
-
-      CostInfo.new(provider_name, model, input_tokens, output_tokens, pricing_opts)
-    end
-  end
-
   defp get_action(%{"message" => %{"tool_calls" => calls}}) do
     Enum.map(calls, fn call ->
       %FunctionCall{
@@ -205,42 +192,5 @@ defmodule LlmComposer.Providers.Utils do
       "description" => function.description,
       "parameters" => function.schema
     }
-  end
-
-  # Extract tokens based on provider-specific response structure
-  defp extract_tokens(:open_ai, body) do
-    if is_map(body) and Map.has_key?(body, "usage") do
-      input = get_in(body, ["usage", "prompt_tokens"]) || 0
-      output = get_in(body, ["usage", "completion_tokens"]) || 0
-      {input, output}
-    else
-      {nil, nil}
-    end
-  end
-
-  # Same structure as OpenAI
-  defp extract_tokens(:open_router, body), do: extract_tokens(:open_ai, body)
-
-  defp extract_tokens(:google, body) do
-    if is_map(body) and Map.has_key?(body, "usageMetadata") do
-      usage = body["usageMetadata"] || %{}
-      input = usage["promptTokenCount"] || 0
-      output = usage["candidatesTokenCount"] || 0
-      {input, output}
-    else
-      {nil, nil}
-    end
-  end
-
-  # Get model based on provider-specific logic
-  defp get_model(:open_ai, _opts, body), do: body["model"]
-  defp get_model(:open_router, _opts, body), do: body["model"]
-  defp get_model(:google, opts, _body), do: Keyword.get(opts, :model)
-
-  # Get pricing options using centralized Pricing module
-  defp get_pricing_opts(provider, opts, body) do
-    # For OpenRouter, we need to pass the body for API-based pricing
-    opts_with_body = if provider == :open_router, do: Keyword.put(opts, :body, body), else: opts
-    Pricing.fetch_pricing(provider, opts_with_body) || []
   end
 end

@@ -61,6 +61,8 @@ defmodule LlmComposer.CostInfo do
     }
   """
 
+  alias LlmComposer.Cost.Pricing
+
   @enforce_keys [
     :input_tokens,
     :output_tokens,
@@ -144,13 +146,13 @@ defmodule LlmComposer.CostInfo do
     %{
       cost_info
       | input_cost:
-          LlmComposer.Pricing.calculate_cost(
+          Pricing.calculate_cost(
             cost_info.input_cost,
             cost_info.input_tokens,
             cost_info.input_price_per_million
           ),
         output_cost:
-          LlmComposer.Pricing.calculate_cost(
+          Pricing.calculate_cost(
             cost_info.output_cost,
             cost_info.output_tokens,
             cost_info.output_price_per_million

@@ -3,6 +3,7 @@ defmodule LlmComposer.LlmResponse do
   Module to parse and easily handle llm responses.
   """
 
+  alias LlmComposer.Cost.CostAssembler
   alias LlmComposer.CostInfo
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
@@ -41,21 +42,24 @@ defmodule LlmComposer.LlmResponse do
 
   @type model_response :: Tesla.Env.result()
 
-  @spec new(nil | model_response, atom()) :: {:ok, t()} | {:error, term()}
-  def new(nil, _provider), do: {:error, :no_llm_response}
+  @spec new(nil | model_response, atom(), keyword()) :: {:ok, t()} | {:error, term()}
+  def new(response, provider, opts \\ [])
 
-  def new({:error, %{body: body}}, provider) when provider in @llm_providers do
+  def new(nil, _provider, _opts), do: {:error, :no_llm_response}
+
+  def new({:error, %{body: body}}, provider, _opts) when provider in @llm_providers do
     {:error, body}
   end
 
-  def new({:error, resp}, provider) when provider in @llm_providers do
+  def new({:error, resp}, provider, _opts) when provider in @llm_providers do
     {:error, resp}
   end
 
   # Stream response case
   def new(
         {status, %{response: stream}} = raw_response,
-        llm_provider
+        llm_provider,
+        _opts
       )
       when llm_provider in [:open_ai, :open_router, :ollama, :google] and is_function(stream) do
     {:ok,
@@ -76,7 +80,8 @@ defmodule LlmComposer.LlmResponse do
         {status,
          %{actions: actions, response: %{"choices" => [first_choice | _tail]} = raw_response} =
            provider_response},
-        llm_provider
+        llm_provider,
+        opts
       )
       when llm_provider in [:open_ai, :open_router] do
     main_response = get_in(first_choice, ["message"])
@@ -86,12 +91,15 @@ defmodule LlmComposer.LlmResponse do
       |> String.to_existing_atom()
       |> Message.new(main_response["content"], %{original: main_response})
 
+    {input_tokens, output_tokens} = CostAssembler.extract_tokens(llm_provider, raw_response)
+    cost_info = CostAssembler.get_cost_info(llm_provider, raw_response, opts)
+
     {:ok,
      %__MODULE__{
        actions: actions,
-       cost_info: Map.get(provider_response, :cost_info),
-       input_tokens: get_in(raw_response, ["usage", "prompt_tokens"]),
-       output_tokens: get_in(raw_response, ["usage", "completion_tokens"]),
+       cost_info: cost_info,
+       input_tokens: input_tokens,
+       output_tokens: output_tokens,
        main_response: response,
        metadata: Map.get(provider_response, :metadata, %{}),
        provider: llm_provider,
@@ -103,7 +111,8 @@ defmodule LlmComposer.LlmResponse do
   def new(
         {status,
          provider_response = %{actions: actions, response: %{"message" => message} = raw_response}},
-        :ollama = provider
+        :ollama = provider,
+        _opts
       ) do
     response =
       message["role"]
@@ -122,8 +131,9 @@ defmodule LlmComposer.LlmResponse do
   end
 
   def new(
-        {status, provider_response = %{actions: actions, response: response}},
-        :bedrock = provider
+        {status, %{actions: actions, response: response} = provider_response},
+        :bedrock = provider,
+        _opts
       ) do
     [%{"text" => message_content}] = response["output"]["message"]["content"]
     role = String.to_existing_atom(response["output"]["message"]["role"])
@@ -143,8 +153,9 @@ defmodule LlmComposer.LlmResponse do
   end
 
   def new(
-        {status, provider_response = %{actions: actions, response: response}},
-        :google = provider
+        {status, %{actions: actions, response: response}},
+        :google = provider,
+        opts
       ) do
     [first_candidate | _] = response["candidates"]
     content = first_candidate["content"]
@@ -161,14 +172,15 @@ defmodule LlmComposer.LlmResponse do
         other -> String.to_existing_atom(other)
       end
 
-    usage = response["usageMetadata"]
+    {input_tokens, output_tokens} = CostAssembler.extract_tokens(provider, response)
+    cost_info = CostAssembler.get_cost_info(provider, response, opts)
 
     {:ok,
      %__MODULE__{
        actions: actions,
-       cost_info: Map.get(provider_response, :cost_info),
-       input_tokens: usage["promptTokenCount"],
-       output_tokens: usage["candidatesTokenCount"],
+       cost_info: cost_info,
+       input_tokens: input_tokens,
+       output_tokens: output_tokens,
        main_response: Message.new(role, message_content, %{original: content}),
        provider: provider,
        raw: response,
@@ -176,5 +188,6 @@ defmodule LlmComposer.LlmResponse do
      }}
   end
 
-  def new(_response, provider), do: raise("provider #{provider} handling not implemented")
+  def new(_response, provider, _opts),
+    do: raise("provider #{provider} handling not implemented")
 end

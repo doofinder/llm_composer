@@ -236,7 +236,7 @@ defmodule LlmComposer.Providers.Google do
         )
       )
       |> handle_response(opts)
-      |> LlmResponse.new(name())
+      |> LlmResponse.new(name(), opts)
     else
       {:error, :model_not_provided}
     end
@@ -262,12 +262,10 @@ defmodule LlmComposer.Providers.Google do
   end
 
   @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}, opts) do
+  defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}, _opts) do
     actions = Utils.extract_actions(body)
 
-    cost_info = Utils.build_cost_info(name(), opts, body)
-
-    {:ok, %{response: body, actions: actions, cost_info: cost_info}}
+    {:ok, %{response: body, actions: actions}}
   end
 
   defp handle_response({:ok, resp}, _opts) do
