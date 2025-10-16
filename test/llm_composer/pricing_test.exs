@@ -2,6 +2,7 @@ defmodule LlmComposer.PricingTest do
   use ExUnit.Case, async: true
 
   alias LlmComposer.Cache.Ets
+  alias LlmComposer.Cost.Fetchers.ModelsDev
   alias LlmComposer.Cost.Pricing
 
   setup do
@@ -73,7 +74,7 @@ defmodule LlmComposer.PricingTest do
 
   describe "models_dev_fetcher/2" do
     test "returns nil for unsupported providers" do
-      result = Pricing.models_dev_fetcher(:ollama, "llama3.1")
+      result = ModelsDev.fetch_pricing(:ollama, "llama3.1")
       assert result == nil
     end
 
@@ -103,7 +104,7 @@ defmodule LlmComposer.PricingTest do
       # Pre-populate cache
       Ets.put("models_dev_api", data, 3600)
 
-      result = Pricing.models_dev_fetcher(:open_ai, "gpt-4")
+      result = ModelsDev.fetch_pricing(:open_ai, "gpt-4")
 
       expected = %{
         input_price_per_million: Decimal.new("0.001"),
@@ -117,7 +118,7 @@ defmodule LlmComposer.PricingTest do
       data = %{"openai" => %{"models" => %{}}}
       Ets.put("models_dev_api", data, 3600)
 
-      result = Pricing.models_dev_fetcher(:open_ai, "unknown-model")
+      result = ModelsDev.fetch_pricing(:open_ai, "unknown-model")
       assert result == nil
     end
 
@@ -134,7 +135,7 @@ defmodule LlmComposer.PricingTest do
 
       Ets.put("models_dev_api", data, 3600)
 
-      result = Pricing.models_dev_fetcher(:open_ai, "gpt-4")
+      result = ModelsDev.fetch_pricing(:open_ai, "gpt-4")
       assert result == nil
     end
   end
