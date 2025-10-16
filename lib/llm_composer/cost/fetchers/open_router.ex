@@ -18,6 +18,7 @@ defmodule LlmComposer.Cost.Fetchers.OpenRouter do
   require Logger
 
   @cache_mod Application.compile_env(:llm_composer, :cache_mod, LlmComposer.Cache.Ets)
+  @default_cache_ttl_in_hours 24
 
   @spec fetch_pricing(map()) :: map() | nil
   def fetch_pricing(%{"model" => model, "provider" => provider} = _body) do
@@ -111,8 +112,7 @@ defmodule LlmComposer.Cost.Fetchers.OpenRouter do
 
     with client <- HttpClient.client(base_url, []),
          {:ok, endpoints_response} <- Tesla.get(client, "/models/#{model}/endpoints") do
-      # 24h ttl default
-      ttl = Application.get_env(:llm_composer, :cache_ttl, 60 * 60 * 24)
+      ttl = Application.get_env(:llm_composer, :cache_ttl, @default_cache_ttl_in_hours * 60 * 60)
       @cache_mod.put(key, endpoints_response.body, ttl)
       endpoints_response.body
     else

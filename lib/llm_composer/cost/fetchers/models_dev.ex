@@ -23,6 +23,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @cache_mod Application.compile_env(:llm_composer, :cache_mod, LlmComposer.Cache.Ets)
   @models_dev_url "https://models.dev/"
   @cache_key "models_dev_api"
+  @default_cache_ttl_in_hours 24
 
   @spec fetch_pricing(atom(), String.t()) :: map() | nil
   def fetch_pricing(provider, model) when provider in [:open_ai, :google] do
@@ -58,7 +59,9 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
 
     case Tesla.get(client, "/api.json") do
       {:ok, %{status: 200, body: data}} ->
-        ttl = Application.get_env(:llm_composer, :cache_ttl, 60 * 60 * 24)
+        ttl =
+          Application.get_env(:llm_composer, :cache_ttl, @default_cache_ttl_in_hours * 60 * 60)
+
         @cache_mod.put(@cache_key, data, ttl)
         {:ok, data}
 
