@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.12.0] - 2025-10-17
+
+### Removed
+- Removed support for deprecated `:provider` and `:provider_opts` settings keys. Use `:providers` list instead.
+- Removed support for global `:api_key` setting in Settings struct. Specify `:api_key` per-provider in the `:providers` list.
+- Removed backward compatibility handling for deprecated settings in `LlmComposer` and `ProvidersRunner`.
+
 ### Added
 - Automatic cost tracking for OpenAI, Google, and OpenRouter providers:
   - Fetches real-time pricing from provider APIs (models.dev for OpenAI/Google, OpenRouter API).
@@ -112,7 +119,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.11.2...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.12.0...HEAD
+[0.12.0]: https://github.com/doofinder/llm_composer/compare/0.11.2...0.12.0
 [0.11.2]: https://github.com/doofinder/llm_composer/compare/0.11.1...0.11.2
 [0.11.1]: https://github.com/doofinder/llm_composer/compare/0.11.0...0.11.1
 [0.11.0]: https://github.com/doofinder/llm_composer/compare/0.10.0...0.11.0

@@ -51,11 +51,6 @@ defmodule LlmComposer do
 
   require Logger
 
-  @deprecated_msg """
-  The settings keys :provider and :provider_opts are deprecated and will be removed in version 0.12.0.
-  Please migrate your configuration to use the :providers list instead.
-  """
-
   @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
 
   @type messages :: [Message.t()]
@@ -72,8 +67,6 @@ defmodule LlmComposer do
   """
   @spec simple_chat(Settings.t(), String.t()) :: Helpers.action_result()
   def simple_chat(%Settings{} = settings, msg) do
-    validate_settings(settings)
-
     messages = [Message.new(:user, user_prompt(settings, msg, %{}))]
 
     run_completion(settings, messages)
@@ -93,14 +86,6 @@ defmodule LlmComposer do
   @spec run_completion(Settings.t(), messages(), LlmResponse.t() | nil) ::
           Helpers.action_result()
   def run_completion(settings, messages, previous_response \\ nil) do
-    validate_settings(settings)
-
-    if settings.api_key && settings.api_key != "" do
-      Logger.warning(
-        "The :api_key setting in Settings struct is deprecated and will be removed in version 0.12.0. Please specify :api_key inside each provider's options in the :providers list."
-      )
-    end
-
     system_msg = Message.new(:system, settings.system_prompt)
 
     messages
@@ -181,26 +166,5 @@ defmodule LlmComposer do
     |> Helpers.maybe_complete_chat(messages, fn new_messages ->
       run_completion(settings, new_messages, res)
     end)
-  end
-
-  @spec validate_settings(Settings.t()) :: :ok
-  defp validate_settings(%Settings{
-         providers: providers,
-         provider: provider
-       }) do
-    cond do
-      is_list(providers) and provider != nil ->
-        raise ArgumentError,
-              "Settings cannot contain both :providers and deprecated :provider/:provider_opts simultaneously. " <>
-                "Please use only :providers. " <>
-                "Current settings: providers=#{inspect(providers)}, provider=#{inspect(provider)}"
-
-      provider != nil ->
-        Logger.warning(@deprecated_msg)
-        :ok
-
-      true ->
-        :ok
-    end
   end
 end

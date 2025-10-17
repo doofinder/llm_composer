@@ -28,17 +28,6 @@ defmodule LlmComposer.ProvidersRunner do
     execute_with_fallback(router, providers, messages, system_msg, settings)
   end
 
-  # old case, TODO: remove for llm_composer 0.12.0
-  def run(
-        messages,
-        %Settings{provider: provider, provider_opts: provider_opts} = settings,
-        system_msg
-      )
-      when provider != nil do
-    provider_opts = get_provider_opts(provider_opts, settings)
-    provider.run(messages, system_msg, provider_opts)
-  end
-
   def run(_messages, %Settings{}, _system_msg) do
     {:error, :no_providers_configured}
   end
