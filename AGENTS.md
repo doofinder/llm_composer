@@ -39,11 +39,13 @@ lib
 │   ├── cost
 │   │   ├── cost_assembler.ex
 │   │   ├── fetchers
+│   │   │   ├── models_dev.ex
+│   │   │   └── open_router.ex
 │   │   └── pricing.ex
 │   ├── cost_info.ex
 │   ├── errors.ex
-│   ├── function_call.ex
 │   ├── function.ex
+│   ├── function_call.ex
 │   ├── helpers.ex
 │   ├── http_client.ex
 │   ├── llm_response.ex
@@ -57,7 +59,6 @@ lib
 │   │   ├── google.ex
 │   │   ├── ollama.ex
 │   │   ├── open_ai.ex
-│   │   ├── open_router
 │   │   ├── open_router.ex
 │   │   └── utils.ex
 │   ├── providers_runner.ex
@@ -66,10 +67,16 @@ lib
 test
 ├── llm_composer
 │   ├── cost
-│   │   └── cost_assembler_test.exs
-│   ├── cost_info_test.exs
+│   │   ├── cost_assembler_test.exs
+│   │   ├── cost_info_test.exs
+│   │   ├── pricing_test.exs
+│   │   └── providers
+│   │       ├── google_test.exs
+│   │       ├── ollama_test.exs
+│   │       ├── open_ai_test.exs
+│   │       ├── open_router_test.exs
+│   │       └── utils_test.exs
 │   ├── function_calls_auto_execution_test.exs
-│   ├── pricing_test.exs
 │   ├── provider_router_simple_test.exs
 │   └── providers
 │       ├── google_test.exs
