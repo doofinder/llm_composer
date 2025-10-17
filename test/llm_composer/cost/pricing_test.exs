@@ -5,8 +5,7 @@ defmodule LlmComposer.PricingTest do
   alias LlmComposer.Cost.Fetchers.ModelsDev
   alias LlmComposer.Cost.Pricing
 
-  setup do
-    # Start the cache for testing
+  setup_all do
     Ets.start_link()
     :ok
   end

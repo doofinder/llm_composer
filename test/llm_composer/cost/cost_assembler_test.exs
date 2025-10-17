@@ -6,7 +6,7 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
   alias LlmComposer.Cost.CostAssembler
   alias LlmComposer.CostInfo
 
-  setup do
+  setup_all do
     Ets.start_link()
     :ok
   end
