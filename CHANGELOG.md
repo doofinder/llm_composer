@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Enhanced `LlmResponse` to include cost information.
 - Updated provider implementations (OpenAI, Google, OpenRouter) to support cost tracking.
 - Updated README with examples for cost tracking.
+- Refactored cost information retrieval and pricing module structure for improved maintainability.
+- Updated AGENTS.md with current development guidelines.
 
 ## [0.11.2] - 2025-09-25
 
