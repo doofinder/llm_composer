@@ -215,22 +215,28 @@ defmodule LlmComposer.Providers.Google do
 
     client = HttpClient.client(base_url, opts)
 
-    req_opts = Utils.get_req_opts(opts)
-
     # stream or generate?
-    suffix =
+    {suffix, query} =
       if Keyword.get(opts, :stream_response) do
-        "streamGenerateContent?alt=sse"
+        {"streamGenerateContent", [{"alt", "sse"}]}
       else
-        "generateContent"
+        {"generateContent", []}
       end
+
+    req_opts = Utils.get_req_opts(opts)
 
     if model do
       messages
       |> build_request(system_message, opts)
-      |> then(&Tesla.post(client, "/#{model}:#{suffix}", &1, headers: headers, opts: req_opts))
-      |> handle_response()
-      |> LlmResponse.new(name())
+      |> then(
+        &Tesla.post(client, "/#{model}:#{suffix}", &1,
+          headers: headers,
+          query: query,
+          opts: req_opts
+        )
+      )
+      |> handle_response(opts)
+      |> LlmResponse.new(name(), opts)
     else
       {:error, :model_not_provided}
     end
@@ -255,17 +261,18 @@ defmodule LlmComposer.Providers.Google do
     |> Utils.cleanup_body()
   end
 
-  @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}) do
+  @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
+  defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}, _opts) do
     actions = Utils.extract_actions(body)
+
     {:ok, %{response: body, actions: actions}}
   end
 
-  defp handle_response({:ok, resp}) do
+  defp handle_response({:ok, resp}, _opts) do
     {:error, resp}
   end
 
-  defp handle_response({:error, reason}) do
+  defp handle_response({:error, reason}, _opts) do
     {:error, reason}
   end
 

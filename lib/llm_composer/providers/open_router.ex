@@ -9,7 +9,6 @@ defmodule LlmComposer.Providers.OpenRouter do
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
   alias LlmComposer.LlmResponse
-  alias LlmComposer.Providers.OpenRouter.TrackCosts
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -35,7 +34,7 @@ defmodule LlmComposer.Providers.OpenRouter do
       |> build_request(system_message, model, opts)
       |> then(&Tesla.post(client, "/chat/completions", &1, headers: headers, opts: req_opts))
       |> handle_response(opts)
-      |> LlmResponse.new(name())
+      |> LlmResponse.new(name(), opts)
     else
       {:error, :model_not_provided}
     end
@@ -82,23 +81,15 @@ defmodule LlmComposer.Providers.OpenRouter do
       end
     end
 
-    metadata =
-      if Keyword.get(completion_opts, :track_costs) and Code.ensure_loaded?(Decimal) do
-        Logger.debug("retrieving cost of completion")
-        TrackCosts.track_costs(body)
-      else
-        %{}
-      end
-
     actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions, metadata: metadata}}
+    {:ok, %{response: body, actions: actions}}
   end
 
-  defp handle_response({:ok, resp}, _request_opts) do
+  defp handle_response({:ok, resp}, _opts) do
     {:error, resp}
   end
 
-  defp handle_response({:error, reason}, _request_opts) do
+  defp handle_response({:error, reason}, _opts) do
     {:error, reason}
   end
 

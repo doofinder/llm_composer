@@ -34,8 +34,8 @@ defmodule LlmComposer.Providers.OpenAI do
       messages
       |> build_request(system_message, model, opts)
       |> then(&Tesla.post(client, "/chat/completions", &1, headers: headers, opts: req_opts))
-      |> handle_response()
-      |> LlmResponse.new(name())
+      |> handle_response(opts)
+      |> LlmResponse.new(name(), opts)
     else
       {:error, :model_not_provided}
     end
@@ -62,17 +62,19 @@ defmodule LlmComposer.Providers.OpenAI do
     |> Utils.cleanup_body()
   end
 
-  @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}) when status in [200] do
+  @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
+  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, _opts)
+       when status in [200] do
     actions = Utils.extract_actions(body)
+
     {:ok, %{response: body, actions: actions}}
   end
 
-  defp handle_response({:ok, resp}) do
+  defp handle_response({:ok, resp}, _opts) do
     {:error, resp}
   end
 
-  defp handle_response({:error, reason}) do
+  defp handle_response({:error, reason}, _opts) do
     {:error, reason}
   end
 

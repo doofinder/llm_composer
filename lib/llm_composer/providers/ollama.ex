@@ -28,7 +28,7 @@ defmodule LlmComposer.Providers.Ollama do
       |> build_request(system_message, model, opts)
       |> then(&Tesla.post(client, "/api/chat", &1, opts: req_opts))
       |> handle_response()
-      |> LlmResponse.new(name())
+      |> LlmResponse.new(name(), opts)
     else
       {:error, :model_not_provided}
     end

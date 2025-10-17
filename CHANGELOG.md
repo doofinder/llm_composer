@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- Automatic cost tracking for OpenAI, Google, and OpenRouter providers:
+  - Fetches real-time pricing from provider APIs (models.dev for OpenAI/Google, OpenRouter API).
+  - `CostInfo` struct in responses with token usage and cost breakdowns.
+  - Support for automatic and manual pricing configuration.
+- `Pricing` module for cost calculations.
+- Supporting modules for OpenRouter pricing and tracking.
+
+### Changed
+- Enhanced `LlmResponse` to include cost information.
+- Updated provider implementations (OpenAI, Google, OpenRouter) to support cost tracking.
+- Updated README with examples for cost tracking.
+- Refactored cost information retrieval and pricing module structure for improved maintainability.
+- Updated AGENTS.md with current development guidelines.
+
 ## [0.11.2] - 2025-09-25
 
 - Updated README a bit more docs and examples. Included in new release for hex docs too.
