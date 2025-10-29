@@ -32,6 +32,7 @@
     - [Starting Cache in a Supervision Tree](#starting-cache-in-a-supervision-tree)
     - [Dependencies Setup](#dependencies-setup)
   - [Additional Features](#additional-features)
+    - [Custom Request Parameters](#custom-request-parameters)
 
 ## Installation
 
