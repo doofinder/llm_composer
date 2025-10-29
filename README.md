@@ -1013,6 +1013,70 @@ end
 **Note:** Automatic pricing requires starting the ETS cache (see Starting Cache section). Manual pricing does not require the cache. If automatic pricing sources (models.dev or OpenRouter API) are unavailable, token counts are still tracked, but costs will be nil. All cost information is available in the `CostInfo` struct within responses.
 
 ### Additional Features
+
+#### Custom Request Parameters
+
+LlmComposer supports passing custom request parameters to LLM provider APIs through the `request_params` option. This allows you to customize provider-specific parameters that are merged with the base request body.
+
+**Supported Providers:** All providers (OpenAI, OpenRouter, Ollama, Bedrock, Google)
+
+**Example with OpenAI:**
+
+```elixir
+Application.put_env(:llm_composer, :open_ai, api_key: "<your api key>")
+
+defmodule MyCustomChat do
+  @settings %LlmComposer.Settings{
+    providers: [
+      {LlmComposer.Providers.OpenAI, [
+        model: "gpt-5-mini",
+        request_params: %{
+          reasoning_effort: "low"
+        }
+      ]}
+    ],
+    system_prompt: "You are a helpful assistant."
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
+end
+
+{:ok, res} = MyCustomChat.simple_chat("Explain quantum computing")
+IO.inspect(res.main_response)
+```
+
+**Example with OpenRouter:**
+
+```elixir
+Application.put_env(:llm_composer, :open_router, api_key: "<your openrouter api key>")
+
+defmodule MyOpenRouterCustomChat do
+  @settings %LlmComposer.Settings{
+    providers: [
+      {LlmComposer.Providers.OpenRouter, [
+        model: "anthropic/claude-3-haiku",
+        request_params: %{
+          temperature: 0.3,
+          max_tokens: 500
+        }
+      ]}
+    ],
+    system_prompt: "You are a helpful assistant."
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
+end
+
+{:ok, res} = MyOpenRouterCustomChat.simple_chat("What is machine learning?")
+IO.inspect(res.main_response)
+```
+
+**Note:** Custom parameters are merged with the base request body. Provider-specific parameters (like `temperature`, `max_tokens`, `reasoning_effort`) can be passed through `request_params` to fine-tune model behavior.
+
 * Auto Function Execution: Automatically executes predefined functions, reducing manual intervention.
 * System Prompts: Customize the assistant's behavior by modifying the system prompt (e.g., creating different personalities or roles for your bot).
 
