@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.12.2] - 2025-11-06
+
+### Changed
+- Changed license from GPL-3.0 to MIT
+- Updated documentation and improved code examples
+
 ## [0.12.0] - 2025-10-17
 
 ### Removed
@@ -119,7 +125,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.12.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.12.2...HEAD
+[0.12.2]: https://github.com/doofinder/llm_composer/compare/0.12.0...0.12.2
 [0.12.0]: https://github.com/doofinder/llm_composer/compare/0.11.2...0.12.0
 [0.11.2]: https://github.com/doofinder/llm_composer/compare/0.11.1...0.11.2
 [0.11.1]: https://github.com/doofinder/llm_composer/compare/0.11.0...0.11.1
