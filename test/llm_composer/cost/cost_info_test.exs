@@ -1,206 +1,208 @@
-defmodule LlmComposer.CostInfoTest do
-  use ExUnit.Case
-  doctest LlmComposer.CostInfo
+if Code.ensure_loaded?(Decimal) do
+  defmodule LlmComposer.CostInfoTest do
+    use ExUnit.Case
+    doctest LlmComposer.CostInfo
 
-  alias LlmComposer.CostInfo
+    alias LlmComposer.CostInfo
 
-  describe "new/5" do
-    test "creates struct with required fields" do
-      cost_info = CostInfo.new(:open_ai, "gpt-4", 100, 50)
+    describe "new/5" do
+      test "creates struct with required fields" do
+        cost_info = CostInfo.new(:open_ai, "gpt-4", 100, 50)
 
-      assert cost_info.provider_name == :open_ai
-      assert cost_info.provider_model == "gpt-4"
-      assert cost_info.input_tokens == 100
-      assert cost_info.output_tokens == 50
-      assert cost_info.total_tokens == 150
-    end
+        assert cost_info.provider_name == :open_ai
+        assert cost_info.provider_model == "gpt-4"
+        assert cost_info.input_tokens == 100
+        assert cost_info.output_tokens == 50
+        assert cost_info.total_tokens == 150
+      end
 
-    test "creates struct with options" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 100, 50,
-          currency: "USD",
-          input_price_per_million: Decimal.new("1.0"),
-          output_price_per_million: Decimal.new("2.0"),
-          metadata: %{batch: true}
-        )
+      test "creates struct with options" do
+        cost_info =
+          CostInfo.new(:open_ai, "gpt-4", 100, 50,
+            currency: "USD",
+            input_price_per_million: Decimal.new("1.0"),
+            output_price_per_million: Decimal.new("2.0"),
+            metadata: %{batch: true}
+          )
 
-      assert cost_info.currency == "USD"
-      assert Decimal.equal?(cost_info.input_price_per_million, Decimal.new("1.0"))
-      assert Decimal.equal?(cost_info.output_price_per_million, Decimal.new("2.0"))
-      assert cost_info.metadata == %{batch: true}
-    end
+        assert cost_info.currency == "USD"
+        assert Decimal.equal?(cost_info.input_price_per_million, Decimal.new("1.0"))
+        assert Decimal.equal?(cost_info.output_price_per_million, Decimal.new("2.0"))
+        assert cost_info.metadata == %{batch: true}
+      end
 
-    test "enforces required keys" do
-      assert_raise ArgumentError, fn ->
-        struct!(CostInfo, %{})
+      test "enforces required keys" do
+        assert_raise ArgumentError, fn ->
+          struct!(CostInfo, %{})
+        end
       end
     end
-  end
 
-  describe "cost calculation validation" do
-    test "raises error when only input_price_per_million is provided" do
-      assert_raise ArgumentError,
-                   "Both input_price_per_million and output_price_per_million must be provided together",
-                   fn ->
-                     CostInfo.new(:open_ai, "gpt-4", 1_000_000, 0,
-                       input_price_per_million: Decimal.new("1.5")
-                     )
-                   end
+    describe "cost calculation validation" do
+      test "raises error when only input_price_per_million is provided" do
+        assert_raise ArgumentError,
+                     "Both input_price_per_million and output_price_per_million must be provided together",
+                     fn ->
+                       CostInfo.new(:open_ai, "gpt-4", 1_000_000, 0,
+                         input_price_per_million: Decimal.new("1.5")
+                       )
+                     end
+      end
+
+      test "raises error when only output_price_per_million is provided" do
+        assert_raise ArgumentError,
+                     "Both input_price_per_million and output_price_per_million must be provided together",
+                     fn ->
+                       CostInfo.new(:open_ai, "gpt-4", 0, 2_000_000,
+                         output_price_per_million: Decimal.new("3.0")
+                       )
+                     end
+      end
     end
 
-    test "raises error when only output_price_per_million is provided" do
-      assert_raise ArgumentError,
-                   "Both input_price_per_million and output_price_per_million must be provided together",
-                   fn ->
-                     CostInfo.new(:open_ai, "gpt-4", 0, 2_000_000,
-                       output_price_per_million: Decimal.new("3.0")
-                     )
-                   end
-    end
-  end
+    describe "total cost calculation" do
+      test "calculates total when both input and output costs exist" do
+        cost_info =
+          CostInfo.new(:open_ai, "gpt-4", 1_000_000, 1_000_000,
+            input_price_per_million: Decimal.new("1.0"),
+            output_price_per_million: Decimal.new("2.0")
+          )
 
-  describe "total cost calculation" do
-    test "calculates total when both input and output costs exist" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 1_000_000, 1_000_000,
-          input_price_per_million: Decimal.new("1.0"),
-          output_price_per_million: Decimal.new("2.0")
-        )
+        assert Decimal.equal?(cost_info.total_cost, Decimal.new("3.0"))
+      end
 
-      assert Decimal.equal?(cost_info.total_cost, Decimal.new("3.0"))
-    end
+      test "does not calculate when total_cost already set" do
+        cost_info =
+          CostInfo.new(:open_ai, "gpt-4", 1_000_000, 1_000_000,
+            input_price_per_million: Decimal.new("1.0"),
+            output_price_per_million: Decimal.new("2.0"),
+            total_cost: Decimal.new("5.0")
+          )
 
-    test "does not calculate when total_cost already set" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 1_000_000, 1_000_000,
-          input_price_per_million: Decimal.new("1.0"),
-          output_price_per_million: Decimal.new("2.0"),
-          total_cost: Decimal.new("5.0")
-        )
+        assert Decimal.equal?(cost_info.total_cost, Decimal.new("5.0"))
+      end
 
-      assert Decimal.equal?(cost_info.total_cost, Decimal.new("5.0"))
+      test "leaves total_cost nil when no costs calculated" do
+        cost_info = CostInfo.new(:open_ai, "gpt-4", 100, 50)
+
+        assert is_nil(cost_info.total_cost)
+      end
     end
 
-    test "leaves total_cost nil when no costs calculated" do
-      cost_info = CostInfo.new(:open_ai, "gpt-4", 100, 50)
+    describe "integration tests" do
+      test "full cost calculation with pricing" do
+        cost_info =
+          CostInfo.new(:open_ai, "gpt-4o-mini", 150_000, 75_000,
+            input_price_per_million: Decimal.new("1.0"),
+            output_price_per_million: Decimal.new("3.0"),
+            currency: "USD"
+          )
 
-      assert is_nil(cost_info.total_cost)
-    end
-  end
+        assert cost_info.input_tokens == 150_000
+        assert cost_info.output_tokens == 75_000
+        assert cost_info.total_tokens == 225_000
+        assert Decimal.equal?(cost_info.input_cost, Decimal.new("0.15"))
+        assert Decimal.equal?(cost_info.output_cost, Decimal.new("0.225"))
+        assert Decimal.equal?(cost_info.total_cost, Decimal.new("0.375"))
+        assert cost_info.currency == "USD"
+        assert cost_info.provider_name == :open_ai
+        assert cost_info.provider_model == "gpt-4o-mini"
+      end
 
-  describe "integration tests" do
-    test "full cost calculation with pricing" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4o-mini", 150_000, 75_000,
-          input_price_per_million: Decimal.new("1.0"),
-          output_price_per_million: Decimal.new("3.0"),
-          currency: "USD"
-        )
+      test "direct cost specification bypasses calculation" do
+        cost_info =
+          CostInfo.new(:open_ai, "gpt-4", 150, 75,
+            input_cost: Decimal.new("0.0015"),
+            output_cost: Decimal.new("0.0030"),
+            total_cost: Decimal.new("0.0045"),
+            currency: "USD"
+          )
 
-      assert cost_info.input_tokens == 150_000
-      assert cost_info.output_tokens == 75_000
-      assert cost_info.total_tokens == 225_000
-      assert Decimal.equal?(cost_info.input_cost, Decimal.new("0.15"))
-      assert Decimal.equal?(cost_info.output_cost, Decimal.new("0.225"))
-      assert Decimal.equal?(cost_info.total_cost, Decimal.new("0.375"))
-      assert cost_info.currency == "USD"
-      assert cost_info.provider_name == :open_ai
-      assert cost_info.provider_model == "gpt-4o-mini"
-    end
-
-    test "direct cost specification bypasses calculation" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 150, 75,
-          input_cost: Decimal.new("0.0015"),
-          output_cost: Decimal.new("0.0030"),
-          total_cost: Decimal.new("0.0045"),
-          currency: "USD"
-        )
-
-      assert Decimal.equal?(cost_info.input_cost, Decimal.new("0.0015"))
-      assert Decimal.equal?(cost_info.output_cost, Decimal.new("0.0030"))
-      assert Decimal.equal?(cost_info.total_cost, Decimal.new("0.0045"))
-    end
-  end
-
-  describe "edge cases" do
-    test "handles large token counts" do
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", 100_000_000, 50_000_000,
-          input_price_per_million: Decimal.new("0.5"),
-          output_price_per_million: Decimal.new("1.5")
-        )
-
-      assert Decimal.equal?(cost_info.input_cost, Decimal.new("50.0"))
-      assert Decimal.equal?(cost_info.output_cost, Decimal.new("75.0"))
-      assert Decimal.equal?(cost_info.total_cost, Decimal.new("125.0"))
+        assert Decimal.equal?(cost_info.input_cost, Decimal.new("0.0015"))
+        assert Decimal.equal?(cost_info.output_cost, Decimal.new("0.0030"))
+        assert Decimal.equal?(cost_info.total_cost, Decimal.new("0.0045"))
+      end
     end
 
-    test "handles fractional pricing" do
-      input_tokens = 333_333
-      output_tokens = 666_667
-      input_price = Decimal.new("0.123456")
-      output_price = Decimal.new("0.654321")
-      per_million = Decimal.new(1_000_000)
+    describe "edge cases" do
+      test "handles large token counts" do
+        cost_info =
+          CostInfo.new(:open_ai, "gpt-4", 100_000_000, 50_000_000,
+            input_price_per_million: Decimal.new("0.5"),
+            output_price_per_million: Decimal.new("1.5")
+          )
 
-      input_tokens_decimal = Decimal.new(input_tokens)
+        assert Decimal.equal?(cost_info.input_cost, Decimal.new("50.0"))
+        assert Decimal.equal?(cost_info.output_cost, Decimal.new("75.0"))
+        assert Decimal.equal?(cost_info.total_cost, Decimal.new("125.0"))
+      end
 
-      expected_input_cost =
-        input_tokens_decimal
-        |> Decimal.div(per_million)
-        |> Decimal.mult(input_price)
+      test "handles fractional pricing" do
+        input_tokens = 333_333
+        output_tokens = 666_667
+        input_price = Decimal.new("0.123456")
+        output_price = Decimal.new("0.654321")
+        per_million = Decimal.new(1_000_000)
 
-      output_tokens_decimal = Decimal.new(output_tokens)
+        input_tokens_decimal = Decimal.new(input_tokens)
 
-      expected_output_cost =
-        output_tokens_decimal
-        |> Decimal.div(per_million)
-        |> Decimal.mult(output_price)
+        expected_input_cost =
+          input_tokens_decimal
+          |> Decimal.div(per_million)
+          |> Decimal.mult(input_price)
 
-      expected_total_cost = Decimal.add(expected_input_cost, expected_output_cost)
+        output_tokens_decimal = Decimal.new(output_tokens)
 
-      cost_info =
-        CostInfo.new(:open_ai, "gpt-4", input_tokens, output_tokens,
-          input_price_per_million: input_price,
-          output_price_per_million: output_price
-        )
+        expected_output_cost =
+          output_tokens_decimal
+          |> Decimal.div(per_million)
+          |> Decimal.mult(output_price)
 
-      assert Decimal.equal?(cost_info.input_cost, expected_input_cost)
-      assert Decimal.equal?(cost_info.output_cost, expected_output_cost)
-      assert Decimal.equal?(cost_info.total_cost, expected_total_cost)
+        expected_total_cost = Decimal.add(expected_input_cost, expected_output_cost)
+
+        cost_info =
+          CostInfo.new(:open_ai, "gpt-4", input_tokens, output_tokens,
+            input_price_per_million: input_price,
+            output_price_per_million: output_price
+          )
+
+        assert Decimal.equal?(cost_info.input_cost, expected_input_cost)
+        assert Decimal.equal?(cost_info.output_cost, expected_output_cost)
+        assert Decimal.equal?(cost_info.total_cost, expected_total_cost)
+      end
+
+      test "provider_name as string" do
+        cost_info = CostInfo.new("open_ai", "gpt-4", 100, 50)
+
+        assert cost_info.provider_name == "open_ai"
+      end
     end
 
-    test "provider_name as string" do
-      cost_info = CostInfo.new("open_ai", "gpt-4", 100, 50)
+    describe "calculate_cost/3" do
+      test "returns existing cost when provided" do
+        existing_cost = Decimal.new("1.50")
+        result = CostInfo.calculate_cost(existing_cost, 1000, Decimal.new("0.002"))
+        assert result == existing_cost
+      end
 
-      assert cost_info.provider_name == "open_ai"
-    end
-  end
+      test "returns nil when price is nil" do
+        result = CostInfo.calculate_cost(nil, 1000, nil)
+        assert result == nil
+      end
 
-  describe "calculate_cost/3" do
-    test "returns existing cost when provided" do
-      existing_cost = Decimal.new("1.50")
-      result = CostInfo.calculate_cost(existing_cost, 1000, Decimal.new("0.002"))
-      assert result == existing_cost
-    end
+      test "calculates cost correctly" do
+        tokens = 150_000
+        price_per_million = Decimal.new("0.002")
+        expected_cost = Decimal.new("0.00030")
 
-    test "returns nil when price is nil" do
-      result = CostInfo.calculate_cost(nil, 1000, nil)
-      assert result == nil
-    end
+        result = CostInfo.calculate_cost(nil, tokens, price_per_million)
+        assert result == expected_cost
+      end
 
-    test "calculates cost correctly" do
-      tokens = 150_000
-      price_per_million = Decimal.new("0.002")
-      expected_cost = Decimal.new("0.00030")
-
-      result = CostInfo.calculate_cost(nil, tokens, price_per_million)
-      assert result == expected_cost
-    end
-
-    test "handles zero tokens" do
-      result = CostInfo.calculate_cost(nil, 0, Decimal.new("0.002"))
-      assert Decimal.equal?(result, Decimal.new("0"))
+      test "handles zero tokens" do
+        result = CostInfo.calculate_cost(nil, 0, Decimal.new("0.002"))
+        assert Decimal.equal?(result, Decimal.new("0"))
+      end
     end
   end
 end
