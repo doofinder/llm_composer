@@ -4,7 +4,7 @@ defmodule LlmComposer.MixProject do
   def project do
     [
       app: :llm_composer,
-      version: "0.12.0",
+      version: "0.12.1",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -55,7 +55,7 @@ defmodule LlmComposer.MixProject do
     [
       description:
         "LlmComposer is an Elixir library that facilitates chat interactions with language models, providing tools to handle user messages, generate responses, and execute functions automatically based on model outputs.",
-      licenses: ["GPL-3.0"],
+      licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/doofinder/llm_composer"}
     ]
   end
