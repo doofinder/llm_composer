@@ -263,9 +263,7 @@ defmodule LlmComposer.Providers.Google do
 
   @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
   defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}, _opts) do
-    actions = Utils.extract_actions(body)
-
-    {:ok, %{response: body, actions: actions}}
+    {:ok, %{response: body}}
   end
 
   defp handle_response({:ok, resp}, _opts) do

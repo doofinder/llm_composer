@@ -81,8 +81,7 @@ defmodule LlmComposer.Providers.OpenRouter do
       end
     end
 
-    actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions}}
+    {:ok, %{response: body}}
   end
 
   defp handle_response({:ok, resp}, _opts) do

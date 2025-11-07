@@ -51,7 +51,7 @@ defmodule LlmComposer.Providers.Ollama do
 
   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
   defp handle_response({:ok, %Tesla.Env{status: status, body: body}}) when status in [200] do
-    {:ok, %{response: body, actions: []}}
+    {:ok, %{response: body}}
   end
 
   defp handle_response({:ok, resp}) do
