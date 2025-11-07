@@ -38,7 +38,7 @@ defmodule LlmComposer.MixProject do
     [
       {:bypass, "~> 2.1", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:decimal, "~> 2.3", optional: true},
+      {:decimal, "~> 2.3"},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_aws, "~> 2.5", optional: true},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
