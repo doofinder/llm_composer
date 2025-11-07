@@ -68,22 +68,21 @@ defmodule LlmComposer.Providers.OpenRouter do
     |> Utils.cleanup_body()
   end
 
-  @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, completion_opts)
-       when status in [200] do
-    # if stream response, skip this logic for logging a warning
-    if not is_function(body) and Keyword.get(completion_opts, :models) do
-      original_model = Keyword.get(completion_opts, :model)
-      used_model = body["model"]
+   @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
+   defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, completion_opts)
+        when status in [200] do
+     # if stream response, skip this logic for logging a warning
+     if not is_function(body) and Keyword.get(completion_opts, :models) do
+       original_model = Keyword.get(completion_opts, :model)
+       used_model = body["model"]
 
-      if original_model != used_model do
-        Logger.warning("The '#{used_model}' model has been used instead of '#{original_model}'")
-      end
-    end
+       if original_model != used_model do
+         Logger.warning("The '#{used_model}' model has been used instead of '#{original_model}'")
+       end
+     end
 
-    actions = Utils.extract_actions(body)
-    {:ok, %{response: body, actions: actions}}
-  end
+     {:ok, %{response: body}}
+   end
 
   defp handle_response({:ok, resp}, _opts) do
     {:error, resp}

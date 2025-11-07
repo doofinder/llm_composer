@@ -90,7 +90,6 @@ defmodule LlmComposer.ProvidersRunner do
   @spec get_provider_opts(keyword(), Settings.t()) :: keyword()
   defp get_provider_opts(opts, settings) do
     opts
-    |> Keyword.put_new(:functions, settings.functions)
     |> Keyword.put_new(:stream_response, settings.stream_response)
     |> Keyword.put_new(:track_costs, settings.track_costs)
     |> Keyword.put_new(:api_key, settings.api_key)

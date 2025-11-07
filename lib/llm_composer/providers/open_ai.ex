@@ -62,13 +62,11 @@ defmodule LlmComposer.Providers.OpenAI do
     |> Utils.cleanup_body()
   end
 
-  @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, _opts)
-       when status in [200] do
-    actions = Utils.extract_actions(body)
-
-    {:ok, %{response: body, actions: actions}}
-  end
+   @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
+   defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, _opts)
+        when status in [200] do
+     {:ok, %{response: body}}
+   end
 
   defp handle_response({:ok, resp}, _opts) do
     {:error, resp}

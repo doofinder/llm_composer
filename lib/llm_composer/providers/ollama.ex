@@ -49,10 +49,10 @@ defmodule LlmComposer.Providers.Ollama do
     |> Utils.cleanup_body()
   end
 
-  @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}) when status in [200] do
-    {:ok, %{response: body, actions: []}}
-  end
+   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term}
+   defp handle_response({:ok, %Tesla.Env{status: status, body: body}}) when status in [200] do
+     {:ok, %{response: body}}
+   end
 
   defp handle_response({:ok, resp}) do
     {:error, resp}

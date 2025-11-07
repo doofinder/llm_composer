@@ -77,15 +77,14 @@ if Code.ensure_loaded?(ExAws) do
     end
 
     @spec handle_response({:ok, map()} | {:error, map()}) :: {:ok, map()} | {:error, term}
-    defp handle_response({:ok, %{"output" => %{"message" => _message}} = response}) do
-      {:ok,
-       %{
-         response: response,
-         actions: [],
-         input_tokens: get_in(response, ["usage", "inputTokens"]),
-         output_tokens: get_in(response, ["usage", "outputTokens"])
-       }}
-    end
+     defp handle_response({:ok, %{"output" => %{"message" => _message}} = response}) do
+       {:ok,
+        %{
+          response: response,
+          input_tokens: get_in(response, ["usage", "inputTokens"]),
+          output_tokens: get_in(response, ["usage", "outputTokens"])
+        }}
+     end
 
     defp handle_response({:error, resp}) do
       {:error, resp}
