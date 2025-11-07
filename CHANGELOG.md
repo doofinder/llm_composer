@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.12.3] - 2025-11-07
+
 ### Changed
 - decimal dep mandatory
 
@@ -128,7 +130,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.12.2...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.12.3...HEAD
+[0.12.3]: https://github.com/doofinder/llm_composer/compare/0.12.2...0.12.3
 [0.12.2]: https://github.com/doofinder/llm_composer/compare/0.12.0...0.12.2
 [0.12.0]: https://github.com/doofinder/llm_composer/compare/0.11.2...0.12.0
 [0.11.2]: https://github.com/doofinder/llm_composer/compare/0.11.1...0.11.2
