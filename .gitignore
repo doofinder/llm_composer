@@ -26,3 +26,4 @@ llm_composer-*.tar
 /tmp/
 sample*
 *_sample*
+.env
