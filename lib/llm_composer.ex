@@ -101,41 +101,41 @@ defmodule LlmComposer do
   end
 
   @doc """
-    Processes a raw stream response and returns a parsed stream of message content.
+  Processes a raw stream response and returns a parsed stream of message content.
 
-    ## Parameters
-      - `stream`: The raw stream object from the LLM response.
+  ## Parameters
+    - `stream`: The raw stream object from the LLM response.
 
-    ## Returns
-      - A stream that yields parsed content strings, filtering out "[DONE]" markers and decode errors.
+  ## Returns
+    - A stream that yields parsed content strings, filtering out "[DONE]" markers and decode errors.
 
-    ## Example
+  ## Example
 
-      ```elixir
-      # Stream tested with Finch, maybe works with other adapters.
-      Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
-      {:ok, finch} = Finch.start_link(name: MyFinch)
+    ```elixir
+    # Stream tested with Finch, maybe works with other adapters.
+    Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
+    {:ok, finch} = Finch.start_link(name: MyFinch)
 
-      settings = %LlmComposer.Settings{
-        provider: LlmComposer.Providers.Ollama,
-        provider_opts: [model: "llama3.2"],
-        stream_response: true
-      }
+    settings = %LlmComposer.Settings{
+      provider: LlmComposer.Providers.Ollama,
+      provider_opts: [model: "llama3.2"],
+      stream_response: true
+    }
 
-      messages = [
-        %LlmComposer.Message{type: :user, content: "Tell me a short story"}
-      ]
+    messages = [
+      %LlmComposer.Message{type: :user, content: "Tell me a short story"}
+    ]
 
-      {:ok, res} = LlmComposer.run_completion(settings, messages)
+    {:ok, res} = LlmComposer.run_completion(settings, messages)
 
-      # Process the stream and print each parsed chunk
-      res.stream
-      |> LlmComposer.parse_stream_response()
-      |> Enum.each(fn parsed_data ->
-        content = get_in(parsed_data, ["message", "content"])
-        if content, do: IO.write(content)
-      end)
-      ```
+    # Process the stream and print each parsed chunk
+    res.stream
+    |> LlmComposer.parse_stream_response()
+    |> Enum.each(fn parsed_data ->
+      content = get_in(parsed_data, ["message", "content"])
+      if content, do: IO.write(content)
+    end)
+    ```
   """
   @spec parse_stream_response(Enumerable.t()) :: Enumerable.t()
   def parse_stream_response(stream) do
