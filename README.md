@@ -1,6 +1,6 @@
 # LlmComposer
 
-**LlmComposer** is an Elixir library that simplifies the interaction with large language models (LLMs) such as OpenAI's GPT, providing a streamlined way to build and execute LLM-based applications or chatbots. It currently supports multiple model providers, including OpenAI, OpenRouter, Ollama, Bedrock, and Google (Gemini), with features like auto-execution of functions and customizable prompts to cater to different use cases.
+**LlmComposer** is an Elixir library that simplifies the interaction with large language models (LLMs) such as OpenAI's GPT, providing a streamlined way to build and execute LLM-based applications or chatbots. It currently supports multiple model providers, including OpenAI, OpenRouter, Ollama, Bedrock, and Google (Gemini), with features like manual function calls and customizable prompts to cater to different use cases.
 
 ## Table of Contents
 
@@ -24,6 +24,7 @@
   - [Streaming Responses](#streaming-responses)
   - [Structured Outputs](#structured-outputs)
   - [Bot with external function call](#bot-with-external-function-call)
+  - [Function Calls](#function-calls)
   - [Provider Router Simple](#provider-router-simple)
   - [Cost Tracking](#cost-tracking)
     - [Requirements](#requirements)
@@ -74,7 +75,6 @@ The following table shows which features are supported by each provider:
 | Basic Chat | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Streaming | ✅ | ✅ | ✅ | ❌ | ✅ |
 | Function Calls | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Auto Function Execution | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Structured Outputs | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Cost Tracking | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
@@ -85,7 +85,7 @@ The following table shows which features are supported by each provider:
 - **Google** provides full feature support including function calls, structured outputs, and streaming with Gemini models
 - **Bedrock** support is provided via AWS ExAws integration and requires proper AWS configuration
 - **Ollama** requires an ollama server instance to be running
-- **Function Calls** require the provider to support OpenAI-compatible function calling format
+- **Function Calls** - LlmComposer exposes function call handling via `FunctionExecutor.execute/2` for explicit execution; supported by OpenAI, OpenRouter, and Google
 - **Streaming** is **not** compatible with Tesla **retries**.
 
 ## Usage
@@ -607,83 +607,137 @@ The model will then produce responses that adhere to the specified JSON schema, 
 
 **Note:** This feature is currently supported on the OpenRouter, Google, and OpenAI providers in llm_composer.
 
-### Bot with external function call
+### Function Calls
 
-You can enhance the bot's capabilities by adding support for external function execution. This example demonstrates how to add a simple calculator that evaluates basic math expressions:
+LlmComposer supports **manual function call execution** using the `FunctionExecutor` module. This approach gives you full control over when and how function calls are executed, without automatic execution. This is useful when you need to:
+
+- Log or audit function calls before execution
+- Apply custom validation or filtering to function calls
+- Execute multiple function calls in parallel with custom error handling
+- Integrate with external systems before/after execution
+
+Here's a concise, self-contained example demonstrating the 3-step manual function-call workflow (no external sample files required):
 
 ```elixir
+# Configure provider API key
 Application.put_env(:llm_composer, :open_ai, api_key: "<your api key>")
 
-defmodule MyChat do
+defmodule ManualFunctionCallExample do
+  alias LlmComposer.FunctionExecutor
+  alias LlmComposer.Function
+  alias LlmComposer.Message
 
-  @settings %LlmComposer.Settings{
-    providers: [
-      {LlmComposer.Providers.OpenAI, [model: "gpt-4.1-mini"]}
-    ],
-    system_prompt: "You are a helpful math assistant that assists with calculations.",
-    auto_exec_functions: true,
-    functions: [
-      %LlmComposer.Function{
-        mf: {__MODULE__, :calculator},
-        name: "calculator",
-        description: "A calculator that accepts math expressions as strings, e.g., '1 * (2 + 3) / 4', supporting the operators ['+', '-', '*', '/'].",
-        schema: %{
-          type: "object",
-          properties: %{
-            expression: %{
-              type: "string",
-              description: "A math expression to evaluate, using '+', '-', '*', '/'.",
-              example: "1 * (2 + 3) / 4"
-            }
-          },
-          required: ["expression"]
-        }
-      }
-    ]
-  }
-
-  def simple_chat(msg) do
-    LlmComposer.simple_chat(@settings, msg)
+  # 1) Define the actual function that will run locally
+  @spec calculator(map()) :: number() | {:error, String.t()}
+  def calculator(%{"expression" => expr}) do
+    # simple validation to avoid arbitrary evaluation
+    if Regex.match?(~r/^[0-9\.\s\+\-\*\/\(\)]+$/, expr) do
+      {result, _} = Code.eval_string(expr)
+      result
+    else
+      {:error, "invalid expression"}
+    end
   end
 
-  @spec calculator(map()) :: number() | {:error, String.t()}
-  def calculator(%{"expression" => expression}) do
-    # Basic validation pattern to prevent arbitrary code execution
-    pattern = ~r/^[0-9\.\s\+\-\*\/\(\)]+$/
+  # 2) Define the function descriptor sent to the model
+  defp calculator_function do
+    %Function{
+      mf: {__MODULE__, :calculator},
+      name: "calculator",
+      description: "Evaluate arithmetic expressions",
+      schema: %{
+        "type" => "object",
+        "properties" => %{"expression" => %{"type" => "string"}},
+        "required" => ["expression"]
+      }
+    }
+  end
 
-    if Regex.match?(pattern, expression) do
-      try do
-        {result, _binding} = Code.eval_string(expression)
-        result
-      rescue
-        _ -> {:error, "Invalid expression"}
-      end
-    else
-      {:error, "Invalid expression format"}
+  def run() do
+    functions = [calculator_function()]
+
+    settings = %LlmComposer.Settings{
+      providers: [
+        {LlmComposer.Providers.OpenAI, [model: "gpt-4o-mini", functions: functions]}
+      ],
+      system_prompt: "You are a helpful math assistant."
+    }
+
+    user_prompt = "What is 15 + 27?"
+
+    # Step 1: send initial chat that may request function calls
+    {:ok, resp} = LlmComposer.simple_chat(settings, user_prompt)
+
+    case resp.function_calls do
+      nil ->
+        # Model provided a direct answer
+        IO.puts("Assistant: #{resp.main_response.content}")
+        {:ok, resp}
+
+      function_calls ->
+        # Step 2: execute each returned function call locally
+        executed_calls =
+          Enum.map(function_calls, fn call ->
+            case FunctionExecutor.execute(call, functions) do
+              {:ok, executed} -> executed
+              {:error, _} -> call
+            end
+          end)
+
+        # Build tool-result messages (helper constructs proper :tool_result messages)
+        tool_messages = LlmComposer.FunctionCallHelpers.build_tool_result_messages(executed_calls)
+
+        # Build assistant 'with tools' message (provider-aware helper)
+        user_message = %Message{type: :user, content: user_prompt}
+
+        assistant_with_tools =
+          LlmComposer.FunctionCallHelpers.build_assistant_with_tools(
+            LlmComposer.Providers.OpenAI,
+            resp,
+            user_message,
+            [model: "gpt-4o-mini", functions: functions]
+          )
+
+        # Step 3: send user + assistant(with tool calls) + tool results back to LLM
+        messages = [user_message, assistant_with_tools] ++ tool_messages
+
+        {:ok, final} = LlmComposer.run_completion(settings, messages)
+        IO.puts("Assistant: #{final.main_response.content}")
+        {:ok, final}
     end
   end
 end
 
-{:ok, res} = MyChat.simple_chat("hi, how much is 1 + 2?")
-
-IO.inspect(res.main_response)
+# Run the example
+ManualFunctionCallExample.run()
 ```
 
-Example of execution:
+**What this shows**
+- How to define a safe local function and a corresponding `LlmComposer.Function` descriptor.
+- How to call `LlmComposer.simple_chat/2` to obtain potential function calls from the model.
+- How to execute returned `FunctionCall` structs with `FunctionExecutor.execute/2`.
+- How to build `:tool_result` messages with `LlmComposer.FunctionCallHelpers.build_tool_result_messages/1` and construct the assistant message using `build_assistant_with_tools/4`.
+- How to submit the results back to the model with `LlmComposer.run_completion/2` to receive the final assistant answer.
 
+#### FunctionExecutor API
+
+The `FunctionExecutor.execute/2` function:
+
+```elixir
+FunctionExecutor.execute(function_call, function_definitions)
 ```
-mix run functions_sample.ex
 
-16:38:28.338 [debug] input_tokens=111, output_tokens=17
+**Parameters:**
+- `function_call`: The `FunctionCall` struct returned by the LLM
+- `function_definitions`: List of `Function` structs that define callable functions
 
-16:38:28.935 [debug] input_tokens=136, output_tokens=9
-LlmComposer.Message.new(
-  :assistant,
-  "1 + 2 is 3."
-)
-```
+**Returns:**
+- `{:ok, executed_call}`: FunctionCall with `:result` populated
+- `{:error, :function_not_found}`: Function name not in definitions
+- `{:error, {:invalid_arguments, reason}}`: Failed to parse JSON arguments
+- `{:error, {:execution_failed, reason}}`: Exception during execution
 
-In this example, the bot first calls OpenAI to understand the user's intent and determine that a function (the calculator) should be executed. The function is then executed locally, and the result is sent back to the user in a second API call.
+**Supported Providers:** OpenAI, OpenRouter, and Google (Gemini)
 
 ### Provider Router Simple
 
@@ -1078,7 +1132,6 @@ IO.inspect(res.main_response)
 
 **Note:** Custom parameters are merged with the base request body. Provider-specific parameters (like `temperature`, `max_tokens`, `reasoning_effort`) can be passed through `request_params` to fine-tune model behavior.
 
-* Auto Function Execution: Automatically executes predefined functions, reducing manual intervention.
 * System Prompts: Customize the assistant's behavior by modifying the system prompt (e.g., creating different personalities or roles for your bot).
 
 ---
