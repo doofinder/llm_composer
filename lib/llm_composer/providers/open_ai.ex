@@ -6,10 +6,10 @@ defmodule LlmComposer.Providers.OpenAI do
   """
   @behaviour LlmComposer.Provider
 
-   alias LlmComposer.Errors.MissingKeyError
-   alias LlmComposer.HttpClient
-   alias LlmComposer.LlmResponse
-   alias LlmComposer.Providers.Utils
+  alias LlmComposer.Errors.MissingKeyError
+  alias LlmComposer.HttpClient
+  alias LlmComposer.LlmResponse
+  alias LlmComposer.Providers.Utils
 
   @impl LlmComposer.Provider
   def name, do: :open_ai
@@ -62,11 +62,11 @@ defmodule LlmComposer.Providers.OpenAI do
     |> Utils.cleanup_body()
   end
 
-   @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
-   defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, _opts)
-        when status in [200] do
-     {:ok, %{response: body}}
-   end
+  @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
+  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, _opts)
+       when status in [200] do
+    {:ok, %{response: body}}
+  end
 
   defp handle_response({:ok, resp}, _opts) do
     {:error, resp}
@@ -83,20 +83,20 @@ defmodule LlmComposer.Providers.OpenAI do
     end
   end
 
-   defp maybe_structured_output(base_request, opts) do
-     response_schema = Keyword.get(opts, :response_schema)
+  defp maybe_structured_output(base_request, opts) do
+    response_schema = Keyword.get(opts, :response_schema)
 
-     if is_map(response_schema) do
-       Map.put_new(base_request, :response_format, %{
-         "type" => "json_schema",
-         "json_schema" => %{
-           "name" => "response",
-           "strict" => true,
-           "schema" => response_schema
-         }
-       })
-     else
-       base_request
-     end
-   end
- end
+    if is_map(response_schema) do
+      Map.put_new(base_request, :response_format, %{
+        "type" => "json_schema",
+        "json_schema" => %{
+          "name" => "response",
+          "strict" => true,
+          "schema" => response_schema
+        }
+      })
+    else
+      base_request
+    end
+  end
+end

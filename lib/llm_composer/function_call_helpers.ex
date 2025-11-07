@@ -9,7 +9,8 @@ defmodule LlmComposer.FunctionCallHelpers do
   `build_assistant_with_tools/3` to customize behavior.
   """
 
-  alias LlmComposer.{Message, LlmResponse}
+  alias LlmComposer.LlmResponse
+  alias LlmComposer.Message
 
   @doc """
   Build an assistant message that preserves the original assistant response and
@@ -19,8 +20,14 @@ defmodule LlmComposer.FunctionCallHelpers do
   If `provider_mod` exports `build_assistant_with_tools/3`, this function will
   delegate to that implementation; otherwise it uses a sensible default.
   """
-  @spec build_assistant_with_tools(module(), LlmResponse.t(), Message.t(), keyword()) :: Message.t()
-  def build_assistant_with_tools(provider_mod, %LlmResponse{} = resp, %Message{} = user_msg, opts \\ []) do
+  @spec build_assistant_with_tools(module(), LlmResponse.t(), Message.t(), keyword()) ::
+          Message.t()
+  def build_assistant_with_tools(
+        provider_mod,
+        %LlmResponse{} = resp,
+        %Message{} = user_msg,
+        opts \\ []
+      ) do
     if function_exported?(provider_mod, :build_assistant_with_tools, 3) do
       provider_mod.build_assistant_with_tools(resp, user_msg, opts)
     else
