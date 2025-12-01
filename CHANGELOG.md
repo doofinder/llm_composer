@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.13.0] - 2025-12-01
+
+### Changed
+- Replaced the previous auto function execution workflow with a manual process powered by `FunctionExecutor` and `FunctionCallHelpers`, and added README guidance for executing OpenAI/OpenRouter/Google function calls explicitly.
+
+### Breeaking Changes
+- Removed the auto-execution helpers/tests and related documentation that assumed functions ran automatically.
+
 ## [0.12.3] - 2025-11-07
 
 ### Changed
@@ -130,7 +138,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.12.3...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.13.0...HEAD
+[0.13.0]: https://github.com/doofinder/llm_composer/compare/0.12.3...0.13.0
 [0.12.3]: https://github.com/doofinder/llm_composer/compare/0.12.2...0.12.3
 [0.12.2]: https://github.com/doofinder/llm_composer/compare/0.12.0...0.12.2
 [0.12.0]: https://github.com/doofinder/llm_composer/compare/0.11.2...0.12.0
