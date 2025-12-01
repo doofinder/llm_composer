@@ -1,10 +1,7 @@
 defmodule LlmComposer.Providers.Utils do
   @moduledoc false
 
-  alias LlmComposer.FunctionCall
   alias LlmComposer.Message
-
-  @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
 
   @spec map_messages([Message.t()], atom) :: [map()]
   def map_messages(messages, provider \\ :open_ai)
@@ -21,27 +18,18 @@ defmodule LlmComposer.Providers.Utils do
       %Message{type: :system, content: message} ->
         %{"role" => "system", "content" => message}
 
-      # reference to original "tool_calls"
-      %Message{
-        type: :assistant,
-        content: nil,
-        metadata: %{original: %{"tool_calls" => _tool_calls} = msg}
-      } ->
-        msg
+      %Message{type: :assistant, content: message, metadata: metadata} ->
+        build_assistant_message(message, metadata)
 
-      %Message{type: :assistant, content: message} ->
-        %{"role" => "assistant", "content" => message}
-
-      %Message{
-        type: :function_result,
-        content: message,
-        metadata: %{
-          fcall: %FunctionCall{
-            id: call_id
-          }
+      %Message{type: :tool_result, content: content, metadata: metadata} ->
+        %{
+          "role" => "tool",
+          "tool_call_id" => metadata["tool_call_id"],
+          "content" => to_string(content)
         }
-      } ->
-        %{"role" => "tool", "content" => message, "tool_call_id" => call_id}
+
+      _other ->
+        nil
     end)
     |> Enum.reject(&is_nil/1)
   end
@@ -54,34 +42,66 @@ defmodule LlmComposer.Providers.Utils do
       %Message{type: :user, content: message} ->
         %{"role" => "user", "parts" => [%{"text" => message}]}
 
-      # reference to original "tool_calls"
-      %Message{
-        type: :assistant,
-        content: nil,
-        metadata: %{original: %{"parts" => [%{"functionCall" => _}]} = msg}
-      } ->
-        msg
+      %Message{type: :assistant, content: message, metadata: metadata} ->
+        build_google_assistant_message(message, metadata)
 
-      %Message{type: :assistant, content: message} ->
-        %{"role" => "model", "parts" => [%{"text" => message}]}
-
-      %Message{
-        type: :function_result,
-        content: message,
-        metadata: %{
-          fcall: %FunctionCall{
-            name: name
-          }
-        }
-      } ->
+      %Message{type: :tool_result, content: content, metadata: metadata} ->
         %{
           "role" => "user",
           "parts" => [
-            %{"functionResponse" => %{"name" => name, "response" => %{"result" => message}}}
+            %{
+              "functionResponse" => %{
+                "name" => metadata["tool_call_id"],
+                "response" => %{
+                  "result" => to_string(content)
+                }
+              }
+            }
           ]
         }
+
+      _other ->
+        nil
     end)
     |> Enum.reject(&is_nil/1)
+  end
+
+  @spec build_google_assistant_message(String.t() | nil, map()) :: map()
+  defp build_google_assistant_message(message, metadata) do
+    base_message = %{"role" => "model"}
+
+    case metadata[:tool_calls] do
+      nil ->
+        Map.put(base_message, "parts", [%{"text" => message}])
+
+      tool_calls ->
+        parts =
+          Enum.map(tool_calls, fn call ->
+            arguments =
+              if is_binary(call.arguments) do
+                Jason.decode!(call.arguments)
+              else
+                call.arguments
+              end
+
+            %{
+              "functionCall" => %{
+                "name" => call.name,
+                "args" => arguments
+              }
+            }
+          end)
+
+        # Add text part if message is not empty
+        parts =
+          if message && message != "" do
+            [%{"text" => message} | parts]
+          else
+            parts
+          end
+
+        Map.put(base_message, "parts", parts)
+    end
   end
 
   @spec cleanup_body(map()) :: map()
@@ -101,25 +121,6 @@ defmodule LlmComposer.Providers.Utils do
   def get_tools(functions, provider) when is_list(functions) do
     Enum.map(functions, &transform_fn_to_tool(&1, provider))
   end
-
-  @spec extract_actions(map()) :: nil | []
-  def extract_actions(%{"choices" => choices}) when is_list(choices) do
-    choices
-    |> Enum.filter(&(&1["finish_reason"] == "tool_calls"))
-    |> Enum.map(&get_action/1)
-  end
-
-  # google case
-  def extract_actions(%{"candidates" => candidates}) when is_list(candidates) do
-    candidates
-    |> Enum.filter(fn
-      %{"finishReason" => "STOP", "content" => %{"parts" => [%{"functionCall" => _data}]}} -> true
-      _other -> false
-    end)
-    |> Enum.map(&get_action(&1, :google))
-  end
-
-  def extract_actions(_response), do: []
 
   @spec get_req_opts(keyword()) :: keyword()
   def get_req_opts(opts) do
@@ -151,29 +152,6 @@ defmodule LlmComposer.Providers.Utils do
     end
   end
 
-  defp get_action(%{"message" => %{"tool_calls" => calls}}) do
-    Enum.map(calls, fn call ->
-      %FunctionCall{
-        type: "function",
-        id: call["id"],
-        name: call["function"]["name"],
-        arguments: @json_mod.decode!(call["function"]["arguments"])
-      }
-    end)
-  end
-
-  defp get_action(%{"content" => %{"parts" => parts}}, :google) do
-    Enum.map(parts, fn
-      %{"functionCall" => fcall} ->
-        %FunctionCall{
-          type: "function",
-          id: nil,
-          name: fcall["name"],
-          arguments: fcall["args"]
-        }
-    end)
-  end
-
   defp transform_fn_to_tool(%LlmComposer.Function{} = function, provider)
        when provider in [:open_ai, :ollama, :open_router] do
     %{
@@ -192,5 +170,32 @@ defmodule LlmComposer.Providers.Utils do
       "description" => function.description,
       "parameters" => function.schema
     }
+  end
+
+  @spec build_assistant_message(String.t() | nil, map()) :: map()
+  defp build_assistant_message(message, metadata) do
+    assistant_msg = %{"role" => "assistant"}
+
+    case metadata[:tool_calls] do
+      nil ->
+        Map.put(assistant_msg, "content", message)
+
+      tool_calls ->
+        formatted_calls =
+          Enum.map(tool_calls, fn call ->
+            %{
+              "id" => call.id,
+              "type" => call.type || "function",
+              "function" => %{
+                "name" => call.name,
+                "arguments" => call.arguments
+              }
+            }
+          end)
+
+        assistant_msg
+        |> Map.put("content", message)
+        |> Map.put("tool_calls", formatted_calls)
+    end
   end
 end

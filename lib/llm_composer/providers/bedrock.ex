@@ -81,7 +81,6 @@ if Code.ensure_loaded?(ExAws) do
       {:ok,
        %{
          response: response,
-         actions: [],
          input_tokens: get_in(response, ["usage", "inputTokens"]),
          output_tokens: get_in(response, ["usage", "outputTokens"])
        }}
