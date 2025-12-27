@@ -34,6 +34,7 @@
     - [Dependencies Setup](#dependencies-setup)
   - [Additional Features](#additional-features)
     - [Custom Request Parameters](#custom-request-parameters)
+    _ [Custom Headers](#custom-headers)
 
 ## Installation
 
@@ -1133,6 +1134,29 @@ IO.inspect(res.main_response)
 **Note:** Custom parameters are merged with the base request body. Provider-specific parameters (like `temperature`, `max_tokens`, `reasoning_effort`) can be passed through `request_params` to fine-tune model behavior.
 
 * System Prompts: Customize the assistant's behavior by modifying the system prompt (e.g., creating different personalities or roles for your bot).
+
+#### Custom Headers
+
+You can pass custom headers to OpenRouter requests using the `headers` option. This is useful for passing headers like `HTTP-Referer` and `X-Title` which are recommended by OpenRouter for rankings.
+
+**Supported Providers:** OpenRouter
+
+**Example with OpenRouter:**
+
+```elixir
+@settings %LlmComposer.Settings{
+  providers: [
+    {LlmComposer.Providers.OpenRouter,
+     [
+       model: "anthropic/claude-3-haiku",
+       headers: [
+         {"HTTP-Referer", "https://my-app.com"},
+         {"X-Title", "My App"}
+       ]
+     ]}
+  ]
+}
+```
 
 ---
 
