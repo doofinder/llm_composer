@@ -34,7 +34,7 @@
     - [Dependencies Setup](#dependencies-setup)
   - [Additional Features](#additional-features)
     - [Custom Request Parameters](#custom-request-parameters)
-    _ [Custom Headers](#custom-headers)
+    - [Custom Request Headers](#custom-request-headers)
 
 ## Installation
 
@@ -1135,7 +1135,7 @@ IO.inspect(res.main_response)
 
 * System Prompts: Customize the assistant's behavior by modifying the system prompt (e.g., creating different personalities or roles for your bot).
 
-#### Custom Headers
+#### Custom Request Headers
 
 You can pass custom headers to OpenRouter requests using the `headers` option. This is useful for passing headers like `HTTP-Referer` and `X-Title` which are recommended by OpenRouter for rankings.
 
