@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-01-09
+
+### Added
+- Added ability to set custom HTTP request headers for OpenRouter provider.
+- Updated README with documentation on configuring custom headers.
+
 ## [0.13.0] - 2025-12-01
 
 ### Changed
@@ -138,7 +144,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.13.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.13.1...HEAD
+[0.13.1]: https://github.com/doofinder/llm_composer/compare/0.13.0...0.13.1
 [0.13.0]: https://github.com/doofinder/llm_composer/compare/0.12.3...0.13.0
 [0.12.3]: https://github.com/doofinder/llm_composer/compare/0.12.2...0.12.3
 [0.12.2]: https://github.com/doofinder/llm_composer/compare/0.12.0...0.12.2
