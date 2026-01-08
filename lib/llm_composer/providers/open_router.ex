@@ -26,7 +26,8 @@ defmodule LlmComposer.Providers.OpenRouter do
     base_url = get_base_url(opts)
     client = HttpClient.client(base_url, opts)
 
-    headers = [{"Authorization", "Bearer " <> api_key}]
+    extra_headers = Keyword.get(opts, :headers, [])
+    headers = [{"Authorization", "Bearer " <> api_key} | extra_headers]
     req_opts = Utils.get_req_opts(opts)
 
     if model do
