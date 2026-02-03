@@ -35,6 +35,9 @@
   - [Additional Features](#additional-features)
     - [Custom Request Parameters](#custom-request-parameters)
     - [Custom Request Headers](#custom-request-headers)
+- [Configuration Reference](#configuration-reference)
+  - [Configuration Overview](#configuration-reference)
+  - [Retry Configuration](#retry-configuration)
 
 ## Installation
 
@@ -49,7 +52,7 @@ def deps do
 end
 ```
 
-### Tesla Configuration
+## Tesla Configuration
 
 LlmComposer uses Tesla for HTTP requests. You can configure the Tesla adapter globally for optimal performance, especially when using streaming responses:
 
@@ -1163,3 +1166,65 @@ You can pass custom headers to OpenRouter requests using the `headers` option. T
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/llm_composer>.
+
+## Configuration Reference
+
+### Configuration Overview
+
+LlmComposer provides several configuration options that can be set globally in your `config/config.exs` or per-request in provider options:
+
+| Configuration | Description | See Documentation |
+|--------------|-------------|------------------|
+| `:tesla_adapter` | HTTP client adapter for requests (default: Mint) | [Tesla Configuration](#tesla-configuration) |
+| `:timeout` | Request timeout in milliseconds | - |
+| `:retry` | Retry behavior for failed requests | [Retry Configuration](#retry-configuration) |
+| `:provider_router` | Provider routing and failover configuration | [Provider Router Simple](#provider-router-simple) |
+| `:cache_ttl` | Cache time-to-live for pricing data in seconds | [Cost Tracking](#cost-tracking) |
+| Provider configs | Provider-specific settings (`:open_ai`, `:google`, `:open_router`, `:ollama`, etc.) | See provider-specific sections below |
+
+### Retry Configuration
+
+LlmComposer supports configurable HTTP retries for handling transient failures. By default, the library retries failed requests up to 3 times with exponential backoff.
+
+#### Global Configuration
+
+Configure retries globally in your `config/config.exs`:
+
+```elixir
+# Disable retries entirely
+config :llm_composer, :retry, enabled: false
+
+# Or customize retry behavior
+config :llm_composer, :retry,
+  max_retries: 5,        # Number of retry attempts (default: 3)
+  delay: 1000,           # Initial delay in milliseconds (default: 1000)
+  max_delay: 10_000      # Maximum delay in milliseconds (default: 10_000)
+```
+
+#### Per-Request Configuration
+
+You can also configure retries per-request via provider options:
+
+```elixir
+@settings %LlmComposer.Settings{
+  providers: [
+    {LlmComposer.Providers.OpenAI,
+     [
+       model: "gpt-4.1-mini",
+       max_retries: 5,        # Override global setting
+       retry_delay: 2000,     # Override global delay
+       retry_max_delay: 30_000
+     ]}
+  ]
+}
+```
+
+#### Disabling Retries
+
+Retries are automatically disabled when:
+- `enabled: false` is set in config
+- `max_retries: 0` is set in config or opts
+- `retry: false` is passed in opts
+- Streaming is enabled (`stream_response: true`)
+
+**Note:** Streaming responses do not support retries. When `stream_response: true` is set, the retry middleware is automatically removed from the HTTP client.
