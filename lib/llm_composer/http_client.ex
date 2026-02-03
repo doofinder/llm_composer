@@ -30,18 +30,39 @@ defmodule LlmComposer.HttpClient do
       Tesla.Middleware.JSON
     ]
 
-    if stream do
-      resp ++ [{Tesla.Middleware.SSE, only: :data}]
-    else
-      resp ++
-        [
-          {Tesla.Middleware.Retry, retry_opts(opts)},
-          {Tesla.Middleware.Timeout,
-           timeout:
-             Application.get_env(:llm_composer, :timeout) ||
-               Keyword.get(opts, :default_timeout, @default_timeout)}
-        ]
+    cond do
+      stream ->
+        resp ++ [{Tesla.Middleware.SSE, only: :data}]
+
+      retries_disabled?(opts) ->
+        resp ++
+          [
+            {Tesla.Middleware.Timeout,
+             timeout:
+               Application.get_env(:llm_composer, :timeout) ||
+                 Keyword.get(opts, :default_timeout, @default_timeout)}
+          ]
+
+      true ->
+        resp ++
+          [
+            {Tesla.Middleware.Retry, retry_opts(opts)},
+            {Tesla.Middleware.Timeout,
+             timeout:
+               Application.get_env(:llm_composer, :timeout) ||
+                 Keyword.get(opts, :default_timeout, @default_timeout)}
+          ]
     end
+  end
+
+  @spec retries_disabled?(keyword()) :: boolean()
+  defp retries_disabled?(opts) do
+    config = Application.get_env(:llm_composer, :retry, [])
+
+    Keyword.get(opts, :retry) == false ||
+      Keyword.get(config, :enabled) == false ||
+      Keyword.get(opts, :max_retries) == 0 ||
+      Keyword.get(config, :max_retries) == 0
   end
 
   @spec retry_opts(keyword()) :: keyword()
