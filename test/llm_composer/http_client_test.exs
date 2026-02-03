@@ -1,10 +1,20 @@
 defmodule LlmComposer.HttpClientTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case
 
   alias LlmComposer.HttpClient
 
   describe "client/2 with retry configuration" do
     setup do
+      prev = Application.get_env(:llm_composer, :retry)
+
+      on_exit(fn ->
+        if prev == nil do
+          Application.delete_env(:llm_composer, :retry)
+        else
+          Application.put_env(:llm_composer, :retry, prev)
+        end
+      end)
+
       Application.delete_env(:llm_composer, :retry)
       :ok
     end
@@ -28,8 +38,8 @@ defmodule LlmComposer.HttpClientTest do
     test "uses custom retry values from config" do
       Application.put_env(:llm_composer, :retry,
         max_retries: 5,
-        delay: 2000,
-        max_delay: 30_000
+        retry_delay: 2000,
+        retry_max_delay: 30_000
       )
 
       client = HttpClient.client("http://example.com")

@@ -69,10 +69,11 @@ defmodule LlmComposer.HttpClient do
   defp retry_opts(opts) do
     config = Application.get_env(:llm_composer, :retry, [])
 
-    delay = Keyword.get(opts, :retry_delay) || Keyword.get(config, :delay, :timer.seconds(1))
+    # Use canonical retry configuration keys (`:retry_delay` and `:retry_max_delay`)
+    delay = Keyword.get(opts, :retry_delay) || Keyword.get(config, :retry_delay, :timer.seconds(1))
 
     max_delay =
-      Keyword.get(opts, :retry_max_delay) || Keyword.get(config, :max_delay, :timer.seconds(10))
+      Keyword.get(opts, :retry_max_delay) || Keyword.get(config, :retry_max_delay, :timer.seconds(10))
 
     max_retries =
       Keyword.get(opts, :max_retries) || Keyword.get(config, :max_retries, @default_max_retries)

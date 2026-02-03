@@ -1196,9 +1196,9 @@ config :llm_composer, :retry, enabled: false
 
 # Or customize retry behavior
 config :llm_composer, :retry,
-  max_retries: 5,        # Number of retry attempts (default: 3)
-  delay: 1000,           # Initial delay in milliseconds (default: 1000)
-  max_delay: 10_000      # Maximum delay in milliseconds (default: 10_000)
+  max_retries: 5,             # Number of retry attempts (default: 3)
+  retry_delay: 1000,          # Initial delay in milliseconds (default: 1000)
+  retry_max_delay: 10_000     # Maximum delay in milliseconds (default: 10_000)
 ```
 
 #### Per-Request Configuration
