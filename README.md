@@ -1222,9 +1222,10 @@ You can also configure retries per-request via provider options:
 #### Disabling Retries
 
 Retries are automatically disabled when:
-- `enabled: false` is set in config
-- `max_retries: 0` is set in config or opts
-- `retry: false` is passed in opts
+- `enabled: false` is set in config or per-request opts
+- `max_retries: 0` is set in config or per-request opts
 - Streaming is enabled (`stream_response: true`)
 
-**Note:** Streaming responses do not support retries. When `stream_response: true` is set, the retry middleware is automatically removed from the HTTP client.
+Only `:enabled` and `:max_retries` are considered for disabling retries.
+
+Note: Streaming responses do not support retries. When `stream_response: true` is set, the retry middleware is automatically removed from the HTTP client.

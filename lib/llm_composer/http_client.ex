@@ -59,7 +59,7 @@ defmodule LlmComposer.HttpClient do
   defp retries_disabled?(opts) do
     config = Application.get_env(:llm_composer, :retry, [])
 
-    Keyword.get(opts, :retry) == false ||
+    Keyword.get(opts, :enabled) == false ||
       Keyword.get(config, :enabled) == false ||
       Keyword.get(opts, :max_retries) == 0 ||
       Keyword.get(config, :max_retries) == 0
