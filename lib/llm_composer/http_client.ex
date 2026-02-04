@@ -80,15 +80,20 @@ defmodule LlmComposer.HttpClient do
     max_retries =
       Keyword.get(opts, :max_retries) || Keyword.get(config, :max_retries, @default_max_retries)
 
+    should_retry =
+      Keyword.get(opts, :should_retry) ||
+        Keyword.get(config, :should_retry, &default_should_retry/1)
+
     [
       delay: delay,
       max_delay: max_delay,
       max_retries: max_retries,
-      should_retry: fn
-        {:ok, %{status: status}} when status in [429, 500, 503] -> true
-        {:error, :closed} -> true
-        _other -> false
-      end
+      should_retry: should_retry
     ]
   end
+
+  @spec default_should_retry(term()) :: boolean()
+  defp default_should_retry({:ok, %{status: status}}) when status in [429, 500, 503], do: true
+  defp default_should_retry({:error, :closed}), do: true
+  defp default_should_retry(_other), do: false
 end
