@@ -1184,7 +1184,12 @@ LlmComposer provides several configuration options that can be set globally in y
 
 ### Retry Configuration
 
-LlmComposer supports configurable HTTP retries for handling transient failures. By default, the library retries failed requests up to 3 times with exponential backoff.
+LlmComposer supports configurable HTTP retries for handling transient failures. By default the library enables the Tesla retry middleware (unless disabled via `skip_retries`) and supplies these defaults:
+
+- `:delay` — 1_000 ms
+- `:max_delay` — 10_000 ms
+- `:should_retry` — retries on HTTP status codes `429`, `500`, `503` and connection errors `{:error, :closed}`
+- Request timeout — 50_000 ms
 
 #### Global Configuration
 
@@ -1207,9 +1212,9 @@ If you need to pass the full set of options supported by `Tesla.Middleware.Retry
 
 ```elixir
 config :llm_composer, :retry_opts,
-  max_retries: 5,    # Number of retry attempts (default: 3)
-  delay: 1000,       # Initial delay in milliseconds (default: 1000)
-  max_delay: 10_000  # Maximum delay in milliseconds (default: 10_000)
+  max_retries: 5,    # Number of retry attempts
+  delay: 1000,       # Initial delay in milliseconds
+  max_delay: 10_000  # Maximum delay in milliseconds
 ```
 
 #### Per-Request Configuration
