@@ -38,8 +38,11 @@ defmodule LlmComposer.HttpClient do
           [
             {Tesla.Middleware.Timeout,
              timeout:
-               Application.get_env(:llm_composer, :timeout) ||
-                 Keyword.get(opts, :default_timeout, @default_timeout)}
+               Keyword.get(
+                 opts,
+                 :timeout,
+                 Application.get_env(:llm_composer, :timeout, @default_timeout)
+               )}
           ]
 
       true ->
@@ -48,8 +51,11 @@ defmodule LlmComposer.HttpClient do
             {Tesla.Middleware.Retry, retry_opts(opts)},
             {Tesla.Middleware.Timeout,
              timeout:
-               Application.get_env(:llm_composer, :timeout) ||
-                 Keyword.get(opts, :default_timeout, @default_timeout)}
+               Keyword.get(
+                 opts,
+                 :timeout,
+                 Application.get_env(:llm_composer, :timeout, @default_timeout)
+               )}
           ]
     end
   end
