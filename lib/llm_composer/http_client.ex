@@ -37,12 +37,9 @@ defmodule LlmComposer.HttpClient do
         resp ++
           [
             {Tesla.Middleware.Timeout,
-             timeout:
-               Keyword.get(
-                 opts,
-                 :timeout,
-                 Application.get_env(:llm_composer, :timeout, @default_timeout)
-               )}
+             [
+               timeout: get_timeout(opts)
+             ]}
           ]
 
       true ->
@@ -50,12 +47,9 @@ defmodule LlmComposer.HttpClient do
           [
             {Tesla.Middleware.Retry, retry_opts(opts)},
             {Tesla.Middleware.Timeout,
-             timeout:
-               Keyword.get(
-                 opts,
-                 :timeout,
-                 Application.get_env(:llm_composer, :timeout, @default_timeout)
-               )}
+             [
+               timeout: get_timeout(opts)
+             ]}
           ]
     end
   end
@@ -66,6 +60,14 @@ defmodule LlmComposer.HttpClient do
 
     # Only the explicit skip flag disables retries. Let Tesla handle other retry options
     Keyword.get(opts, :skip_retries, skip_config)
+  end
+
+  @spec get_timeout(keyword()) :: non_neg_integer()
+  defp get_timeout(opts) do
+    case Keyword.get(opts, :timeout) do
+      nil -> Application.get_env(:llm_composer, :timeout) || @default_timeout
+      timeout -> timeout
+    end
   end
 
   @spec retry_opts(keyword()) :: keyword()
