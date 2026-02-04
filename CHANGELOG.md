@@ -6,19 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-02-04
+
+### Added
+- Configurable retry/backoff for provider requests: new settings allow configuring retry attempts and backoff behavior for provider calls (e.g. max attempts, base delay, backoff factor). This improves robustness when providers return transient errors.
+
 ## [0.13.1] - 2026-01-09
 
 ### Added
 - Added ability to set custom HTTP request headers for OpenRouter provider.
-- Updated README with documentation on configuring custom headers.
+- Updated README with documentation on configuring custom headers for OpenRouter.
 
 ## [0.13.0] - 2025-12-01
 
 ### Changed
 - Replaced the previous auto function execution workflow with a manual process powered by `FunctionExecutor` and `FunctionCallHelpers`, and added README guidance for executing OpenAI/OpenRouter/Google function calls explicitly.
 
-### Breeaking Changes
+### Added
+- `LlmComposer.FunctionExecutor` for explicit/manual execution of function calls returned by providers.
+- `LlmComposer.FunctionCallHelpers` with helpers to build assistant messages and tool-result messages when handling function calls.
+
+### Changed
+- Replaced the previous auto function execution workflow with a manual process and updated the public APIs accordingly.
+- `LlmComposer.LlmResponse` now exposes `function_calls` instead of the previous `actions` field and normalizes provider-specific function-call formats.
+- `LlmComposer.Providers.Utils` message mapping and request/response formatting updated to support explicit `:tool_result` messages and provider-specific assistant formats (OpenAI/Google/OpenRouter).
+- `LlmComposer.Helpers` was simplified/trimmed to remove automatic execution helpers in favor of the manual executor.
+- `README.md` updated with a new "Function Calls" section demonstrating the manual workflow, API usage, and examples.
+
+### Breaking Changes
 - Removed the auto-execution helpers/tests and related documentation that assumed functions ran automatically.
+- Settings struct keys `:auto_exec_functions` and `:functions` were removed; function descriptors are expected to be provided per-call or via provider options.
+- Tests that relied on automatic function execution were removed (`test/llm_composer/function_calls_auto_execution_test.exs`).
 
 ## [0.12.3] - 2025-11-07
 
@@ -145,6 +163,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 [Unreleased]: https://github.com/doofinder/llm_composer/compare/0.13.1...HEAD
+[0.14.0]: https://github.com/doofinder/llm_composer/compare/0.13.1...0.14.0
 [0.13.1]: https://github.com/doofinder/llm_composer/compare/0.13.0...0.13.1
 [0.13.0]: https://github.com/doofinder/llm_composer/compare/0.12.3...0.13.0
 [0.12.3]: https://github.com/doofinder/llm_composer/compare/0.12.2...0.12.3
