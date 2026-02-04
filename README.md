@@ -1177,7 +1177,7 @@ LlmComposer provides several configuration options that can be set globally in y
 |--------------|-------------|------------------|
 | `:tesla_adapter` | HTTP client adapter for requests (default: Mint) | [Tesla Configuration](#tesla-configuration) |
 | `:timeout` | Request timeout in milliseconds | - |
-| `:retry` | Retry behavior for failed requests | [Retry Configuration](#retry-configuration) |
+| `:retry_opts` / `:skip_retries` | Retry options and disable flag for requests | [Retry Configuration](#retry-configuration) |
 | `:provider_router` | Provider routing and failover configuration | [Provider Router Simple](#provider-router-simple) |
 | `:cache_ttl` | Cache time-to-live for pricing data in seconds | [Cost Tracking](#cost-tracking) |
 | Provider configs | Provider-specific settings (`:open_ai`, `:google`, `:open_router`, `:ollama`, etc.) | See provider-specific sections below |
@@ -1188,22 +1188,38 @@ LlmComposer supports configurable HTTP retries for handling transient failures. 
 
 #### Global Configuration
 
-Configure retries globally in your `config/config.exs`:
+Configure retries globally in your `config/config.exs`.
+
+To disable retries globally, set the `:skip_retries` flag; for full control use `:retry_opts` for Tesla's middleware options. Set provider/request-specific values by passing a `:retry_opts` keyword list.
 
 ```elixir
-# Disable retries entirely
-config :llm_composer, :retry, enabled: false
+# Disable retries globally
+config :llm_composer, :skip_retries, true
 
-# Or customize retry behavior
-config :llm_composer, :retry,
-  max_retries: 5,             # Number of retry attempts (default: 3)
-  retry_delay: 1000,          # Initial delay in milliseconds (default: 1000)
-  retry_max_delay: 10_000     # Maximum delay in milliseconds (default: 10_000)
+# Or set global retry options (preferred for advanced control)
+config :llm_composer, :retry_opts,
+  max_retries: 5,
+  delay: 1000,
+  max_delay: 10_000
+```
+
+If you need to pass the full set of options supported by `Tesla.Middleware.Retry` (for example `:delay`, `:max_delay`, `:should_retry`, `:jitter`, or a custom `:backoff_fun`), set them under the global `:retry_opts` key:
+
+```elixir
+config :llm_composer, :retry_opts,
+  max_retries: 5,    # Number of retry attempts (default: 3)
+  delay: 1000,       # Initial delay in milliseconds (default: 1000)
+  max_delay: 10_000  # Maximum delay in milliseconds (default: 10_000)
 ```
 
 #### Per-Request Configuration
 
-You can also configure retries per-request via provider options:
+Configure retries per-request via provider options. There are two ways:
+
+ - To disable retries for a single request, set `skip_retries: true` in the provider options.
+ - Full control: pass a `:retry_opts` keyword list with the same options accepted by `Tesla.Middleware.Retry` (including `:max_retries`).
+
+Example — preferred: pass `:retry_opts` per request:
 
 ```elixir
 @settings %LlmComposer.Settings{
@@ -1211,21 +1227,50 @@ You can also configure retries per-request via provider options:
     {LlmComposer.Providers.OpenAI,
      [
        model: "gpt-4.1-mini",
-       max_retries: 5,        # Override global setting
-       retry_delay: 2000,     # Override global delay
-       retry_max_delay: 30_000
+       retry_opts: [max_retries: 5, delay: 2000, max_delay: 30_000]
      ]}
   ]
 }
 ```
 
+#### Should Retry
+
+- Default behaviour when not specified: retries on HTTP status codes `429`, `500`, `503` and connection errors `{:error, :closed}`.
+- Precedence: per-request `:should_retry` (inside `:retry_opts`) takes precedence over the global `:retry_opts` `:should_retry`.
+
+Global example — set a custom should_retry function globally via `:retry_opts`:
+
+```elixir
+config :llm_composer, :retry_opts,
+  should_retry: fn
+    {:ok, %{status: status}} when status in [429, 500, 502, 503, 504] -> true
+    {:error, :closed} -> true
+    _ -> false
+  end
+```
+
+Per-request example — pass `should_retry` inside `:retry_opts`:
+
+```elixir
+{LlmComposer.Providers.OpenAI,
+ [model: "gpt-4.1-mini",
+  retry_opts: [
+    should_retry: fn
+      {:ok, %{status: 429}} -> true
+      _ -> false
+    end
+  ]
+ ]}
+```
+
+Advanced: you can pass the full set of options supported by `Tesla.Middleware.Retry` using the `:retry_opts` keyword (either in the global `:retry_opts` config or per-request provider options). This allows passing options like `:jitter`, `:backoff`, or custom `:backoff_fun` directly to the middleware. See the Tesla docs for available options:
+
+https://hexdocs.pm/tesla/1.16.0/Tesla.Middleware.Retry.html
+
 #### Disabling Retries
 
 Retries are automatically disabled when:
-- `enabled: false` is set in config or per-request opts
-- `max_retries: 0` is set in config or per-request opts
+- `skip_retries: true` is set in config or per-request opts
 - Streaming is enabled (`stream_response: true`)
-
-Only `:enabled` and `:max_retries` are considered for disabling retries.
 
 Note: Streaming responses do not support retries. When `stream_response: true` is set, the retry middleware is automatically removed from the HTTP client.

@@ -56,12 +56,10 @@ defmodule LlmComposer.HttpClient do
 
   @spec retries_disabled?(keyword()) :: boolean()
   defp retries_disabled?(opts) do
-    config = Application.get_env(:llm_composer, :retry, [])
+    skip_config = Application.get_env(:llm_composer, :skip_retries, false)
 
-    Keyword.get(opts, :enabled) == false ||
-      Keyword.get(config, :enabled) == false ||
-      Keyword.get(opts, :max_retries) == 0 ||
-      Keyword.get(config, :max_retries) == 0
+    # Only the explicit skip flag disables retries. Let Tesla handle other retry options
+    Keyword.get(opts, :skip_retries, skip_config)
   end
 
   @spec retry_opts(keyword()) :: keyword()

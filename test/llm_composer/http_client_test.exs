@@ -5,22 +5,22 @@ defmodule LlmComposer.HttpClientTest do
 
   describe "client/2 with retry configuration" do
     setup do
-      prev = Application.get_env(:llm_composer, :retry)
+      prev = Application.get_env(:llm_composer, :skip_retries)
 
       on_exit(fn ->
         if prev == nil do
-          Application.delete_env(:llm_composer, :retry)
+          Application.delete_env(:llm_composer, :skip_retries)
         else
-          Application.put_env(:llm_composer, :retry, prev)
+          Application.put_env(:llm_composer, :skip_retries, prev)
         end
       end)
 
-      Application.delete_env(:llm_composer, :retry)
+      Application.delete_env(:llm_composer, :skip_retries)
       :ok
     end
 
     test "disables retries when enabled: false is set in config" do
-      Application.put_env(:llm_composer, :retry, enabled: false)
+      Application.put_env(:llm_composer, :skip_retries, true)
 
       client = HttpClient.client("http://example.com")
 
@@ -103,7 +103,7 @@ defmodule LlmComposer.HttpClientTest do
 
   describe "client/2 with streaming" do
     setup do
-      Application.delete_env(:llm_composer, :retry)
+      Application.delete_env(:llm_composer, :skip_retries)
       :ok
     end
 
