@@ -36,10 +36,10 @@ defmodule LlmComposer.HttpClientTest do
     end
 
     test "uses custom retry values from config" do
-      Application.put_env(:llm_composer, :retry,
+      Application.put_env(:llm_composer, :retry_opts,
         max_retries: 5,
-        retry_delay: 2000,
-        retry_max_delay: 30_000
+        delay: 2000,
+        max_delay: 30_000
       )
 
       client = HttpClient.client("http://example.com")
@@ -64,7 +64,7 @@ defmodule LlmComposer.HttpClientTest do
         _ -> false
       end
 
-      client = HttpClient.client("http://example.com", should_retry: custom_fn)
+      client = HttpClient.client("http://example.com", retry_opts: [should_retry: custom_fn])
 
       middlewares = client.pre
 
@@ -84,7 +84,7 @@ defmodule LlmComposer.HttpClientTest do
         _ -> false
       end
 
-      Application.put_env(:llm_composer, :retry, should_retry: custom_fn)
+      Application.put_env(:llm_composer, :retry_opts, should_retry: custom_fn)
 
       client = HttpClient.client("http://example.com")
 

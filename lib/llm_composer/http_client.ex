@@ -4,7 +4,6 @@ defmodule LlmComposer.HttpClient do
   """
 
   @default_timeout 50_000
-  @default_max_retries 3
 
   @spec client(binary(), keyword()) :: Tesla.Client.t()
   def client(base_url, opts \\ []) do
@@ -67,29 +66,15 @@ defmodule LlmComposer.HttpClient do
 
   @spec retry_opts(keyword()) :: keyword()
   defp retry_opts(opts) do
-    config = Application.get_env(:llm_composer, :retry, [])
+    config = Application.get_env(:llm_composer, :retry_opts, [])
+    req_opts = Keyword.get(opts, :retry_opts, [])
 
-    # Use canonical retry configuration keys (`:retry_delay` and `:retry_max_delay`)
-    delay =
-      Keyword.get(opts, :retry_delay) || Keyword.get(config, :retry_delay, :timer.seconds(1))
-
-    max_delay =
-      Keyword.get(opts, :retry_max_delay) ||
-        Keyword.get(config, :retry_max_delay, :timer.seconds(10))
-
-    max_retries =
-      Keyword.get(opts, :max_retries) || Keyword.get(config, :max_retries, @default_max_retries)
-
-    should_retry =
-      Keyword.get(opts, :should_retry) ||
-        Keyword.get(config, :should_retry, &default_should_retry/1)
-
-    [
-      delay: delay,
-      max_delay: max_delay,
-      max_retries: max_retries,
-      should_retry: should_retry
-    ]
+    []
+    |> Keyword.merge(config)
+    |> Keyword.merge(req_opts)
+    |> Keyword.put_new(:delay, 1_000)
+    |> Keyword.put_new(:max_delay, 10_000)
+    |> Keyword.put_new(:should_retry, &default_should_retry/1)
   end
 
   @spec default_should_retry(term()) :: boolean()
