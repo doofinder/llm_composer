@@ -6,16 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-02-04
+
+### Added
+- Configurable retry/backoff for provider requests: new settings allow configuring retry attempts and backoff behavior for provider calls (e.g. max attempts, base delay, backoff factor). This improves robustness when providers return transient errors.
+
 ## [0.13.1] - 2026-01-09
 
 ### Added
 - Added ability to set custom HTTP request headers for OpenRouter provider.
 - Updated README with documentation on configuring custom headers for OpenRouter.
-
-## [0.14.0] - 2026-02-04
-
-### Added
-- Configurable retry/backoff for provider requests: new settings allow configuring retry attempts and backoff behavior for provider calls (e.g. max attempts, base delay, backoff factor). This improves robustness when providers return transient errors.
 
 ## [0.13.0] - 2025-12-01
 
