@@ -35,6 +35,9 @@
   - [Additional Features](#additional-features)
     - [Custom Request Parameters](#custom-request-parameters)
     - [Custom Request Headers](#custom-request-headers)
+- [Configuration Reference](#configuration-reference)
+  - [Configuration Overview](#configuration-reference)
+  - [Retry Configuration](#retry-configuration)
 
 ## Installation
 
@@ -49,7 +52,7 @@ def deps do
 end
 ```
 
-### Tesla Configuration
+## Tesla Configuration
 
 LlmComposer uses Tesla for HTTP requests. You can configure the Tesla adapter globally for optimal performance, especially when using streaming responses:
 
@@ -1163,3 +1166,114 @@ You can pass custom headers to OpenRouter requests using the `headers` option. T
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/llm_composer>.
+
+## Configuration Reference
+
+### Configuration Overview
+
+LlmComposer provides several configuration options that can be set globally in your `config/config.exs` or per-request in provider options:
+
+| Configuration | Description | See Documentation |
+|--------------|-------------|------------------|
+| `:tesla_adapter` | HTTP client adapter for requests (default: Mint) | [Tesla Configuration](#tesla-configuration) |
+| `:timeout` | Request timeout in milliseconds | - |
+| `:retry_opts` / `:skip_retries` | Retry options and disable flag for requests | [Retry Configuration](#retry-configuration) |
+| `:provider_router` | Provider routing and failover configuration | [Provider Router Simple](#provider-router-simple) |
+| `:cache_ttl` | Cache time-to-live for pricing data in seconds | [Cost Tracking](#cost-tracking) |
+| Provider configs | Provider-specific settings (`:open_ai`, `:google`, `:open_router`, `:ollama`, etc.) | See provider-specific sections below |
+
+### Retry Configuration
+
+LlmComposer supports HTTP retries via `Tesla.Middleware.Retry`.
+
+**Defaults (when retries are enabled):**
+- Retries on: HTTP `429`, `500`, `503`, and connection `{:error, :closed}`
+- Delay: `1_000` ms
+- Max delay: `10_000` ms
+- Request timeout: `50_000` ms
+
+**Important:** Streaming disables retries automatically (`stream_response: true`).
+
+#### Global configuration (recommended)
+
+Set defaults in `config/config.exs`:
+
+```elixir
+# Disable retries globally
+config :llm_composer, :skip_retries, true
+
+# Or customize retries globally
+config :llm_composer, :retry_opts,
+  max_retries: 5,
+  delay: 1_000,
+  max_delay: 10_000
+```
+
+You can also provide a custom `should_retry`:
+
+```elixir
+config :llm_composer, :retry_opts,
+  should_retry: fn
+    {:ok, %{status: status}} when status in [429, 500, 502, 503, 504] -> true
+    {:error, :closed} -> true
+    _ -> false
+  end
+```
+
+#### Per-Request Configuration
+
+Override retry behavior per provider entry:
+
+* Disable retries for a single request:
+
+  * `skip_retries: true`
+* Customize retries:
+
+  * `retry_opts: [...]`
+
+```elixir
+@settings %LlmComposer.Settings{
+  providers: [
+    {LlmComposer.Providers.OpenAI,
+     [
+       model: "gpt-4.1-mini",
+       retry_opts: [max_retries: 5, delay: 2_000, max_delay: 30_000]
+     ]}
+  ]
+}
+```
+
+#### Precedence rules
+
+* Per-request `retry_opts` override global `retry_opts`.
+
+Example per-request `should_retry`:
+
+```elixir
+{LlmComposer.Providers.OpenAI,
+ [
+   model: "gpt-4.1-mini",
+   retry_opts: [
+     should_retry: fn
+       {:ok, %{status: 429}} -> true
+       _ -> false
+     end
+   ]
+ ]}
+```
+
+#### Streaming and retries
+
+Retries are disabled when either is true:
+
+* Global or per-request `skip_retries: true`
+* `stream_response: true` (streaming mode)
+
+> Streaming responses are not compatible with retries; when streaming is enabled, the retry middleware is removed automatically.
+
+#### Reference
+
+`retry_opts` maps directly to `Tesla.Middleware.Retry` options (e.g. `:delay`, `:max_delay`, `:max_retries`, `:jitter`, `:backoff_fun`, `:should_retry`).
+
+See Tesla docs:
+[https://hexdocs.pm/tesla/1.16.0/Tesla.Middleware.Retry.html](https://hexdocs.pm/tesla/1.16.0/Tesla.Middleware.Retry.html)

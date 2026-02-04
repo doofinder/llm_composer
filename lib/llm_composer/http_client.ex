@@ -29,25 +29,62 @@ defmodule LlmComposer.HttpClient do
       Tesla.Middleware.JSON
     ]
 
-    if stream do
-      resp ++ [{Tesla.Middleware.SSE, only: :data}]
-    else
-      resp ++
-        [
-          {Tesla.Middleware.Retry,
-           delay: :timer.seconds(1),
-           max_delay: :timer.seconds(10),
-           max_retries: 10,
-           should_retry: fn
-             {:ok, %{status: status}} when status in [429, 500, 503] -> true
-             {:error, :closed} -> true
-             _other -> false
-           end},
-          {Tesla.Middleware.Timeout,
-           timeout:
-             Application.get_env(:llm_composer, :timeout) ||
-               Keyword.get(opts, :default_timeout, @default_timeout)}
-        ]
+    cond do
+      stream ->
+        resp ++ [{Tesla.Middleware.SSE, only: :data}]
+
+      retries_disabled?(opts) ->
+        resp ++
+          [
+            {Tesla.Middleware.Timeout,
+             [
+               timeout: get_timeout(opts)
+             ]}
+          ]
+
+      true ->
+        resp ++
+          [
+            {Tesla.Middleware.Retry, retry_opts(opts)},
+            {Tesla.Middleware.Timeout,
+             [
+               timeout: get_timeout(opts)
+             ]}
+          ]
     end
   end
+
+  @spec retries_disabled?(keyword()) :: boolean()
+  defp retries_disabled?(opts) do
+    skip_config = Application.get_env(:llm_composer, :skip_retries, false)
+
+    # Only the explicit skip flag disables retries. Let Tesla handle other retry options
+    Keyword.get(opts, :skip_retries, skip_config)
+  end
+
+  @spec get_timeout(keyword()) :: non_neg_integer()
+  defp get_timeout(opts) do
+    case Keyword.get(opts, :timeout) do
+      nil -> Application.get_env(:llm_composer, :timeout) || @default_timeout
+      timeout -> timeout
+    end
+  end
+
+  @spec retry_opts(keyword()) :: keyword()
+  defp retry_opts(opts) do
+    config = Application.get_env(:llm_composer, :retry_opts, [])
+    req_opts = Keyword.get(opts, :retry_opts, [])
+
+    []
+    |> Keyword.merge(config)
+    |> Keyword.merge(req_opts)
+    |> Keyword.put_new(:delay, 1_000)
+    |> Keyword.put_new(:max_delay, 10_000)
+    |> Keyword.put_new(:should_retry, &default_should_retry/1)
+  end
+
+  @spec default_should_retry(term()) :: boolean()
+  defp default_should_retry({:ok, %{status: status}}) when status in [429, 500, 503], do: true
+  defp default_should_retry({:error, :closed}), do: true
+  defp default_should_retry(_other), do: false
 end
