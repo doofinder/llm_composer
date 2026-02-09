@@ -304,6 +304,7 @@ defmodule LlmComposer.Providers.Google do
   end
 
   @spec maybe_add_tools(map(), list() | nil) :: map()
+  defp maybe_add_tools(base_req, nil), do: base_req
   defp maybe_add_tools(base_req, []), do: base_req
 
   defp maybe_add_tools(base_req, tools) do
