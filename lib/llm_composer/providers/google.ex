@@ -248,7 +248,6 @@ defmodule LlmComposer.Providers.Google do
       |> Keyword.get(:functions)
       |> Utils.get_tools(name())
 
-    # custom request params if provided
     req_params = Keyword.get(opts, :request_params, %{})
 
     %{
@@ -257,7 +256,7 @@ defmodule LlmComposer.Providers.Google do
     |> maybe_add_system_instructs(system_message)
     |> maybe_add_structured_outputs(opts)
     |> maybe_add_tools(tools)
-    |> Map.merge(req_params)
+    |> Utils.merge_request_params(req_params)
     |> Utils.cleanup_body()
   end
 
@@ -305,6 +304,7 @@ defmodule LlmComposer.Providers.Google do
   end
 
   @spec maybe_add_tools(map(), list() | nil) :: map()
+  defp maybe_add_tools(base_req, nil), do: base_req
   defp maybe_add_tools(base_req, []), do: base_req
 
   defp maybe_add_tools(base_req, tools) do

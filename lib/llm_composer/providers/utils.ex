@@ -115,6 +115,19 @@ defmodule LlmComposer.Providers.Utils do
     |> Map.new()
   end
 
+  @spec merge_request_params(map(), map()) :: map()
+  def merge_request_params(base_req, req_params) do
+    Enum.reduce(req_params, base_req, fn {key, value}, acc ->
+      existing = Map.get(acc, key)
+
+      if is_map(existing) and is_map(value) do
+        Map.put(acc, key, Map.merge(existing, value))
+      else
+        Map.put(acc, key, value)
+      end
+    end)
+  end
+
   @spec get_tools([LlmComposer.Function.t()] | nil, atom) :: nil | [map()]
   def get_tools(nil, _provider), do: nil
 

@@ -62,7 +62,7 @@ defmodule LlmComposer.Providers.OpenRouter do
     req_params = Keyword.get(opts, :request_params, %{})
 
     base_request
-    |> Map.merge(req_params)
+    |> Utils.merge_request_params(req_params)
     |> maybe_fallback_models(opts)
     |> maybe_provider_routing(opts)
     |> maybe_structured_output(opts)

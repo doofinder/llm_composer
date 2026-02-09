@@ -57,7 +57,7 @@ defmodule LlmComposer.Providers.OpenAI do
     req_params = Keyword.get(opts, :request_params, %{})
 
     base_request
-    |> Map.merge(req_params)
+    |> Utils.merge_request_params(req_params)
     |> maybe_structured_output(opts)
     |> Utils.cleanup_body()
   end

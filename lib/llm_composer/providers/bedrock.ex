@@ -45,7 +45,7 @@ if Code.ensure_loaded?(ExAws) do
       req_params = Keyword.get(opts, :request_params, %{})
 
       base_request
-      |> Map.merge(req_params)
+      |> Utils.merge_request_params(req_params)
       |> Utils.cleanup_body()
     end
 
