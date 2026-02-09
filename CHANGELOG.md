@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-02-09
+
+### Fixed
+- Fixed `request_params` merging to use deep merge instead of shallow merge, allowing nested configurations (like `generationConfig` in Google provider) to be properly combined with provider defaults.
+
 ## [0.14.0] - 2026-02-04
 
 ### Added
@@ -162,7 +167,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.13.1...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.14.1...HEAD
+[0.14.1]: https://github.com/doofinder/llm_composer/compare/0.14.0...0.14.1
 [0.14.0]: https://github.com/doofinder/llm_composer/compare/0.13.1...0.14.0
 [0.13.1]: https://github.com/doofinder/llm_composer/compare/0.13.0...0.13.1
 [0.13.0]: https://github.com/doofinder/llm_composer/compare/0.12.3...0.13.0
