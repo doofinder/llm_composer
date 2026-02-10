@@ -189,11 +189,12 @@ defmodule LlmComposer.LlmResponse do
   end
 
   def new(response, provider, _opts) do
-    {:error, %{
-      reason: :unhandled_response_format,
-      provider: provider,
-      response: response
-    }}
+    {:error,
+     %{
+       reason: :unhandled_response_format,
+       provider: provider,
+       response: response
+     }}
   end
 
   @spec extract_function_calls(map()) :: [LlmComposer.FunctionCall.t()] | nil
