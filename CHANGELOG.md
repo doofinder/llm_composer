@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-02-10
+
+### Changed
+- Changed `LlmResponse.new/3` to return an error tuple instead of raising an exception when encountering unhandled response formats from providers, for easier error handling/debugging.
+
 ## [0.14.1] - 2026-02-09
 
 ### Fixed
@@ -167,7 +172,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.14.1...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.14.2...HEAD
+[0.14.2]: https://github.com/doofinder/llm_composer/compare/0.14.1...0.14.2
 [0.14.1]: https://github.com/doofinder/llm_composer/compare/0.14.0...0.14.1
 [0.14.0]: https://github.com/doofinder/llm_composer/compare/0.13.1...0.14.0
 [0.13.1]: https://github.com/doofinder/llm_composer/compare/0.13.0...0.13.1
