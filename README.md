@@ -47,7 +47,7 @@ by adding `llm_composer` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.11.0"}
+    {:llm_composer, "~> 0.14.2"}
   ]
 end
 ```
@@ -414,7 +414,7 @@ Add Goth to your dependencies for Vertex AI authentication:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.11.0"},
+    {:llm_composer, "~> 0.14.2"},
     {:goth, "~> 1.4"}  # Required for Vertex AI
   ]
 end
@@ -1063,7 +1063,7 @@ Add the decimal dependency to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.11.0"},
+    {:llm_composer, "~> 0.14.2"},
     {:decimal, "~> 2.3"}  # Required for cost tracking
   ]
 end
