@@ -4,6 +4,11 @@ import Config
 # Uncomment to use Finch (recommended for streaming and production)
 # config :llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch}
 
+# JSON Engine Configuration
+# Defaults to JSON if available, otherwise Jason. Can be explicitly set:
+# config :llm_composer, :json_engine, JSON
+# config :llm_composer, :json_engine, Jason
+
 # Provider Configurations
 # Configure API keys via environment variables or uncomment and set values
 config :llm_composer,

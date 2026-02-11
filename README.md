@@ -60,6 +60,9 @@ LlmComposer uses Tesla for HTTP requests. You can configure the Tesla adapter gl
 # In your config/config.exs or application startup
 Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
 
+# customizing tesla json engine, by default JSON (or Jason if JSON not available in elixir<1.18.0)
+# config :llm_composer, :json_engine, Jason
+
 # Start Finch in your application supervision tree or manually
 {:ok, _finch} = Finch.start_link(name: MyFinch, pools: %{default: [protocols: [:http1]]})
 ```
@@ -1176,6 +1179,7 @@ LlmComposer provides several configuration options that can be set globally in y
 | Configuration | Description | See Documentation |
 |--------------|-------------|------------------|
 | `:tesla_adapter` | HTTP client adapter for requests (default: Mint) | [Tesla Configuration](#tesla-configuration) |
+| `:json_engine` | JSON encoder/decoder library (defaults to JSON, falls back to Jason) | [JSON Engine Configuration](#json-engine-configuration) |
 | `:timeout` | Request timeout in milliseconds | - |
 | `:retry_opts` / `:skip_retries` | Retry options and disable flag for requests | [Retry Configuration](#retry-configuration) |
 | `:provider_router` | Provider routing and failover configuration | [Provider Router Simple](#provider-router-simple) |
