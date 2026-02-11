@@ -21,12 +21,14 @@ defmodule LlmComposer.HttpClient do
   defp middlewares(base_url, opts) do
     stream = Keyword.get(opts, :stream_response)
 
+    json_engine = get_json_engine()
+
     resp = [
       {
         Tesla.Middleware.BaseUrl,
         base_url
       },
-      Tesla.Middleware.JSON
+      {Tesla.Middleware.JSON, engine: json_engine}
     ]
 
     cond do
@@ -87,4 +89,15 @@ defmodule LlmComposer.HttpClient do
   defp default_should_retry({:ok, %{status: status}}) when status in [429, 500, 503], do: true
   defp default_should_retry({:error, :closed}), do: true
   defp default_should_retry(_other), do: false
+
+  @spec get_json_engine() :: atom()
+  defp get_json_engine do
+    case Application.get_env(:llm_composer, :json_engine) do
+      nil ->
+        if Code.ensure_loaded?(JSON), do: JSON, else: Jason
+
+      engine ->
+        engine
+    end
+  end
 end
