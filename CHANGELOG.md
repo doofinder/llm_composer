@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- Changed Google provider to keep `additionalProperties` in response schemas instead of removing them, allowing for more flexible schema definitions.
+
 ## [0.14.2] - 2026-02-10
 
 ### Changed
