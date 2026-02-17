@@ -88,8 +88,8 @@ defmodule LlmComposer.Providers.GoogleTest do
 
         generation_config = request_data["generationConfig"]
         assert generation_config["responseMimeType"] == "application/json"
-        assert generation_config["responseSchema"]["type"] == "object"
-        assert generation_config["responseSchema"]["properties"]["answer"]["type"] == "string"
+        assert generation_config["responseJsonSchema"]["type"] == "object"
+        assert generation_config["responseJsonSchema"]["properties"]["answer"]["type"] == "string"
 
         response_body = %{
           "candidates" => [
@@ -325,7 +325,7 @@ defmodule LlmComposer.Providers.GoogleTest do
     {:ok, _response} = LlmComposer.simple_chat(settings, "hi")
   end
 
-  test "additional properties are removed from schema", %{bypass: bypass} do
+  test "additional properties are kept in schema", %{bypass: bypass} do
     schema = %{
       "type" => "object",
       "properties" => %{
@@ -347,10 +347,10 @@ defmodule LlmComposer.Providers.GoogleTest do
         request_data = Jason.decode!(body)
 
         generation_config = request_data["generationConfig"]
-        response_schema = generation_config["responseSchema"]
+        response_schema = generation_config["responseJsonSchema"]
 
-        refute Map.has_key?(response_schema, "additionalProperties")
-        refute Map.has_key?(response_schema["nested"], "additionalProperties")
+        assert Map.has_key?(response_schema, "additionalProperties")
+        assert Map.has_key?(response_schema["nested"], "additionalProperties")
 
         response_body = %{
           "candidates" => [%{"content" => %{"role" => "model", "parts" => [%{"text" => "{}"}]}}],

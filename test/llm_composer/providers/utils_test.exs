@@ -33,7 +33,7 @@ defmodule LlmComposer.Providers.UtilsTest do
     base = %{
       generationConfig: %{
         responseMimeType: "application/json",
-        responseSchema: %{"type" => "object"}
+        responseJsonSchema: %{"type" => "object"}
       }
     }
 
@@ -47,7 +47,7 @@ defmodule LlmComposer.Providers.UtilsTest do
     result = Utils.merge_request_params(base, req_params)
 
     assert result.generationConfig.responseMimeType == "application/json"
-    assert result.generationConfig.responseSchema["type"] == "object"
+    assert result.generationConfig.responseJsonSchema["type"] == "object"
     assert result.generationConfig.thinkingConfig.thinkingLevel == "low"
     assert result.generationConfig.temperature == 0.8
   end
@@ -103,7 +103,7 @@ defmodule LlmComposer.Providers.UtilsTest do
     base = %{
       generationConfig: %{
         responseMimeType: "application/json",
-        responseSchema: %{
+        responseJsonSchema: %{
           "type" => "object",
           "properties" => %{"answer" => %{"type" => "string"}}
         }
@@ -119,8 +119,8 @@ defmodule LlmComposer.Providers.UtilsTest do
     result = Utils.merge_request_params(base, req_params)
 
     assert result.generationConfig.responseMimeType == "application/json"
-    assert result.generationConfig.responseSchema["type"] == "object"
-    assert result.generationConfig.responseSchema["properties"]["answer"]["type"] == "string"
+    assert result.generationConfig.responseJsonSchema["type"] == "object"
+    assert result.generationConfig.responseJsonSchema["properties"]["answer"]["type"] == "string"
     assert result.generationConfig.maxOutputTokens == 8192
   end
 end
