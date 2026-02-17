@@ -4,10 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.15.0] - 2026-02-17
+
+### Added
+- Added configurable JSON engine for HTTP requests: new `:json_engine` config option allows specifying JSON encoder/decoder library (defaults to JSON, falls back to Jason).
 
 ### Changed
 - Changed Google provider to keep `additionalProperties` in response schemas instead of removing them, allowing for more flexible schema definitions.
+- Updated dependency `ex_aws` from 2.5 to 2.6.
+- Updated dependency `tesla` from 1.14 to 1.16.
+- Restructured configuration in `config/config.exs` with better provider organization.
 
 ## [0.14.2] - 2026-02-10
 
@@ -175,7 +181,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.14.2...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.15.0...HEAD
+[0.15.0]: https://github.com/doofinder/llm_composer/compare/0.14.2...0.15.0
 [0.14.2]: https://github.com/doofinder/llm_composer/compare/0.14.1...0.14.2
 [0.14.1]: https://github.com/doofinder/llm_composer/compare/0.14.0...0.14.1
 [0.14.0]: https://github.com/doofinder/llm_composer/compare/0.13.1...0.14.0
