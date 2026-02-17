@@ -298,7 +298,7 @@ defmodule LlmComposer.Providers.Google do
       response_schema ->
         Map.put(base_req, :generationConfig, %{
           responseMimeType: "application/json",
-          responseSchema: response_schema
+          responseJsonSchema: response_schema
         })
     end
   end
