@@ -352,5 +352,4 @@ defmodule LlmComposer.Providers.Google do
 
   defp get_vertex_endpoint(_data, "global"), do: "aiplatform.googleapis.com"
   defp get_vertex_endpoint(_data, location_id), do: "#{location_id}-aiplatform.googleapis.com"
-
 end
