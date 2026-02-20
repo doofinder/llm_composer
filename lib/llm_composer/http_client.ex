@@ -9,12 +9,24 @@ defmodule LlmComposer.HttpClient do
   def client(base_url, opts \\ []) do
     base_url
     |> middlewares(opts)
-    |> Tesla.client(adapter())
+    |> Tesla.client(adapter(opts))
   end
 
-  @spec adapter() :: term()
-  defp adapter do
-    Application.get_env(:llm_composer, :tesla_adapter, Tesla.Adapter.Mint)
+  @spec adapter(keyword()) :: term()
+  defp adapter(opts) do
+    timeout = get_timeout(opts)
+    configured = Application.get_env(:llm_composer, :tesla_adapter, Tesla.Adapter.Mint)
+
+    case configured do
+      Tesla.Adapter.Mint ->
+        {Tesla.Adapter.Mint, [timeout: timeout]}
+
+      {Tesla.Adapter.Mint, adapter_opts} when is_list(adapter_opts) ->
+        {Tesla.Adapter.Mint, Keyword.put_new(adapter_opts, :timeout, timeout)}
+
+      other ->
+        other
+    end
   end
 
   @spec middlewares(binary(), keyword()) :: list(term())

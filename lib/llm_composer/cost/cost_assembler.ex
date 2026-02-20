@@ -54,7 +54,8 @@ defmodule LlmComposer.Cost.CostAssembler do
   end
 
   @spec extract_tokens(atom(), map()) :: {non_neg_integer(), non_neg_integer()}
-  def extract_tokens(provider, raw_response) when provider in [:open_ai, :open_router] do
+  def extract_tokens(provider, raw_response)
+      when provider in [:open_ai, :open_ai_responses, :open_router] do
     input = get_in(raw_response, ["usage", "prompt_tokens"]) || 0
     output = get_in(raw_response, ["usage", "completion_tokens"]) || 0
     {input, output}
@@ -72,7 +73,8 @@ defmodule LlmComposer.Cost.CostAssembler do
   end
 
   @spec get_model(atom(), map(), keyword()) :: String.t() | nil
-  defp get_model(provider, raw_response, _opts) when provider in [:open_ai, :open_router] do
+  defp get_model(provider, raw_response, _opts)
+       when provider in [:open_ai, :open_ai_responses, :open_router] do
     get_in(raw_response, ["model"])
   end
 
