@@ -4,6 +4,16 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
   alias LlmComposer.StreamChunk
 
   @spec parse(map(), atom(), keyword()) :: {:ok, StreamChunk.t()} | :skip
+  def parse(%{"usage" => usage} = raw, provider, _opts) when is_map(usage) do
+    {:ok,
+     %StreamChunk{
+       provider: provider,
+       type: :usage,
+       usage: format_usage(usage),
+       raw: raw
+     }}
+  end
+
   def parse(%{"choices" => [choice | _]} = raw, provider, _opts) do
     delta = choice["delta"] || %{}
     finish_reason = choice["finish_reason"]

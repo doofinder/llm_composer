@@ -68,6 +68,21 @@ defmodule LlmComposer.StreamChunkTest do
       assert %StreamChunk{type: :done, metadata: %{finish_reason: "stop"}} = chunk
     end
 
+    test "OpenAI usage-only chunk becomes :usage" do
+      data = ~s(data: {"usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":19}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :open_ai,
+               type: :usage,
+               usage: %{input_tokens: 12, output_tokens: 7, total_tokens: 19}
+             } = chunk
+    end
+
     test "Google chunk exposes usage and text" do
       data =
         ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Yo"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"totalTokenCount":8}})

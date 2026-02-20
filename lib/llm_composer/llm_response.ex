@@ -9,7 +9,7 @@ defmodule LlmComposer.LlmResponse do
   alias LlmComposer.CostInfo
   alias LlmComposer.Message
 
-  @type provider() :: :open_ai | :ollama | :open_router | :bedrock | :google
+  @type provider() :: :open_ai | :open_ai_responses | :ollama | :open_router | :bedrock | :google
 
   @type t() :: %__MODULE__{
           cost_info: CostInfo.t() | nil,
