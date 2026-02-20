@@ -91,7 +91,7 @@ The following table shows which features are supported by each provider:
 ### Notes:
 - **OpenRouter** offers the most comprehensive feature set, including unique capabilities like fallback models and provider routing
 - **Google** provides full feature support including function calls, structured outputs, and streaming with Gemini models
-- **OpenAI Responses API** is available via `LlmComposer.Providers.OpenAIResponses` (see dedicated section below)
+- **OpenAI Responses API** is available via `LlmComposer.Providers.OpenAIResponses` with manual function calls, structured outputs, and streaming support (see dedicated section below)
 - **Bedrock** support is provided via AWS ExAws integration and requires proper AWS configuration
 - **Ollama** requires an ollama server instance to be running
 - **Function Calls** - LlmComposer exposes function call handling via `FunctionExecutor.execute/2` for explicit execution; supported by OpenAI, OpenRouter, and Google
@@ -333,6 +333,12 @@ IO.puts("Total cost: #{Decimal.to_string(res.cost_info.total_cost, :normal)}$")
 
 LlmComposer supports OpenAI's Responses API through `LlmComposer.Providers.OpenAIResponses`. This lets you use the `/responses` endpoint and still receive the normalized `LlmResponse` struct.
 
+This provider supports:
+- Normal chat completions
+- Manual function calls
+- Structured outputs (`response_schema`)
+- Streaming (`stream_response: true`) with normalized `%LlmComposer.StreamChunk{}` events
+
 ```elixir
 Application.put_env(:llm_composer, :open_ai, api_key: "<your api key>")
 
@@ -358,6 +364,26 @@ IO.inspect(res.main_response)
 ```
 
 You can also pass `response_schema` in provider options for structured outputs.
+
+Streaming example:
+
+```elixir
+settings = %LlmComposer.Settings{
+  providers: [
+    {LlmComposer.Providers.OpenAIResponses, [model: "gpt-4o-mini"]}
+  ],
+  system_prompt: "You are a helpful assistant.",
+  stream_response: true
+}
+
+{:ok, res} = LlmComposer.simple_chat(settings, "Write one sentence about stars")
+
+res.stream
+|> LlmComposer.parse_stream_response(res.provider)
+|> Enum.each(fn chunk ->
+  IO.write(chunk.text || "")
+end)
+```
 
 ### Using AWS Bedrock
 
@@ -569,12 +595,12 @@ The `:vertex` map accepts the following options:
 
 ### Streaming Responses
 
-LlmComposer supports streaming responses for real-time output, which is particularly useful for long-form content generation. This feature works with providers that support streaming (like OpenRouter, OpenAI, and Google).
+LlmComposer supports streaming responses for real-time output, which is particularly useful for long-form content generation. This feature works with providers that support streaming (OpenAI, OpenAI Responses API, OpenRouter, Ollama, and Google).
 
 **Note:** The `stream_response: true` setting enables streaming mode. When using streaming, LlmComposer does not track input/output/cache/thinking tokens. There are two approaches to handle token counting in this mode:
 
 1. Calculate tokens using libraries like `tiktoken` for OpenAI provider.
-2. Read token data from the last stream object if the provider supplies it (currently only OpenRouter supports this).
+2. Read token data from stream events when the provider supplies it (for example, OpenRouter and OpenAI Responses done events).
 
 Here's a complete example of how to use streaming with Google's Gemini:
 
@@ -619,7 +645,7 @@ The streaming response allows you to display content to users as it's being gene
 
 `parse_stream_response/2` returns normalized `%LlmComposer.StreamChunk{}` values across providers. Useful fields include:
 
-- `provider`: stream source provider (`:open_ai`, `:open_router`, `:google`, `:ollama`)
+- `provider`: stream source provider (`:open_ai`, `:open_ai_responses`, `:open_router`, `:google`, `:ollama`)
 - `type`: event category (`:text_delta`, `:tool_call_delta`, `:done`, `:unknown`)
 - `text`: incremental text when available
 - `usage`: normalized token usage (when exposed by the provider)
