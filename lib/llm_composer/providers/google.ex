@@ -196,9 +196,8 @@ defmodule LlmComposer.Providers.Google do
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
-  alias LlmComposer.Providers.Utils
-  alias LlmComposer.ProviderResponse.Google, as: GoogleResponse
   alias LlmComposer.ProviderResponse
+  alias LlmComposer.Providers.Utils
 
   require Logger
 
@@ -276,7 +275,7 @@ defmodule LlmComposer.Providers.Google do
 
   defp wrap_response(result, opts) do
     result
-    |> GoogleResponse.new(opts)
+    |> ProviderResponse.Google.new(opts)
     |> ProviderResponse.to_llm_response(opts)
   end
 

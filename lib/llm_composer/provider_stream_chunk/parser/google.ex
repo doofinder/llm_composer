@@ -7,7 +7,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
   def parse(%{"candidates" => [candidate | _]} = raw, _provider, _opts) do
     content = candidate["content"] || %{}
     parts = content["parts"] || []
-    text = parts |> Enum.map(&Map.get(&1, "text", "")) |> Enum.join("")
+    text = Enum.map_join(parts, "", &Map.get(&1, "text", ""))
     finish_reason = candidate["finishReason"] || candidate["finish_reason"]
     usage = format_usage(raw["usageMetadata"])
 

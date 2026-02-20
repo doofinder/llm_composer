@@ -25,7 +25,11 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
   def parse({:ok, %{response: response}}, :google, opts) do
     [first_candidate | _] = response["candidates"]
     content = first_candidate["content"]
-    message_content = content["parts"] |> hd() |> Map.get("text")
+
+    message_content =
+      content["parts"]
+      |> hd()
+      |> Map.get("text")
 
     role =
       case content["role"] do

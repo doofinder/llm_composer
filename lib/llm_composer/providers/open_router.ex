@@ -8,9 +8,8 @@ defmodule LlmComposer.Providers.OpenRouter do
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
-  alias LlmComposer.Providers.Utils
-  alias LlmComposer.ProviderResponse.OpenRouter, as: OpenRouterResponse
   alias LlmComposer.ProviderResponse
+  alias LlmComposer.Providers.Utils
 
   require Logger
 
@@ -96,7 +95,7 @@ defmodule LlmComposer.Providers.OpenRouter do
 
   defp wrap_response(result, opts) do
     result
-    |> OpenRouterResponse.new(opts)
+    |> ProviderResponse.OpenRouter.new(opts)
     |> ProviderResponse.to_llm_response(opts)
   end
 

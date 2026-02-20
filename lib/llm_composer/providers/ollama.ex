@@ -7,9 +7,8 @@ defmodule LlmComposer.Providers.Ollama do
   @behaviour LlmComposer.Provider
 
   alias LlmComposer.HttpClient
-  alias LlmComposer.Providers.Utils
-  alias LlmComposer.ProviderResponse.Ollama, as: OllamaResponse
   alias LlmComposer.ProviderResponse
+  alias LlmComposer.Providers.Utils
 
   @impl LlmComposer.Provider
   def name, do: :ollama
@@ -63,7 +62,7 @@ defmodule LlmComposer.Providers.Ollama do
 
   defp wrap_response(result, opts) do
     result
-    |> OllamaResponse.new(opts)
+    |> ProviderResponse.Ollama.new(opts)
     |> ProviderResponse.to_llm_response(opts)
   end
 end

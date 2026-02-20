@@ -11,9 +11,8 @@ if Code.ensure_loaded?(ExAws) do
     @behaviour LlmComposer.Provider
 
     alias LlmComposer.Message
-    alias LlmComposer.Providers.Utils
-    alias LlmComposer.ProviderResponse.Bedrock, as: BedrockResponse
     alias LlmComposer.ProviderResponse
+    alias LlmComposer.Providers.Utils
 
     @impl LlmComposer.Provider
     def name, do: :bedrock
@@ -93,7 +92,7 @@ if Code.ensure_loaded?(ExAws) do
 
     defp wrap_response(result, opts) do
       result
-      |> BedrockResponse.new(opts)
+      |> ProviderResponse.Bedrock.new(opts)
       |> ProviderResponse.to_llm_response(opts)
     end
   end

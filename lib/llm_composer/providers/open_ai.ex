@@ -8,9 +8,8 @@ defmodule LlmComposer.Providers.OpenAI do
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
-  alias LlmComposer.Providers.Utils
-  alias LlmComposer.ProviderResponse.OpenAI, as: OpenAIResponse
   alias LlmComposer.ProviderResponse
+  alias LlmComposer.Providers.Utils
   require Logger
 
   @impl LlmComposer.Provider
@@ -102,7 +101,7 @@ defmodule LlmComposer.Providers.OpenAI do
 
   defp wrap_response(result, opts) do
     result
-    |> OpenAIResponse.new(opts)
+    |> ProviderResponse.OpenAI.new(opts)
     |> ProviderResponse.to_llm_response(opts)
   end
 
@@ -182,9 +181,12 @@ defmodule LlmComposer.Providers.OpenAI do
   defp maybe_add_reasoning(request, nil), do: request
 
   defp maybe_add_reasoning(request, effort) when is_binary(effort) do
-    reasoning = get_request_key(request, :reasoning, %{})
-    reasoning = Map.put(reasoning, :effort, effort)
-    Map.put(request, :reasoning, reasoning)
+    updated_reasoning =
+      request
+      |> get_request_key(:reasoning, %{})
+      |> Map.put(:effort, effort)
+
+    Map.put(request, :reasoning, updated_reasoning)
   end
 
   @spec normalize_responses_api_body(map()) :: map()
@@ -219,8 +221,7 @@ defmodule LlmComposer.Providers.OpenAI do
   defp extract_text_from_responses_output(output_items) do
     output_items
     |> Enum.flat_map(fn item -> Map.get(item, "content", []) end)
-    |> Enum.map(&Map.get(&1, "text", ""))
-    |> Enum.join("")
+    |> Enum.map_join("", &Map.get(&1, "text", ""))
   end
 
   @spec get_request_key(map(), atom(), term()) :: term()

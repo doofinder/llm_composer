@@ -2,7 +2,7 @@
 
 Important: ensure credo and compile works before finishing any code changes
 
-**IMPORTANT**: NEVER use git write commands (commit, tag, push, git add, etc.). Only use git for reading repository history if needed.
+**IMPORTANT**: NEVER use git write commands (commit, tag, push, git add, etc.) unless explicit request of the user. Normally only use git for reading repository history if needed.
 
 ## Build/Test Commands
 - **Run tests**: `mix test`

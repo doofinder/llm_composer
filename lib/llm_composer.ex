@@ -43,6 +43,7 @@ defmodule LlmComposer do
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
   alias LlmComposer.ProvidersRunner
+  alias LlmComposer.ProviderStreamChunk
   alias LlmComposer.Settings
 
   require Logger
@@ -152,7 +153,11 @@ defmodule LlmComposer do
         :skip
 
       String.starts_with?(line, "data:") ->
-        payload = String.trim_leading(String.trim_leading(line, "data:"))
+        payload =
+          line
+          |> String.trim_leading("data:")
+          |> String.trim_leading()
+
         decode_stream_chunk(payload)
 
       true ->
@@ -172,21 +177,21 @@ defmodule LlmComposer do
   defp wrap_stream_chunk(payload, provider, opts) do
     case provider_stream_struct(provider, payload, opts) do
       {:error, _} = error -> error
-      struct -> LlmComposer.ProviderStreamChunk.to_stream_chunk(struct, opts)
+      struct -> ProviderStreamChunk.to_stream_chunk(struct, opts)
     end
   end
 
   defp provider_stream_struct(:open_ai, payload, opts),
-    do: LlmComposer.ProviderStreamChunk.OpenAI.new(payload, opts)
+    do: ProviderStreamChunk.OpenAI.new(payload, opts)
 
   defp provider_stream_struct(:open_router, payload, opts),
-    do: LlmComposer.ProviderStreamChunk.OpenRouter.new(payload, opts)
+    do: ProviderStreamChunk.OpenRouter.new(payload, opts)
 
   defp provider_stream_struct(:google, payload, opts),
-    do: LlmComposer.ProviderStreamChunk.Google.new(payload, opts)
+    do: ProviderStreamChunk.Google.new(payload, opts)
 
   defp provider_stream_struct(:ollama, payload, opts),
-    do: LlmComposer.ProviderStreamChunk.Ollama.new(payload, opts)
+    do: ProviderStreamChunk.Ollama.new(payload, opts)
 
   defp provider_stream_struct(provider, _payload, _opts) do
     {:error, %{reason: :unsupported_stream_provider, provider: provider}}
