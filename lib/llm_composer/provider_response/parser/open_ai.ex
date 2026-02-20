@@ -1,4 +1,4 @@
-defmodule LlmComposer.ProviderResponse.Parser.OpenAIRouter do
+defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
   @moduledoc false
 
   alias LlmComposer.Cost.CostAssembler

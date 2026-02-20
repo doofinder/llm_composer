@@ -1,4 +1,4 @@
-defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAIRouter do
+defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
   @moduledoc false
 
   alias LlmComposer.StreamChunk
