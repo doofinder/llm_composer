@@ -184,7 +184,7 @@ defmodule LlmComposer.Providers.Utils do
   end
 
   defp transform_fn_to_tool(%LlmComposer.Function{} = function, provider)
-       when provider in [:open_ai, :ollama, :open_router] do
+       when provider in [:open_ai, :open_ai_responses, :ollama, :open_router] do
     %{
       type: "function",
       function: %{
