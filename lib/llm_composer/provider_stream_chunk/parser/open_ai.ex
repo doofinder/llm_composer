@@ -8,13 +8,13 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
     delta = choice["delta"] || %{}
     finish_reason = choice["finish_reason"]
     text = extract_text(delta)
-    tool_call = Map.get(delta, "tool_call")
+    tool_calls = Map.get(delta, "tool_calls")
     usage = format_usage(raw["usage"])
 
     type =
       cond do
         not is_nil(finish_reason) -> :done
-        Map.has_key?(delta, "tool_call") -> :tool_call_delta
+        is_list(tool_calls) and tool_calls != [] -> :tool_call_delta
         text not in [nil, ""] -> :text_delta
         true -> :unknown
       end
@@ -24,7 +24,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
        provider: provider,
        type: type,
        text: text,
-       tool_call: tool_call,
+       tool_call: tool_calls,
        usage: usage,
        metadata: %{finish_reason: finish_reason},
        raw: raw

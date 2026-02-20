@@ -23,8 +23,9 @@ defmodule LlmComposer.ProviderStreamChunk.Struct do
       defimpl LlmComposer.ProviderStreamChunk do
         @spec to_stream_chunk(struct(), keyword()) ::
                 {:ok, LlmComposer.StreamChunk.t()} | :skip | {:error, term()}
-        def to_stream_chunk(%{chunk: chunk}, _opts) do
-          unquote(parser).parse(chunk, unquote(provider), [])
+        def to_stream_chunk(%{chunk: chunk, opts: struct_opts}, call_opts) do
+          merged_opts = Keyword.merge(struct_opts, call_opts)
+          unquote(parser).parse(chunk, unquote(provider), merged_opts)
         end
       end
     end
