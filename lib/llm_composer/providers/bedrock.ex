@@ -10,9 +10,10 @@ if Code.ensure_loaded?(ExAws) do
     """
     @behaviour LlmComposer.Provider
 
-    alias LlmComposer.LlmResponse
     alias LlmComposer.Message
     alias LlmComposer.Providers.Utils
+    alias LlmComposer.ProviderResponse.Bedrock, as: BedrockResponse
+    alias LlmComposer.ProviderResponse
 
     @impl LlmComposer.Provider
     def name, do: :bedrock
@@ -29,7 +30,7 @@ if Code.ensure_loaded?(ExAws) do
         |> build_request(system_message, opts)
         |> send_request(model)
         |> handle_response()
-        |> LlmResponse.new(name(), opts)
+        |> wrap_response(opts)
       else
         {:error, :model_not_provided}
       end
@@ -88,6 +89,12 @@ if Code.ensure_loaded?(ExAws) do
 
     defp handle_response({:error, resp}) do
       {:error, resp}
+    end
+
+    defp wrap_response(result, opts) do
+      result
+      |> BedrockResponse.new(opts)
+      |> ProviderResponse.to_llm_response(opts)
     end
   end
 end

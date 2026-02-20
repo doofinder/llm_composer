@@ -8,8 +8,9 @@ defmodule LlmComposer.Providers.OpenAI do
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
-  alias LlmComposer.LlmResponse
   alias LlmComposer.Providers.Utils
+  alias LlmComposer.ProviderResponse.OpenAI, as: OpenAIResponse
+  alias LlmComposer.ProviderResponse
 
   @impl LlmComposer.Provider
   def name, do: :open_ai
@@ -35,7 +36,7 @@ defmodule LlmComposer.Providers.OpenAI do
       |> build_request(system_message, model, opts)
       |> then(&Tesla.post(client, "/chat/completions", &1, headers: headers, opts: req_opts))
       |> handle_response(opts)
-      |> LlmResponse.new(name(), opts)
+      |> wrap_response(opts)
     else
       {:error, :model_not_provided}
     end
@@ -74,6 +75,12 @@ defmodule LlmComposer.Providers.OpenAI do
 
   defp handle_response({:error, reason}, _opts) do
     {:error, reason}
+  end
+
+  defp wrap_response(result, opts) do
+    result
+    |> OpenAIResponse.new(opts)
+    |> ProviderResponse.to_llm_response(opts)
   end
 
   defp get_key(opts) do
