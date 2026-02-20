@@ -101,48 +101,95 @@ defmodule LlmComposer do
   end
 
   @doc """
-  Processes a raw stream response and returns a parsed stream of message content.
+  Parses a provider stream into normalized `LlmComposer.StreamChunk` structs.
 
   ## Parameters
-    - `stream`: The raw stream object from the LLM response.
+    - `stream`: The raw streaming enumerable produced by the provider response.
+    - `provider`: The atom identifying the provider that produced the stream.
+    - `opts`: Additional parsing options (currently unused).
 
   ## Returns
-    - A stream that yields parsed content strings, filtering out "[DONE]" markers and decode errors.
+    - A stream of `%LlmComposer.StreamChunk{}` values that include the original raw chunk,
+      categorized event type, optional usage data, and normalized metadata.
 
   ## Example
 
     ```elixir
-    # Stream tested with Finch, maybe works with other adapters.
-    Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
-    {:ok, finch} = Finch.start_link(name: MyFinch)
-
-    settings = %LlmComposer.Settings{
-      provider: LlmComposer.Providers.Ollama,
-      provider_opts: [model: "llama3.2"],
-      stream_response: true
-    }
-
-    messages = [
-      %LlmComposer.Message{type: :user, content: "Tell me a short story"}
-    ]
-
     {:ok, res} = LlmComposer.run_completion(settings, messages)
 
-    # Process the stream and print each parsed chunk
     res.stream
-    |> LlmComposer.parse_stream_response()
-    |> Enum.each(fn parsed_data ->
-      content = get_in(parsed_data, ["message", "content"])
-      if content, do: IO.write(content)
+    |> LlmComposer.parse_stream_response(res.provider)
+    |> Enum.each(fn chunk ->
+      IO.write(chunk.text || "")
     end)
     ```
   """
-  @spec parse_stream_response(Enumerable.t()) :: Enumerable.t()
-  def parse_stream_response(stream) do
+  @spec parse_stream_response(Enumerable.t(), atom(), keyword()) :: Enumerable.t()
+  def parse_stream_response(stream, provider, opts \\ []) do
     stream
-    |> Stream.filter(fn chunk -> chunk != "[DONE]" end)
-    |> Stream.map(fn data -> @json_mod.decode!(data) end)
-    |> Stream.filter(fn content -> content != nil and content != "" end)
+    |> Stream.flat_map(&split_stream_lines/1)
+    |> Stream.map(&extract_stream_payload/1)
+    |> Stream.filter(&match?({:ok, _}, &1))
+    |> Stream.map(fn {:ok, payload} -> wrap_stream_chunk(payload, provider, opts) end)
+    |> Stream.filter(&match?({:ok, _}, &1))
+    |> Stream.map(fn {:ok, chunk} -> chunk end)
+  end
+
+  defp split_stream_lines(value) when is_binary(value) do
+    value
+    |> String.split("\n")
+    |> Enum.map(&String.trim/1)
+    |> Enum.filter(&(&1 != ""))
+  end
+
+  defp split_stream_lines(_), do: []
+
+  defp extract_stream_payload(line) when is_binary(line) do
+    line = String.trim(line)
+
+    cond do
+      line in ["", "[DONE]", "data: [DONE]"] ->
+        :skip
+
+      String.starts_with?(line, "data:") ->
+        payload = String.trim_leading(String.trim_leading(line, "data:"))
+        decode_stream_chunk(payload)
+
+      true ->
+        decode_stream_chunk(line)
+    end
+  end
+
+  defp extract_stream_payload(_), do: :skip
+
+  defp decode_stream_chunk(value) do
+    case @json_mod.decode(value) do
+      {:ok, decoded} -> {:ok, decoded}
+      _ -> :skip
+    end
+  end
+
+  defp wrap_stream_chunk(payload, provider, opts) do
+    case provider_stream_struct(provider, payload, opts) do
+      {:error, _} = error -> error
+      struct -> LlmComposer.ProviderStreamChunk.to_stream_chunk(struct, opts)
+    end
+  end
+
+  defp provider_stream_struct(:open_ai, payload, opts),
+    do: LlmComposer.ProviderStreamChunk.OpenAI.new(payload, opts)
+
+  defp provider_stream_struct(:open_router, payload, opts),
+    do: LlmComposer.ProviderStreamChunk.OpenRouter.new(payload, opts)
+
+  defp provider_stream_struct(:google, payload, opts),
+    do: LlmComposer.ProviderStreamChunk.Google.new(payload, opts)
+
+  defp provider_stream_struct(:ollama, payload, opts),
+    do: LlmComposer.ProviderStreamChunk.Ollama.new(payload, opts)
+
+  defp provider_stream_struct(provider, _payload, _opts) do
+    {:error, %{reason: :unsupported_stream_provider, provider: provider}}
   end
 
   @spec user_prompt(Settings.t(), String.t(), map()) :: String.t()

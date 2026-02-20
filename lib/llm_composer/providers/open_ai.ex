@@ -11,6 +11,7 @@ defmodule LlmComposer.Providers.OpenAI do
   alias LlmComposer.Providers.Utils
   alias LlmComposer.ProviderResponse.OpenAI, as: OpenAIResponse
   alias LlmComposer.ProviderResponse
+  require Logger
 
   @impl LlmComposer.Provider
   def name, do: :open_ai
@@ -29,13 +30,17 @@ defmodule LlmComposer.Providers.OpenAI do
       {"Authorization", "Bearer " <> api_key}
     ]
 
-    req_opts = Utils.get_req_opts(opts)
+    req_opts = get_request_opts(opts)
 
     if model do
+      endpoint = get_endpoint(model, opts)
+
       messages
       |> build_request(system_message, model, opts)
-      |> then(&Tesla.post(client, "/chat/completions", &1, headers: headers, opts: req_opts))
-      |> handle_response(opts)
+      |> maybe_convert_request_for_endpoint(endpoint)
+      |> log_request_debug(model, endpoint)
+      |> then(&Tesla.post(client, endpoint_path(endpoint), &1, headers: headers, opts: req_opts))
+      |> handle_response(opts, endpoint)
       |> wrap_response(opts)
     else
       {:error, :model_not_provided}
@@ -63,17 +68,35 @@ defmodule LlmComposer.Providers.OpenAI do
     |> Utils.cleanup_body()
   end
 
-  @spec handle_response(Tesla.Env.result(), keyword()) :: {:ok, map()} | {:error, term}
-  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, _opts)
+  @spec handle_response(Tesla.Env.result(), keyword(), :chat_completions | :responses) ::
+          {:ok, map()} | {:error, term}
+  defp handle_response({:ok, %Tesla.Env{status: status, body: body}}, _opts, endpoint)
        when status in [200] do
-    {:ok, %{response: body}}
+    Logger.debug("[open_ai] successful response (endpoint=#{endpoint}, status=#{status})")
+
+    case endpoint do
+      :responses ->
+        {:ok,
+         %{
+           response: normalize_responses_api_body(body),
+           metadata: %{endpoint: endpoint, raw: body}
+         }}
+
+      :chat_completions ->
+        {:ok, %{response: body, metadata: %{endpoint: endpoint}}}
+    end
   end
 
-  defp handle_response({:ok, resp}, _opts) do
+  defp handle_response({:ok, resp}, _opts, endpoint) do
+    Logger.warning(
+      "[open_ai] non-200 response (endpoint=#{endpoint}, status=#{Map.get(resp, :status, :unknown)})"
+    )
+
     {:error, resp}
   end
 
-  defp handle_response({:error, reason}, _opts) do
+  defp handle_response({:error, reason}, _opts, endpoint) do
+    Logger.error("[open_ai] request failed (endpoint=#{endpoint}, reason=#{inspect(reason)})")
     {:error, reason}
   end
 
@@ -105,5 +128,134 @@ defmodule LlmComposer.Providers.OpenAI do
     else
       base_request
     end
+  end
+
+  @spec get_endpoint(String.t(), keyword()) :: :chat_completions | :responses
+  defp get_endpoint(model, opts) do
+    case Keyword.get(opts, :open_ai_endpoint) do
+      :chat_completions -> :chat_completions
+      :responses -> :responses
+      _ -> if String.starts_with?(model, "gpt-5"), do: :responses, else: :chat_completions
+    end
+  end
+
+  @spec endpoint_path(:chat_completions | :responses) :: String.t()
+  defp endpoint_path(:chat_completions), do: "/chat/completions"
+  defp endpoint_path(:responses), do: "/responses"
+
+  @spec maybe_convert_request_for_endpoint(map(), :chat_completions | :responses) :: map()
+  defp maybe_convert_request_for_endpoint(request, :chat_completions), do: request
+  defp maybe_convert_request_for_endpoint(request, :responses), do: to_responses_request(request)
+
+  @spec to_responses_request(map()) :: map()
+  defp to_responses_request(request) do
+    {reasoning_effort, request} = pop_request_key(request, :reasoning_effort)
+
+    messages = get_request_key(request, :messages, [])
+
+    request
+    |> Map.put(:input, map_messages_to_responses_input(messages))
+    |> Map.delete(:messages)
+    |> maybe_add_reasoning(reasoning_effort)
+  end
+
+  @spec map_messages_to_responses_input(list()) :: list()
+  defp map_messages_to_responses_input(messages) do
+    Enum.map(messages, fn
+      %{"role" => role, "content" => content} when is_binary(content) ->
+        %{
+          role: role,
+          content: [
+            %{type: "input_text", text: content}
+          ]
+        }
+
+      %{"role" => role, "content" => content} when is_list(content) ->
+        %{role: role, content: content}
+
+      other ->
+        other
+    end)
+  end
+
+  @spec maybe_add_reasoning(map(), String.t() | nil) :: map()
+  defp maybe_add_reasoning(request, nil), do: request
+
+  defp maybe_add_reasoning(request, effort) when is_binary(effort) do
+    reasoning = get_request_key(request, :reasoning, %{})
+    reasoning = Map.put(reasoning, :effort, effort)
+    Map.put(request, :reasoning, reasoning)
+  end
+
+  @spec normalize_responses_api_body(map()) :: map()
+  defp normalize_responses_api_body(body) do
+    text =
+      case body["output_text"] do
+        text when is_binary(text) and text != "" -> text
+        _ -> extract_text_from_responses_output(body["output"] || [])
+      end
+
+    usage = body["usage"] || %{}
+
+    %{
+      "model" => body["model"],
+      "choices" => [
+        %{
+          "message" => %{
+            "role" => "assistant",
+            "content" => text
+          }
+        }
+      ],
+      "usage" => %{
+        "prompt_tokens" => usage["input_tokens"] || 0,
+        "completion_tokens" => usage["output_tokens"] || 0,
+        "total_tokens" => usage["total_tokens"] || 0
+      }
+    }
+  end
+
+  @spec extract_text_from_responses_output(list()) :: String.t()
+  defp extract_text_from_responses_output(output_items) do
+    output_items
+    |> Enum.flat_map(fn item -> Map.get(item, "content", []) end)
+    |> Enum.map(&Map.get(&1, "text", ""))
+    |> Enum.join("")
+  end
+
+  @spec get_request_key(map(), atom(), term()) :: term()
+  defp get_request_key(request, key, default) when is_atom(key) do
+    Map.get(request, key, Map.get(request, Atom.to_string(key), default))
+  end
+
+  @spec pop_request_key(map(), atom()) :: {term(), map()}
+  defp pop_request_key(request, key) when is_atom(key) do
+    cond do
+      Map.has_key?(request, key) -> Map.pop(request, key)
+      Map.has_key?(request, Atom.to_string(key)) -> Map.pop(request, Atom.to_string(key))
+      true -> {nil, request}
+    end
+  end
+
+  @spec log_request_debug(map(), String.t(), :chat_completions | :responses) :: map()
+  defp log_request_debug(request, model, endpoint) do
+    timeout = Application.get_env(:llm_composer, :timeout, 50_000)
+
+    Logger.debug(
+      "[open_ai] sending request (model=#{model}, endpoint=#{endpoint}, stream=#{inspect(Map.get(request, :stream))}, timeout_ms=#{timeout})"
+    )
+
+    request
+  end
+
+  @spec get_request_opts(keyword()) :: keyword()
+  defp get_request_opts(opts) do
+    timeout = Keyword.get(opts, :timeout, Application.get_env(:llm_composer, :timeout, 50_000))
+
+    adapter_opts = [receive_timeout: timeout]
+
+    opts
+    |> Utils.get_req_opts()
+    |> Keyword.update(:adapter, adapter_opts, &Keyword.merge(&1, adapter_opts))
   end
 end

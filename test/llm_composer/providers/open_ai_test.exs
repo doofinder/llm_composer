@@ -99,6 +99,54 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert {:error, _} = result
   end
 
+  test "uses responses api for gpt-5 models and normalizes response", %{bypass: bypass} do
+    Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
+      {:ok, body, _conn} = Plug.Conn.read_body(conn)
+      request_data = Jason.decode!(body)
+
+      assert request_data["model"] == "gpt-5-nano"
+      assert request_data["reasoning"]["effort"] == "low"
+      assert is_list(request_data["input"])
+
+      response_body = %{
+        "id" => "resp_123",
+        "object" => "response",
+        "model" => "gpt-5-nano",
+        "output_text" => "Quantum computing uses qubits to encode information probabilistically.",
+        "usage" => %{
+          "input_tokens" => 15,
+          "output_tokens" => 9,
+          "total_tokens" => 24
+        }
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenAI,
+         [
+           model: "gpt-5-nano",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port),
+           request_params: %{reasoning_effort: "low"}
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "Explain quantum computing")
+
+    assert response.main_response.type == :assistant
+    assert response.main_response.content =~ "Quantum computing"
+    assert response.input_tokens == 15
+    assert response.output_tokens == 9
+    assert response.provider == :open_ai
+  end
+
   test "handles network errors", %{bypass: bypass} do
     Bypass.down(bypass)
 
