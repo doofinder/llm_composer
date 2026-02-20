@@ -53,6 +53,7 @@ defmodule LlmComposer.Providers.OpenAIResponses do
       model: model,
       tools: tools,
       tool_choice: tool_choice,
+      stream: Keyword.get(opts, :stream_response),
       input: map_messages_to_input([system_message | messages])
     }
 
@@ -66,6 +67,11 @@ defmodule LlmComposer.Providers.OpenAIResponses do
   end
 
   @spec handle_response(Tesla.Env.result()) :: {:ok, map()} | {:error, term()}
+  defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}) when is_function(body) do
+    Logger.debug("[open_ai_responses] successful streaming response")
+    {:ok, %{response: body}}
+  end
+
   defp handle_response({:ok, %Tesla.Env{status: 200, body: body}}) do
     Logger.debug("[open_ai_responses] successful response")
     {:ok, %{response: normalize_body(body)}}

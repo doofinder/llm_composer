@@ -85,4 +85,109 @@ defmodule LlmComposer.StreamChunkTest do
              } = chunk
     end
   end
+
+  describe "parse_stream_response/2 - OpenAIResponses" do
+    test "response.output_text.delta becomes :text_delta" do
+      data = ~s(data: {"type":"response.output_text.delta","delta":"Hello"})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert %StreamChunk{provider: :open_ai_responses, type: :text_delta, text: "Hello"} = chunk
+    end
+
+    test "response.output_text.delta with empty string is skipped" do
+      data = ~s(data: {"type":"response.output_text.delta","delta":""})
+
+      result =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert result == []
+    end
+
+    test "response.output_item.added with function_call becomes :tool_call_delta started" do
+      data =
+        ~s(data: {"type":"response.output_item.added","item":{"type":"function_call","name":"calculator","call_id":"call_abc"}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert %StreamChunk{provider: :open_ai_responses, type: :tool_call_delta} = chunk
+      assert chunk.tool_call["type"] == "function_call_started"
+      assert chunk.tool_call["name"] == "calculator"
+      assert chunk.tool_call["call_id"] == "call_abc"
+    end
+
+    test "response.output_item.added with non-function type is skipped" do
+      data =
+        ~s(data: {"type":"response.output_item.added","item":{"type":"message"}})
+
+      result =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert result == []
+    end
+
+    test "response.function_call_arguments.delta becomes :tool_call_delta with args_delta" do
+      data =
+        ~s(data: {"type":"response.function_call_arguments.delta","call_id":"call_abc","delta":"{\\"expr"})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert %StreamChunk{provider: :open_ai_responses, type: :tool_call_delta} = chunk
+      assert chunk.tool_call["type"] == "function_call_arguments_delta"
+      assert chunk.tool_call["call_id"] == "call_abc"
+      assert chunk.tool_call["arguments_delta"] == "{\"expr"
+    end
+
+    test "response.completed becomes :done with usage" do
+      data =
+        ~s(data: {"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15}}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :open_ai_responses,
+               type: :done,
+               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15},
+               metadata: %{finish_reason: "stop"}
+             } = chunk
+    end
+
+    test "response.completed with missing usage still becomes :done" do
+      data = ~s(data: {"type":"response.completed","response":{}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert %StreamChunk{type: :done, usage: nil} = chunk
+    end
+
+    test "unknown event types are skipped" do
+      data = ~s(data: {"type":"response.in_progress"})
+
+      result =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert result == []
+    end
+  end
 end
