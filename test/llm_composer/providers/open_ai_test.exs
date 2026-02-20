@@ -2,6 +2,7 @@ defmodule LlmComposer.Providers.OpenAITest do
   use ExUnit.Case, async: true
 
   alias LlmComposer.Providers.OpenAI
+  alias LlmComposer.Providers.OpenAIResponses
   alias LlmComposer.Settings
 
   setup do
@@ -99,7 +100,7 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert {:error, _} = result
   end
 
-  test "uses responses api for gpt-5 models and normalizes response", %{bypass: bypass} do
+  test "OpenAIResponses uses /responses endpoint and normalizes response", %{bypass: bypass} do
     Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
       {:ok, body, _conn} = Plug.Conn.read_body(conn)
       request_data = Jason.decode!(body)
@@ -127,12 +128,12 @@ defmodule LlmComposer.Providers.OpenAITest do
 
     settings = %Settings{
       providers: [
-        {OpenAI,
+        {OpenAIResponses,
          [
            model: "gpt-5-nano",
            api_key: "test-key",
            url: endpoint_url(bypass.port),
-           request_params: %{reasoning_effort: "low"}
+           reasoning_effort: "low"
          ]}
       ],
       system_prompt: "You are a helpful assistant"
@@ -144,7 +145,7 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert response.main_response.content =~ "Quantum computing"
     assert response.input_tokens == 15
     assert response.output_tokens == 9
-    assert response.provider == :open_ai
+    assert response.provider == :open_ai_responses
   end
 
   test "handles network errors", %{bypass: bypass} do
