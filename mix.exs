@@ -11,7 +11,7 @@ defmodule LlmComposer.MixProject do
       package: package(),
       docs: [
         main: "readme",
-        extras: ["README.md"],
+        extras: ["README.md", "LICENSE"],
         source_ref: "master"
       ],
       source_url: "https://github.com/doofinder/llm_composer",
@@ -42,7 +42,7 @@ defmodule LlmComposer.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_aws, "~> 2.6", optional: true},
       {:hackney, "~> 1.21", optional: true},
-      {:ex_doc, "~> 0.31", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true},
       {:excoveralls, "~> 0.18", only: :test},
       {:finch, "~> 0.18", optional: true},
       {:goth, "~> 1.4", optional: true},
