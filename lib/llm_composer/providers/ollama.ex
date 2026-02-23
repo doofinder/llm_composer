@@ -7,7 +7,7 @@ defmodule LlmComposer.Providers.Ollama do
   @behaviour LlmComposer.Provider
 
   alias LlmComposer.HttpClient
-  alias LlmComposer.LlmResponse
+  alias LlmComposer.ProviderResponse
   alias LlmComposer.Providers.Utils
 
   @impl LlmComposer.Provider
@@ -28,7 +28,7 @@ defmodule LlmComposer.Providers.Ollama do
       |> build_request(system_message, model, opts)
       |> then(&Tesla.post(client, "/api/chat", &1, opts: req_opts))
       |> handle_response()
-      |> LlmResponse.new(name(), opts)
+      |> wrap_response(opts)
     else
       {:error, :model_not_provided}
     end
@@ -59,4 +59,10 @@ defmodule LlmComposer.Providers.Ollama do
   end
 
   defp handle_response({:error, _} = resp), do: resp
+
+  defp wrap_response(result, opts) do
+    result
+    |> ProviderResponse.Ollama.new(opts)
+    |> ProviderResponse.to_llm_response(opts)
+  end
 end

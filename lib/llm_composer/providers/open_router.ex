@@ -8,7 +8,7 @@ defmodule LlmComposer.Providers.OpenRouter do
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
-  alias LlmComposer.LlmResponse
+  alias LlmComposer.ProviderResponse
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -35,7 +35,7 @@ defmodule LlmComposer.Providers.OpenRouter do
       |> build_request(system_message, model, opts)
       |> then(&Tesla.post(client, "/chat/completions", &1, headers: headers, opts: req_opts))
       |> handle_response(opts)
-      |> LlmResponse.new(name(), opts)
+      |> wrap_response(opts)
     else
       {:error, :model_not_provided}
     end
@@ -91,6 +91,12 @@ defmodule LlmComposer.Providers.OpenRouter do
 
   defp handle_response({:error, reason}, _opts) do
     {:error, reason}
+  end
+
+  defp wrap_response(result, opts) do
+    result
+    |> ProviderResponse.OpenRouter.new(opts)
+    |> ProviderResponse.to_llm_response(opts)
   end
 
   defp get_key(opts) do

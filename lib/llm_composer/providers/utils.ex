@@ -152,6 +152,24 @@ defmodule LlmComposer.Providers.Utils do
   2. Get from application config `:llm_composer`, provider_key.
   3. Use provided `default` value.
   """
+  @spec get_open_ai_key(keyword()) :: String.t()
+  def get_open_ai_key(opts) do
+    case get_config(:open_ai, :api_key, opts) do
+      nil -> raise LlmComposer.Errors.MissingKeyError
+      key -> key
+    end
+  end
+
+  @spec get_open_ai_request_opts(keyword()) :: keyword()
+  def get_open_ai_request_opts(opts) do
+    timeout = Keyword.get(opts, :timeout, Application.get_env(:llm_composer, :timeout, 50_000))
+    adapter_opts = [receive_timeout: timeout]
+
+    opts
+    |> get_req_opts()
+    |> Keyword.update(:adapter, adapter_opts, &Keyword.merge(&1, adapter_opts))
+  end
+
   @spec get_config(atom, atom, keyword, any) :: any
   def get_config(provider_key, key, opts, default \\ nil) do
     case Keyword.get(opts, key) do
@@ -166,7 +184,7 @@ defmodule LlmComposer.Providers.Utils do
   end
 
   defp transform_fn_to_tool(%LlmComposer.Function{} = function, provider)
-       when provider in [:open_ai, :ollama, :open_router] do
+       when provider in [:open_ai, :open_ai_responses, :ollama, :open_router] do
     %{
       type: "function",
       function: %{

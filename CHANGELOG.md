@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Added `LlmComposer.Providers.OpenAIResponses` provider to call OpenAI's `/responses` API, including support for `reasoning_effort` and structured outputs while keeping a normalized `LlmResponse` shape.
+- Added `LlmComposer.StreamChunk` and provider-specific stream chunk parsing so streaming events are normalized into typed chunks (`:text_delta`, `:tool_call_delta`, `:done`, etc.).
+
+### Changed
+- Changed `LlmComposer.parse_stream_response` to be provider-aware (`parse_stream_response/2` and `parse_stream_response/3`) and return normalized `%LlmComposer.StreamChunk{}` values instead of raw decoded maps.
+- Updated cost/token extraction to include `:open_ai_responses` provider responses.
+- Updated OpenAI request handling to use shared timeout/request option helpers (including adapter `receive_timeout` support).
+- Refactored provider response parsing into protocol-based adapters (`LlmComposer.ProviderResponse` and `LlmComposer.ProviderStreamChunk`) for clearer provider-specific normalization.
+
 ## [0.15.0] - 2026-02-17
 
 ### Added
