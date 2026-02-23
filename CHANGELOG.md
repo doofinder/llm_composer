@@ -6,15 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-02-23
+
 ### Added
 - Added `LlmComposer.Providers.OpenAIResponses` provider to call OpenAI's `/responses` API, including support for `reasoning_effort` and structured outputs while keeping a normalized `LlmResponse` shape.
 - Added `LlmComposer.StreamChunk` and provider-specific stream chunk parsing so streaming events are normalized into typed chunks (`:text_delta`, `:tool_call_delta`, `:done`, etc.).
+- Added `LlmComposer.FunctionCallExtractors` to centralize provider-specific function call extraction logic.
 
 ### Changed
 - Changed `LlmComposer.parse_stream_response` to be provider-aware (`parse_stream_response/2` and `parse_stream_response/3`) and return normalized `%LlmComposer.StreamChunk{}` values instead of raw decoded maps.
 - Updated cost/token extraction to include `:open_ai_responses` provider responses.
 - Updated OpenAI request handling to use shared timeout/request option helpers (including adapter `receive_timeout` support).
 - Refactored provider response parsing into protocol-based adapters (`LlmComposer.ProviderResponse` and `LlmComposer.ProviderStreamChunk`) for clearer provider-specific normalization.
+- Updated `README.md` with OpenAI Responses API and normalized streaming chunk documentation.
+- Expanded `LlmComposer.Provider` moduledoc with a minimal implementation guide for creating custom providers.
+- Updated ExDoc configuration to include `LICENSE` in docs extras.
+- Updated dependency `ex_doc` from `0.31` to `0.34` and enabled `warn_if_outdated: true`.
 
 ## [0.15.0] - 2026-02-17
 
@@ -193,7 +200,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.15.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.16.0...HEAD
+[0.16.0]: https://github.com/doofinder/llm_composer/compare/0.15.0...0.16.0
 [0.15.0]: https://github.com/doofinder/llm_composer/compare/0.14.2...0.15.0
 [0.14.2]: https://github.com/doofinder/llm_composer/compare/0.14.1...0.14.2
 [0.14.1]: https://github.com/doofinder/llm_composer/compare/0.14.0...0.14.1
