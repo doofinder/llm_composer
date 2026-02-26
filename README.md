@@ -82,8 +82,8 @@ The following table shows which features are supported by each provider:
 |---------|--------|------------|--------|---------|--------|
 | Basic Chat | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Streaming | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Function Calls | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Structured Outputs | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Function Calls | ✅ | ✅ | ⚠️¹ | ❌ | ✅ |
+| Structured Outputs | ✅ | ✅ | ⚠️¹ | ❌ | ✅ |
 | Cost Tracking | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ |
@@ -96,6 +96,16 @@ The following table shows which features are supported by each provider:
 - **Ollama** requires an ollama server instance to be running
 - **Function Calls** - LlmComposer exposes function call handling via `FunctionExecutor.execute/2` for explicit execution; supported by OpenAI, OpenRouter, and Google
 - **Streaming** is **not** compatible with Tesla **retries**.
+- **vLLM** and other OpenAI-compatible servers (LM Studio, LocalAI, etc.) can be used with `LlmComposer.Providers.OpenAI` or `LlmComposer.Providers.OpenAIResponses` by pointing `:url` at your server's base URL (e.g. `Application.put_env(:llm_composer, :open_ai, url: "http://localhost:8000/v1", api_key: "token")`).
+- ¹ **Ollama via OpenAI-compatible API**: Ollama exposes OpenAI-compatible endpoints (`/v1/chat/completions`, `/v1/responses`). If you configure `LlmComposer.Providers.OpenAI` or `LlmComposer.Providers.OpenAIResponses` to point at your Ollama instance, function calls and structured outputs become available for models that support them (e.g. `llama3.1`, `mistral`):
+  ```elixir
+  Application.put_env(:llm_composer, :open_ai, url: "http://localhost:11434/v1", api_key: "ollama")
+
+  {LlmComposer.Providers.OpenAI, [model: "llama3.1"]}
+  # or
+  {LlmComposer.Providers.OpenAIResponses, [model: "llama3.1"]}
+  ```
+  The native `LlmComposer.Providers.Ollama` provider does not support these features.
 
 ## Usage
 
