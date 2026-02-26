@@ -58,7 +58,7 @@ defmodule LlmComposer.Middleware.SSE do
 
   defp only(message, nil), do: [message]
 
-  defp only(message, key) do
+  defp only(message, key) when is_map(message) do
     case Map.get(message, key) do
       nil -> []
       val -> [val]
