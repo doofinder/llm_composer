@@ -120,11 +120,7 @@ defmodule LlmComposer.Middleware.SSEOfficialStyleTest do
 
       assert {:ok, env} = SSE.call(%Tesla.Env{}, [{:fn, adapter}], [])
 
-      result = Enum.to_list(env.body)
-      assert length(result) == 3
-      assert Enum.at(result, 0).data == "data1"
-      assert Enum.at(result, 1).data == "data2"
-      assert Enum.at(result, 2).data == "data3"
+      assert Enum.to_list(env.body) == [%{data: "data1"}, %{data: "data2"}, %{data: "data3"}]
     end
 
     test "handle stream data with varying line terminators" do
@@ -156,6 +152,7 @@ defmodule LlmComposer.Middleware.SSEOfficialStyleTest do
         chunks = [
           ~s|data: data1\n\n|,
           ~s|data: data2\n\n|,
+          ~s|id: commnet3\n\n|,
           ~s|data: data3|
         ]
 
@@ -166,10 +163,7 @@ defmodule LlmComposer.Middleware.SSEOfficialStyleTest do
 
       assert {:ok, env} = SSE.call(%Tesla.Env{}, [{:fn, adapter}], [])
 
-      IO.inspect(env)
-
       result = Enum.to_list(env.body)
-      IO.inspect(result)
 
       assert length(result) == 3
       assert Enum.at(result, 0).data == "data1"

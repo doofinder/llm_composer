@@ -46,8 +46,15 @@ defmodule LlmComposer.Middleware.SSE do
     (events ++ last) |> Enum.flat_map(&only(&1, opts[:only]))
   end
 
-  defp only(%{data: data}, :data), do: [data]
-  defp only(event, nil), do: [event]
+  defp only(message, nil), do: [message]
+
+  defp only(message, key) do
+    case Map.get(message, key) do
+      nil -> []
+      val -> [val]
+    end
+  end
+
   defp only(_, _), do: []
 
   defp decodable?(env, opts) do
