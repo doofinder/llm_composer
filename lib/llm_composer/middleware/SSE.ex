@@ -1,6 +1,8 @@
 defmodule LlmComposer.Middleware.SSE do
   @behaviour Tesla.Middleware
 
+  alias LlmComposer.Middleware.SSEParser
+
   @default_content_types ["text/event-stream"]
 
   @impl Tesla.Middleware
@@ -19,19 +21,19 @@ defmodule LlmComposer.Middleware.SSE do
   end
 
   defp decode_body(body, opts) when is_struct(body, Stream) or is_function(body) do
-    parser = LlmComposer.Middleware.SSEParser.new()
+    parser = SSEParser.new()
 
     body
     |> Stream.chunk_while(
       parser,
       fn chunk, state ->
-        case LlmComposer.Middleware.SSEParser.parse_chunk(chunk, state) do
+        case SSEParser.parse_chunk(chunk, state) do
           {:ok, events, new_state} -> {:cont, events, new_state}
           {:error, _} -> {:halt, chunk, state}
         end
       end,
       fn final_state ->
-        {:ok, last_events} = LlmComposer.Middleware.SSEParser.finalize(final_state)
+        {:ok, last_events} = SSEParser.finalize(final_state)
         {:cont, last_events, []}
       end
     )
@@ -40,9 +42,9 @@ defmodule LlmComposer.Middleware.SSE do
   end
 
   defp decode_body(binary, opts) when is_binary(binary) do
-    parser = LlmComposer.Middleware.SSEParser.new()
-    {:ok, events, updated_parser} = LlmComposer.Middleware.SSEParser.parse_chunk(binary, parser)
-    {:ok, last} = LlmComposer.Middleware.SSEParser.finalize(updated_parser)
+    parser = SSEParser.new()
+    {:ok, events, updated_parser} = SSEParser.parse_chunk(binary, parser)
+    {:ok, last} = SSEParser.finalize(updated_parser)
     (events ++ last) |> Enum.flat_map(&only(&1, opts[:only]))
   end
 

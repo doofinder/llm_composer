@@ -1,6 +1,6 @@
 defmodule LlmComposer.Middleware.SSEParser do
   @moduledoc """
-  Stateful SSE parser based on gemini_ex but returns raw :data strings
+  Stateful SSE parser based on gemini_ex.
   Handles partial chunks across HTTP frames.
   """
 
@@ -34,13 +34,18 @@ defmodule LlmComposer.Middleware.SSEParser do
   def finalize(%__MODULE__{buffer: buf, only: only}),
     do: {:ok, [parse_event(buf, only)] |> Enum.reject(&is_nil/1)}
 
+  def finalize(%__MODULE__{buffer: buf, only: only}) do
+    events = [parse_event(buf, only)]
+    {:ok, Enum.reject(events, &is_nil/1)}
+  end
+
   # Stolen from https://github.com/nshkrdotcom/gemini_ex/blob/main/lib/gemini/sse/parser.ex
   defp extract_events(data) do
     parts = String.split(data, ~r/((\r\n)|((?<!\r)\n)|(\r(?!\n))){2}/)
 
     case parts do
       [single] -> {[], single}
-      _ -> {Enum.drop(parts, -1) |> Enum.reject(&(&1 == "")), List.last(parts) || ""}
+      _ -> {parts |> Enum.drop(-1) |> Enum.reject(&(&1 == "")), List.last(parts) || ""}
     end
   end
 
