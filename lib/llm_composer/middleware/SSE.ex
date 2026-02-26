@@ -35,10 +35,8 @@ defmodule LlmComposer.Middleware.SSE do
     |> Stream.chunk_while(
       parser,
       fn chunk, state ->
-        case SSEParser.parse_chunk(chunk, state) do
-          {:ok, events, new_state} -> {:cont, events, new_state}
-          {:error, _} -> {:halt, chunk, state}
-        end
+        {:ok, events, new_state} = SSEParser.parse_chunk(chunk, state)
+        {:cont, events, new_state}
       end,
       fn final_state ->
         {:ok, last_events} = SSEParser.finalize(final_state)

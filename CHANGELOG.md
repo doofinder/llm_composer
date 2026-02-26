@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-## [0.16.1] - 2026-02-26
+## [0.17.0] - 2026-02-26
 
 ### Added
 - Added `:sse_middleware` option for streamming responses that allows the load of customs middlewares

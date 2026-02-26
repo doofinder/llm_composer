@@ -1,11 +1,9 @@
-# Mirrors Tesla.Middleware.SSE tests (tesla/test/tesla/middleware/sse_test.exs)
-# adapted for LlmComposer.Tesla.Middleware.SSE
-#
-# Differences from Tesla.Middleware.SSE:
-# - Comment-only events are filtered out (no %{comment: ...} in output)
-# - Handles partial chunks (e.g. "data: {" split across HTTP frames) without FunctionClauseError
-
 defmodule LlmComposer.Middleware.SSEOfficialStyleTest do
+  @moduledoc """
+  Mirrors Tesla.Middleware.SSE tests (tesla/test/tesla/middleware/sse_test.exs)
+  adapted for LlmComposer.Middleware.SSE. It handles partial chunks
+  (e.g. "data: {" split across HTTP frames) without FunctionClauseError
+  """
   use ExUnit.Case
 
   alias LlmComposer.Middleware.SSE

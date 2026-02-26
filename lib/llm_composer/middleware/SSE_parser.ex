@@ -13,7 +13,7 @@ defmodule LlmComposer.Middleware.SSEParser do
     %__MODULE__{only: Keyword.get(opts, :only, nil)}
   end
 
-  @spec parse_chunk(String.t(), t()) :: {:ok, [map()], t()} | {:error, term()}
+  @spec parse_chunk(String.t(), t()) :: {:ok, [map()], t()}
   def parse_chunk(chunk, %__MODULE__{buffer: buffer, only: only} = state) when is_binary(chunk) do
     full = buffer <> chunk
     {complete_events, remaining} = extract_events(full)
@@ -24,8 +24,6 @@ defmodule LlmComposer.Middleware.SSEParser do
       |> Enum.reject(&is_nil/1)
 
     {:ok, parsed, %{state | buffer: remaining}}
-  rescue
-    e -> {:error, {:parse_error, e}}
   end
 
   @spec finalize(t()) :: {:ok, [map()]}
@@ -36,7 +34,9 @@ defmodule LlmComposer.Middleware.SSEParser do
     {:ok, Enum.reject(events, &is_nil/1)}
   end
 
-  # Stolen from https://github.com/nshkrdotcom/gemini_ex/blob/main/lib/gemini/sse/parser.ex
+  # Adapted from gemini_ex by nshkrdotcom
+  # Source: https://github.com/nshkrdotcom/gemini_ex/blob/main/lib/gemini/sse/parser.ex
+  # License: MIT
   defp extract_events(data) do
     parts = String.split(data, ~r/((\r\n)|((?<!\r)\n)|(\r(?!\n))){2}/)
 
