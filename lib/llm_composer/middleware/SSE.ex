@@ -45,7 +45,7 @@ defmodule LlmComposer.Middleware.SSE do
     parser = SSEParser.new()
     {:ok, events, updated_parser} = SSEParser.parse_chunk(binary, parser)
     {:ok, last} = SSEParser.finalize(updated_parser)
-    (events ++ last) |> Enum.flat_map(&only(&1, opts[:only]))
+    Enum.flat_map(events ++ last, &only(&1, opts[:only]))
   end
 
   defp only(message, nil), do: [message]

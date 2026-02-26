@@ -8,7 +8,7 @@ defmodule LlmComposer.Middleware.SSEParser do
 
   @type t :: %__MODULE__{buffer: String.t(), only: atom() | nil}
 
-  @spec new() :: t()
+  @spec new(keyword()) :: t()
   def new(opts \\ []) do
     %__MODULE__{only: Keyword.get(opts, :only, nil)}
   end
@@ -31,9 +31,6 @@ defmodule LlmComposer.Middleware.SSEParser do
   @spec finalize(t()) :: {:ok, [map()]}
   def finalize(%__MODULE__{buffer: ""}), do: {:ok, []}
 
-  def finalize(%__MODULE__{buffer: buf, only: only}),
-    do: {:ok, [parse_event(buf, only)] |> Enum.reject(&is_nil/1)}
-
   def finalize(%__MODULE__{buffer: buf, only: only}) do
     events = [parse_event(buf, only)]
     {:ok, Enum.reject(events, &is_nil/1)}
@@ -44,8 +41,16 @@ defmodule LlmComposer.Middleware.SSEParser do
     parts = String.split(data, ~r/((\r\n)|((?<!\r)\n)|(\r(?!\n))){2}/)
 
     case parts do
-      [single] -> {[], single}
-      _ -> {parts |> Enum.drop(-1) |> Enum.reject(&(&1 == "")), List.last(parts) || ""}
+      [single] ->
+        {[], single}
+
+      _ ->
+        p =
+          parts
+          |> Enum.drop(-1)
+          |> Enum.reject(&(&1 == ""))
+
+        {p, List.last(parts) || ""}
     end
   end
 
