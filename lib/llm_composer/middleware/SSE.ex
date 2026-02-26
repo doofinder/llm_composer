@@ -1,4 +1,12 @@
 defmodule LlmComposer.Middleware.SSE do
+  @moduledoc """
+  Tesla middleware that decodes Server-Sent Events (SSE) responses.
+
+  Parses `text/event-stream` bodies into lists of maps with `:data`, `:event`, `:id`, etc.
+  Supports streaming and handles partial chunks. Use the `:only` option to keep only a
+  specific field (e.g. `only: :data`).
+  """
+
   @behaviour Tesla.Middleware
 
   alias LlmComposer.Middleware.SSEParser
