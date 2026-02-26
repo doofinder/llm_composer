@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-02-26
+
+### Added
+- Added module `LlmComposer.Middleware.SSE`.
+
+### Fixed
+- Fixed handling of incomplete or unterminated final SSE messages in streaming responses to avoid parse errors.
+
 ## [0.16.0] - 2026-02-23
 
 ### Added
