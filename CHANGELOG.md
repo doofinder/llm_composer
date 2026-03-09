@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- Added `:bedrock_override` config option to supply Bedrock-specific AWS credentials (`:access_key_id`, `:secret_access_key`, `:region`, etc.) that override global `ex_aws` settings for Bedrock requests.
+
 ## [0.16.0] - 2026-02-23
 
 ### Added

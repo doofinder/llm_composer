@@ -439,6 +439,36 @@ Example of execution:
 }
 ```
 
+#### Overriding AWS Credentials for Bedrock
+
+If your global `ex_aws` credentials do not have Bedrock permissions, you can supply Bedrock-specific credentials via `:bedrock_override`. These are merged into the `ExAws.request/2` config and take precedence over the global `ex_aws` configuration.
+
+```elixir
+# In your config files or at runtime:
+Application.put_env(:llm_composer, :bedrock_override,
+  access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
+  secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY")
+)
+
+defmodule MyBedrockChat do
+  @settings %LlmComposer.Settings{
+    providers: [
+      {LlmComposer.Providers.Bedrock, [model: "eu.amazon.nova-lite-v1:0"]}
+    ],
+    system_prompt: "You are an expert in Quantum Field Theory."
+  }
+
+  def simple_chat(msg) do
+    LlmComposer.simple_chat(@settings, msg)
+  end
+end
+
+{:ok, res} = MyBedrockChat.simple_chat("What is the wave function collapse? Just a few sentences")
+IO.inspect(res.main_response)
+```
+
+Any key accepted by `ExAws.request/2` config can be passed (e.g. `:region`, `:access_key_id`, `:secret_access_key`, `:security_token`).
+
 ### Using Google (Gemini)
 
 LlmComposer supports Google's Gemini models through the Google AI API. This provider offers comprehensive features including function calls, streaming responses, and structured outputs.
