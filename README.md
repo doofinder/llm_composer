@@ -439,35 +439,26 @@ Example of execution:
 }
 ```
 
-#### Overriding AWS Credentials for Bedrock
+#### Using different AWS credentials for Bedrock
 
-If your global `ex_aws` credentials do not have Bedrock permissions, you can supply Bedrock-specific credentials via `:bedrock_override`. These are merged into the `ExAws.request/2` config and take precedence over the global `ex_aws` configuration.
+`ex_aws` supports per-service credential configuration, so if you need different credentials just for Bedrock (e.g. a dedicated IAM user with Bedrock permissions while your global config uses a different account), you can scope them under the `"bedrock-runtime"` service key:
 
 ```elixir
-# In your config files or at runtime:
-Application.put_env(:llm_composer, :bedrock_override,
-  access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
-  secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY")
-)
+# Global ex_aws credentials (used for S3, SQS, etc.)
+config :ex_aws,
+  access_key_id: "GLOBAL_KEY",
+  secret_access_key: "GLOBAL_SECRET"
 
-defmodule MyBedrockChat do
-  @settings %LlmComposer.Settings{
-    providers: [
-      {LlmComposer.Providers.Bedrock, [model: "eu.amazon.nova-lite-v1:0"]}
-    ],
-    system_prompt: "You are an expert in Quantum Field Theory."
-  }
-
-  def simple_chat(msg) do
-    LlmComposer.simple_chat(@settings, msg)
-  end
-end
-
-{:ok, res} = MyBedrockChat.simple_chat("What is the wave function collapse? Just a few sentences")
-IO.inspect(res.main_response)
+# Bedrock-specific credentials — override only for bedrock-runtime
+config :ex_aws,
+  "bedrock-runtime": [
+    access_key_id: "BEDROCK_KEY",
+    secret_access_key: "BEDROCK_SECRET",
+    region: "eu-west-1"
+  ]
 ```
 
-Any key accepted by `ExAws.request/2` config can be passed (e.g. `:region`, `:access_key_id`, `:secret_access_key`, `:security_token`).
+Service-scoped keys take precedence over the global `ex_aws` config for that service only.
 
 ### Using Google (Gemini)
 

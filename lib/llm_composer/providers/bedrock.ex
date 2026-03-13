@@ -59,10 +59,8 @@ if Code.ensure_loaded?(ExAws) do
         service: :"bedrock-runtime"
       }
 
-      base = [service_override: :bedrock]
-      override_config = Application.get_env(:llm_composer, :bedrock_override, [])
-      req_overrides = Keyword.merge(base, override_config)
-      ExAws.request(operation, req_overrides)
+      config = [service_override: :bedrock]
+      ExAws.request(operation, config)
     end
 
     @spec format_message(Message.t()) :: map()
