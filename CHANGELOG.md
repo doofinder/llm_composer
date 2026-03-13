@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Docs
+- Document how to use `ex_aws` per-service credential configuration to supply Bedrock-specific AWS credentials independent of the global `ex_aws` config.
+
 ## [0.16.0] - 2026-02-23
 
 ### Added

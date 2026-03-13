@@ -439,6 +439,27 @@ Example of execution:
 }
 ```
 
+#### Using different AWS credentials for Bedrock
+
+`ex_aws` supports per-service credential configuration, so if you need different credentials just for Bedrock (e.g. a dedicated IAM user with Bedrock permissions while your global config uses a different account), you can scope them under the `"bedrock-runtime"` service key:
+
+```elixir
+# Global ex_aws credentials (used for S3, SQS, etc.)
+config :ex_aws,
+  access_key_id: "GLOBAL_KEY",
+  secret_access_key: "GLOBAL_SECRET"
+
+# Bedrock-specific credentials — override only for bedrock-runtime
+config :ex_aws,
+  "bedrock-runtime": [
+    access_key_id: "BEDROCK_KEY",
+    secret_access_key: "BEDROCK_SECRET",
+    region: "eu-west-1"
+  ]
+```
+
+Service-scoped keys take precedence over the global `ex_aws` config for that service only.
+
 ### Using Google (Gemini)
 
 LlmComposer supports Google's Gemini models through the Google AI API. This provider offers comprehensive features including function calls, streaming responses, and structured outputs.
