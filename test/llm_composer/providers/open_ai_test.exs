@@ -103,6 +103,37 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert response.output_tokens == 2
   end
 
+  test "parser normalizes ordered-object payloads with atom keys for cost tracking" do
+    result =
+      {:ok,
+       %{
+         response: [
+           {:choices,
+            [
+              %{
+                message: %{
+                  role: "assistant",
+                  content: "Hello world"
+                }
+              }
+            ]},
+           {:usage, %{prompt_tokens: 3, completion_tokens: 2, total_tokens: 5}},
+           {:model, "minimax/minimax-m2.7"},
+           {:provider, "openrouter"}
+         ]
+       }}
+
+    opts = [track_costs: true, input_price_per_million: "1.5", output_price_per_million: "2.5"]
+
+    assert {:ok, response} =
+             LlmComposer.ProviderResponse.Parser.OpenAI.parse(result, :open_router, opts)
+
+    assert response.main_response.content == "Hello world"
+    assert response.cost_info.input_tokens == 3
+    assert response.cost_info.output_tokens == 2
+    assert response.cost_info.provider_model == "minimax/minimax-m2.7"
+  end
+
   test "parser keeps streamed chunk lists on the streaming path" do
     result =
       {:ok,

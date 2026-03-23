@@ -3,6 +3,7 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
 
   alias LlmComposer.Cost.CostAssembler
   alias LlmComposer.FunctionCallExtractors
+  alias LlmComposer.Helpers
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
   require Logger
@@ -33,21 +34,22 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
          raw: %{provider_response | response: response}
        })}
     else
+      response = Helpers.normalize_json(response)
       log_fallback(response, opts)
 
-      case fetch(response, ["choices", :choices], []) do
+      case Map.get(response, "choices", []) do
         [first_choice | _rest] ->
-          main_response = fetch(first_choice, ["message", :message], %{})
-          role = normalize_role(fetch(main_response, ["role", :role], "assistant"))
-          content = normalize_content(fetch(main_response, ["content", :content]))
+          main_response = Map.get(first_choice, "message", %{})
+          role = normalize_role(Map.get(main_response, "role", "assistant"))
+          content = normalize_content(Map.get(main_response, "content"))
 
           base_msg = Message.new(role, content, %{original: main_response})
 
           message = %{
             base_msg
             | content: content,
-              reasoning: fetch(main_response, ["reasoning", :reasoning]),
-              reasoning_details: fetch(main_response, ["reasoning_details", :reasoning_details])
+              reasoning: Map.get(main_response, "reasoning"),
+              reasoning_details: Map.get(main_response, "reasoning_details")
           }
 
           function_calls = FunctionCallExtractors.from_tool_calls(main_response)
@@ -92,33 +94,13 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
   defp log_fallback(response, opts) do
     if Keyword.get(opts, :models) && not is_function(response) do
       original_model = Keyword.get(opts, :model)
-      used_model = fetch(response, ["model", :model])
+      used_model = Map.get(response, "model")
 
       if original_model && used_model && original_model != used_model do
         Logger.warning("The '#{used_model}' model has been used instead of '#{original_model}'")
       end
     end
   end
-
-  defp fetch(data, keys, default \\ nil)
-
-  defp fetch(data, keys, default) when is_list(keys) do
-    Enum.find_value(keys, default, fn key -> fetch(data, key, nil) end)
-  end
-
-  defp fetch(data, key, default) when is_map(data), do: Map.get(data, key, default)
-
-  defp fetch(data, key, default) when is_list(data) do
-    case Enum.find(data, fn
-           {candidate, _value} -> candidate == key
-           _other -> false
-         end) do
-      {_key, value} -> value
-      nil -> default
-    end
-  end
-
-  defp fetch(_data, _key, default), do: default
 
   defp normalize_role(role) when is_atom(role), do: role
   defp normalize_role(role) when is_binary(role), do: String.to_existing_atom(role)
