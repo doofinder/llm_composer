@@ -6,7 +6,7 @@ defmodule LlmComposer.Cost.Pricing do
   1. Explicit pricing from provider options (input_price_per_million, output_price_per_million)
   2. Provider-specific APIs:
     - OpenRouter API for :open_router provider
-    - models.dev API for :open_ai and :google providers
+    - models.dev API for :open_ai, :open_ai_responses, and :google providers
   3. Fallback to nil if no pricing source available
 
   """
@@ -23,9 +23,14 @@ defmodule LlmComposer.Cost.Pricing do
       extract_explicit_pricing(opts)
     else
       case provider do
-        :open_router -> fetch_openrouter_pricing(opts)
-        provider when provider in [:open_ai, :google] -> fetch_models_dev_pricing(provider, opts)
-        _ -> nil
+        :open_router ->
+          fetch_openrouter_pricing(opts)
+
+        provider when provider in [:open_ai, :open_ai_responses, :google] ->
+          fetch_models_dev_pricing(provider, opts)
+
+        _ ->
+          nil
       end
     end
   end
@@ -54,7 +59,8 @@ defmodule LlmComposer.Cost.Pricing do
     end
   end
 
-  defp fetch_models_dev_pricing(provider, opts) when provider in [:open_ai, :google] do
+  defp fetch_models_dev_pricing(provider, opts)
+       when provider in [:open_ai, :open_ai_responses, :google] do
     model = Keyword.get(opts, :model)
 
     if is_nil(model) do
