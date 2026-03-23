@@ -183,8 +183,6 @@ defmodule LlmComposer.Providers.OpenAIResponses do
     end
   end
 
-  defp extract_reasoning_summary(_output_items), do: nil
-
   @spec extract_reasoning_details(list()) :: list() | nil
   defp extract_reasoning_details(output_items) when is_list(output_items) do
     case reasoning_summary_items(output_items) do
@@ -192,8 +190,6 @@ defmodule LlmComposer.Providers.OpenAIResponses do
       details -> details
     end
   end
-
-  defp extract_reasoning_details(_output_items), do: nil
 
   defp reasoning_summary_items(output_items) do
     output_items
