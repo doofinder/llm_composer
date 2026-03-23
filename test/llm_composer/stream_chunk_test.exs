@@ -200,6 +200,41 @@ defmodule LlmComposer.StreamChunkTest do
              } = chunk
     end
 
+    test "response.output_item.done with reasoning summary becomes :reasoning_delta" do
+      data =
+        ~s(data: {"type":"response.output_item.done","item":{"type":"reasoning","summary":[{"type":"summary_text","text":"Condensed reasoning"}]}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :open_ai_responses,
+               type: :reasoning_delta,
+               reasoning: "Condensed reasoning",
+               reasoning_details: [%{"text" => "Condensed reasoning"}]
+             } = chunk
+    end
+
+    test "response.completed carries reasoning summary and usage details" do
+      data =
+        ~s(data: {"type":"response.completed","response":{"output":[{"type":"reasoning","summary":[{"type":"summary_text","text":"Final summary"}]}],"usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15,"output_tokens_details":{"reasoning_tokens":43}}}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :open_ai_responses,
+               type: :done,
+               reasoning: "Final summary",
+               reasoning_details: [%{"text" => "Final summary"}],
+               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15}
+             } = chunk
+    end
+
     test "response.completed with missing usage still becomes :done" do
       data = ~s(data: {"type":"response.completed","response":{}})
 
