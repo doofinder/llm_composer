@@ -252,6 +252,60 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert response.provider == :open_ai_responses
   end
 
+  test "OpenAIResponses preserves reasoning summary in non-streaming responses", %{bypass: bypass} do
+    Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
+      response_body = %{
+        "id" => "resp_456",
+        "object" => "response",
+        "model" => "gpt-5-nano",
+        "output" => [
+          %{
+            "type" => "reasoning",
+            "summary" => [
+              %{"type" => "summary_text", "text" => "Condensed reasoning"}
+            ]
+          },
+          %{
+            "type" => "message",
+            "content" => [
+              %{"type" => "output_text", "text" => "Final answer"}
+            ]
+          }
+        ],
+        "usage" => %{
+          "input_tokens" => 10,
+          "output_tokens" => 6,
+          "total_tokens" => 16
+        }
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenAIResponses,
+         [
+           model: "gpt-5-nano",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "Explain quantum computing")
+
+    assert response.main_response.content == "Final answer"
+    assert response.main_response.reasoning == "Condensed reasoning"
+
+    assert response.main_response.reasoning_details == [
+             %{"text" => "Condensed reasoning", "type" => "summary_text"}
+           ]
+  end
+
   test "OpenAIResponses supports manual function-call flow", %{bypass: bypass} do
     Bypass.expect(bypass, "POST", "/responses", fn conn ->
       {:ok, body, _conn} = Plug.Conn.read_body(conn)

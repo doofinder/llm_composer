@@ -9,6 +9,7 @@ defmodule LlmComposer.Providers.OpenAIResponses do
   """
   @behaviour LlmComposer.Provider
 
+  alias LlmComposer.Helpers
   alias LlmComposer.HttpClient
   alias LlmComposer.ProviderResponse
   alias LlmComposer.Providers.Utils
@@ -110,13 +111,19 @@ defmodule LlmComposer.Providers.OpenAIResponses do
   # existing `Parser.OpenAI` can handle it without changes.
   @spec normalize_body(map()) :: map()
   defp normalize_body(body) do
+    body = Helpers.normalize_json(body)
     output_items = body["output"] || []
     tool_calls = extract_tool_calls(output_items)
     text = extract_response_text(body, output_items)
     message_content = normalize_message_content(text, tool_calls)
+    reasoning = extract_reasoning_summary(output_items)
+    reasoning_details = extract_reasoning_details(output_items)
 
     message =
-      maybe_put_tool_calls(%{"role" => "assistant", "content" => message_content}, tool_calls)
+      %{"role" => "assistant", "content" => message_content}
+      |> maybe_put_tool_calls(tool_calls)
+      |> maybe_put_reasoning(reasoning)
+      |> maybe_put_reasoning_details(reasoning_details)
 
     usage = normalize_usage(body["usage"] || %{})
 
@@ -151,6 +158,37 @@ defmodule LlmComposer.Providers.OpenAIResponses do
     output_items
     |> Enum.flat_map(&Map.get(&1, "content", []))
     |> Enum.map_join("", &Map.get(&1, "text", ""))
+  end
+
+  @spec extract_reasoning_summary(list()) :: String.t() | nil
+  defp extract_reasoning_summary(output_items) when is_list(output_items) do
+    text =
+      output_items
+      |> reasoning_summary_items()
+      |> Enum.map_join("", &Map.get(&1, "text", ""))
+
+    case text do
+      "" -> nil
+      text -> text
+    end
+  end
+
+  defp extract_reasoning_summary(_output_items), do: nil
+
+  @spec extract_reasoning_details(list()) :: list() | nil
+  defp extract_reasoning_details(output_items) when is_list(output_items) do
+    case reasoning_summary_items(output_items) do
+      [] -> nil
+      details -> details
+    end
+  end
+
+  defp extract_reasoning_details(_output_items), do: nil
+
+  defp reasoning_summary_items(output_items) do
+    output_items
+    |> Enum.filter(&(Map.get(&1, "type") == "reasoning"))
+    |> Enum.flat_map(&Map.get(&1, "summary", []))
   end
 
   @spec to_responses_input_items(map()) :: [map()]
@@ -274,6 +312,17 @@ defmodule LlmComposer.Providers.OpenAIResponses do
   @spec maybe_put_tool_calls(map(), [map()] | nil) :: map()
   defp maybe_put_tool_calls(message, nil), do: message
   defp maybe_put_tool_calls(message, tool_calls), do: Map.put(message, "tool_calls", tool_calls)
+
+  @spec maybe_put_reasoning(map(), String.t() | nil) :: map()
+  defp maybe_put_reasoning(message, nil), do: message
+  defp maybe_put_reasoning(message, reasoning), do: Map.put(message, "reasoning", reasoning)
+
+  @spec maybe_put_reasoning_details(map(), list() | nil) :: map()
+  defp maybe_put_reasoning_details(message, nil), do: message
+
+  defp maybe_put_reasoning_details(message, reasoning_details) do
+    Map.put(message, "reasoning_details", reasoning_details)
+  end
 
   @spec maybe_add_reasoning(map(), keyword()) :: map()
   defp maybe_add_reasoning(request, opts) do
