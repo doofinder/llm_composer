@@ -19,8 +19,10 @@ defmodule LlmComposer.MixProject do
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.html": :test,
-        "coveralls.json": :test
-      ]
+        "coveralls.json": :test,
+        precommit: :test
+      ],
+      aliases: aliases()
     ]
   end
 
@@ -49,6 +51,17 @@ defmodule LlmComposer.MixProject do
       {:jason, "~> 1.4", optional: is_json_present?},
       {:mint, "~> 1.7"},
       {:tesla, "~> 1.16"}
+    ]
+  end
+
+  defp aliases do
+    [
+      precommit: [
+        "compile --warnings-as-errors",
+        "format --check-formatted",
+        "credo --strict",
+        "test"
+      ]
     ]
   end
 
