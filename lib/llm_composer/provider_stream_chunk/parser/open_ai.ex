@@ -18,12 +18,15 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
     delta = choice["delta"] || %{}
     finish_reason = choice["finish_reason"]
     text = extract_text(delta)
+    reasoning = extract_reasoning(delta)
+    reasoning_details = extract_reasoning_details(delta)
     tool_calls = Map.get(delta, "tool_calls")
     usage = format_usage(raw["usage"])
 
     type =
       cond do
         not is_nil(finish_reason) -> :done
+        reasoning not in [nil, ""] or reasoning_details not in [nil, []] -> :reasoning_delta
         is_list(tool_calls) and tool_calls != [] -> :tool_call_delta
         text not in [nil, ""] -> :text_delta
         true -> :unknown
@@ -34,6 +37,8 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
        provider: provider,
        type: type,
        text: text,
+       reasoning: reasoning,
+       reasoning_details: reasoning_details,
        tool_call: tool_calls,
        usage: usage,
        metadata: %{finish_reason: finish_reason},
@@ -45,6 +50,14 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
 
   defp extract_text(%{"content" => text}) when is_binary(text), do: text
   defp extract_text(_), do: nil
+
+  defp extract_reasoning(%{"reasoning" => reasoning}) when is_binary(reasoning), do: reasoning
+  defp extract_reasoning(_), do: nil
+
+  defp extract_reasoning_details(%{"reasoning_details" => details}) when is_list(details),
+    do: details
+
+  defp extract_reasoning_details(_), do: nil
 
   defp format_usage(%{
          "prompt_tokens" => prompt,

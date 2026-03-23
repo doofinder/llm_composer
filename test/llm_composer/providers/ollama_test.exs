@@ -59,7 +59,40 @@ defmodule LlmComposer.Providers.OllamaTest do
     {:ok, response} = LlmComposer.simple_chat(settings, "hi")
     assert response.main_response.type == :assistant
     assert response.main_response.content == "Hello! How can I help you today?"
+    assert is_nil(response.main_response.reasoning)
     assert response.provider == :ollama
+  end
+
+  test "non-streaming response maps thinking into reasoning", %{bypass: bypass} do
+    Bypass.expect_once(bypass, "POST", "/api/chat", fn conn ->
+      response_body = %{
+        "model" => "llama3.2",
+        "message" => %{
+          "role" => "assistant",
+          "content" => "Hello!",
+          "thinking" => "I should greet the user."
+        },
+        "done" => true
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {Ollama,
+         [
+           model: "llama3.2",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "hi")
+    assert response.main_response.reasoning == "I should greet the user."
   end
 
   test "streaming is enabled when stream_response is true", %{bypass: bypass} do
@@ -96,6 +129,50 @@ defmodule LlmComposer.Providers.OllamaTest do
     }
 
     {:ok, _response} = LlmComposer.simple_chat(settings, "hi")
+  end
+
+  test "parser keeps streamed chunk lists on the streaming path" do
+    result =
+      {:ok,
+       %{
+         response: [
+           ~s({"message":{"role":"assistant","content":"Hello"},"done":false}),
+           ~s({"message":{"role":"assistant","content":"!"},"done":true})
+         ]
+       }}
+
+    assert {:ok, response} = LlmComposer.ProviderResponse.Parser.Ollama.parse(result, :ollama, [])
+    assert response.stream == elem(result, 1).response
+
+    chunks =
+      response.stream
+      |> LlmComposer.parse_stream_response(:ollama)
+      |> Enum.to_list()
+
+    assert Enum.map(chunks, & &1.type) == [:text_delta, :done]
+    assert Enum.map(chunks, & &1.text) == ["Hello", "!"]
+  end
+
+  test "stream parser exposes thinking as reasoning deltas" do
+    result =
+      {:ok,
+       %{
+         response: [
+           ~s({"message":{"role":"assistant","content":"","thinking":"Let me"},"done":false}),
+           ~s({"message":{"role":"assistant","content":"","thinking":" think"},"done":false}),
+           ~s({"message":{"role":"assistant","content":"Hello"},"done":true})
+         ]
+       }}
+
+    assert {:ok, response} = LlmComposer.ProviderResponse.Parser.Ollama.parse(result, :ollama, [])
+
+    chunks =
+      response.stream
+      |> LlmComposer.parse_stream_response(:ollama)
+      |> Enum.to_list()
+
+    assert Enum.map(chunks, & &1.type) == [:reasoning_delta, :reasoning_delta, :done]
+    assert Enum.map(chunks, & &1.reasoning) == ["Let me", " think", nil]
   end
 
   test "additional request parameters are merged", %{bypass: bypass} do

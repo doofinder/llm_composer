@@ -72,6 +72,76 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert response.provider == :open_ai
   end
 
+  test "parser accepts tuple-list payloads with string keys" do
+    result =
+      {:ok,
+       %{
+         response: [
+           {"choices",
+            [
+              %{
+                "message" => %{
+                  "role" => "assistant",
+                  "content" => [
+                    %{"type" => "output_text", "text" => "Hello"},
+                    %{"type" => "output_text", "text" => " world"}
+                  ]
+                }
+              }
+            ]},
+           {"usage", %{"prompt_tokens" => 3, "completion_tokens" => 2, "total_tokens" => 5}},
+           {"model", "minimax/minimax-m2.7"}
+         ]
+       }}
+
+    assert {:ok, response} =
+             LlmComposer.ProviderResponse.Parser.OpenAI.parse(result, :open_router, [])
+
+    assert response.main_response.type == :assistant
+    assert response.main_response.content == "Hello world"
+    assert response.input_tokens == 3
+    assert response.output_tokens == 2
+  end
+
+  test "parser keeps streamed chunk lists on the streaming path" do
+    result =
+      {:ok,
+       %{
+         response: [
+           ~s(data: {"choices":[{"delta":{"content":"Hello"},"index":0,"finish_reason":null}]}),
+           ~s(data: {"choices":[{"delta":{},"index":0,"finish_reason":"stop"}]})
+         ]
+       }}
+
+    assert {:ok, response} =
+             LlmComposer.ProviderResponse.Parser.OpenAI.parse(result, :open_router, [])
+
+    assert response.stream == elem(result, 1).response
+
+    chunks =
+      response.stream
+      |> LlmComposer.parse_stream_response(:open_router)
+      |> Enum.to_list()
+
+    assert Enum.map(chunks, & &1.type) == [:text_delta, :done]
+    assert Enum.at(chunks, 0).text == "Hello"
+  end
+
+  test "parser returns error when choices are empty" do
+    result =
+      {:ok,
+       %{
+         response: %{
+           "choices" => [],
+           "usage" => %{"prompt_tokens" => 3, "completion_tokens" => 2, "total_tokens" => 5},
+           "model" => "minimax/minimax-m2.7"
+         }
+       }}
+
+    assert {:error, %{reason: :missing_choices, provider: :open_router}} =
+             LlmComposer.ProviderResponse.Parser.OpenAI.parse(result, :open_router, [])
+  end
+
   test "handles API errors gracefully", %{bypass: bypass} do
     Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
       error_body = %{

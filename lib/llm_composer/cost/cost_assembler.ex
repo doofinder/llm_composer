@@ -56,15 +56,16 @@ defmodule LlmComposer.Cost.CostAssembler do
   @spec extract_tokens(atom(), map()) :: {non_neg_integer(), non_neg_integer()}
   def extract_tokens(provider, raw_response)
       when provider in [:open_ai, :open_ai_responses, :open_router] do
-    input = get_in(raw_response, ["usage", "prompt_tokens"]) || 0
-    output = get_in(raw_response, ["usage", "completion_tokens"]) || 0
+    usage = fetch(raw_response, ["usage", :usage], %{})
+    input = fetch(usage, ["prompt_tokens", :prompt_tokens], 0)
+    output = fetch(usage, ["completion_tokens", :completion_tokens], 0)
     {input, output}
   end
 
   def extract_tokens(:google, raw_response) do
-    usage = raw_response["usageMetadata"] || %{}
-    input = usage["promptTokenCount"] || 0
-    output = usage["candidatesTokenCount"] || 0
+    usage = fetch(raw_response, ["usageMetadata", :usageMetadata], %{})
+    input = fetch(usage, ["promptTokenCount", :promptTokenCount], 0)
+    output = fetch(usage, ["candidatesTokenCount", :candidatesTokenCount], 0)
     {input, output}
   end
 
@@ -75,7 +76,7 @@ defmodule LlmComposer.Cost.CostAssembler do
   @spec get_model(atom(), map(), keyword()) :: String.t() | nil
   defp get_model(provider, raw_response, _opts)
        when provider in [:open_ai, :open_ai_responses, :open_router] do
-    get_in(raw_response, ["model"])
+    fetch(raw_response, ["model", :model])
   end
 
   defp get_model(:google, _raw_response, opts) do
@@ -93,6 +94,18 @@ defmodule LlmComposer.Cost.CostAssembler do
     Keyword.put(opts, :body, body)
   end
 
+  defp prepare_pricing_opts(:open_router, raw_response, opts) do
+    case fetch(raw_response, ["model", :model]) do
+      nil ->
+        opts
+
+      _model ->
+        provider = fetch(raw_response, ["provider", :provider], "openrouter")
+        body = put_value(raw_response, "provider", provider)
+        Keyword.put(opts, :body, body)
+    end
+  end
+
   defp prepare_pricing_opts(:google, _raw_response, opts) do
     opts
   end
@@ -100,4 +113,28 @@ defmodule LlmComposer.Cost.CostAssembler do
   defp prepare_pricing_opts(_provider, _raw_response, opts) do
     opts
   end
+
+  defp fetch(data, keys, default \\ nil)
+
+  defp fetch(data, keys, default) when is_list(keys) do
+    Enum.find_value(keys, default, fn key -> fetch(data, key, nil) end)
+  end
+
+  defp fetch(data, key, default) when is_map(data), do: Map.get(data, key, default)
+
+  defp fetch(data, key, default) when is_list(data) do
+    case Enum.find(data, fn
+           {candidate, _value} -> candidate == key
+           _other -> false
+         end) do
+      {_key, value} -> value
+      nil -> default
+    end
+  end
+
+  defp fetch(_data, _key, default), do: default
+
+  defp put_value(data, key, value) when is_map(data), do: Map.put(data, key, value)
+  defp put_value(data, _key, _value) when is_list(data), do: data
+  defp put_value(data, _key, _value), do: data
 end
