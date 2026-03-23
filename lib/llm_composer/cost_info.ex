@@ -19,10 +19,12 @@ defmodule LlmComposer.CostInfo do
   * `:input_cost` - Cost for input tokens (using Decimal for precision)
   * `:output_cost` - Cost for output tokens (using Decimal for precision)
   * `:total_cost` - Total cost for the request (using Decimal for precision)
+  * `:cached_tokens` - Cached prompt tokens billed at cache-read pricing when available
   * `:currency` - Currency code (e.g., "USD", "EUR")
   * `:provider_model` - The actual model used by the provider
   * `:provider_name` - The provider that served the request
   * `:input_price_per_million` - Price per million input tokens
+  * `:cache_read_price_per_million` - Price per million cached input tokens
   * `:output_price_per_million` - Price per million output tokens
   * `:metadata` - Additional provider-specific cost information
 
@@ -70,6 +72,8 @@ defmodule LlmComposer.CostInfo do
   ]
 
   defstruct [
+    :cache_read_price_per_million,
+    :cached_tokens,
     :currency,
     :input_cost,
     :input_tokens,
@@ -85,6 +89,8 @@ defmodule LlmComposer.CostInfo do
   ]
 
   @type t() :: %__MODULE__{
+          cache_read_price_per_million: Decimal.t() | nil,
+          cached_tokens: non_neg_integer() | nil,
           currency: String.t() | nil,
           input_cost: Decimal.t() | nil,
           input_price_per_million: Decimal.t() | nil,
@@ -156,14 +162,23 @@ defmodule LlmComposer.CostInfo do
 
   @spec calculate_component_costs(t()) :: t()
   defp calculate_component_costs(%LlmComposer.CostInfo{} = cost_info) do
+    cached_tokens = min(cost_info.cached_tokens || 0, cost_info.input_tokens || 0)
+    uncached_input_tokens = max((cost_info.input_tokens || 0) - cached_tokens, 0)
+
+    cached_input_cost =
+      calculate_cost(
+        nil,
+        cached_tokens,
+        cost_info.cache_read_price_per_million || cost_info.input_price_per_million
+      )
+
+    uncached_input_cost =
+      calculate_cost(nil, uncached_input_tokens, cost_info.input_price_per_million)
+
     %{
       cost_info
       | input_cost:
-          calculate_cost(
-            cost_info.input_cost,
-            cost_info.input_tokens,
-            cost_info.input_price_per_million
-          ),
+          calculate_input_cost(cost_info.input_cost, uncached_input_cost, cached_input_cost),
         output_cost:
           calculate_cost(
             cost_info.output_cost,
@@ -171,6 +186,23 @@ defmodule LlmComposer.CostInfo do
             cost_info.output_price_per_million
           )
     }
+  end
+
+  defp calculate_input_cost(%Decimal{} = input_cost, _uncached_input_cost, _cached_input_cost),
+    do: input_cost
+
+  defp calculate_input_cost(_input_cost, nil, nil), do: nil
+  defp calculate_input_cost(_input_cost, %Decimal{} = input_cost, nil), do: input_cost
+
+  defp calculate_input_cost(_input_cost, nil, %Decimal{} = cached_input_cost),
+    do: cached_input_cost
+
+  defp calculate_input_cost(
+         _input_cost,
+         %Decimal{} = input_cost,
+         %Decimal{} = cached_input_cost
+       ) do
+    Decimal.add(input_cost, cached_input_cost)
   end
 
   @spec set_total_cost(t()) :: t()

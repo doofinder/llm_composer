@@ -306,6 +306,106 @@ defmodule LlmComposer.Providers.OpenAITest do
            ]
   end
 
+  test "OpenAIResponses preserves response id, previous_response_id, and cached token usage", %{
+    bypass: bypass
+  } do
+    Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
+      response_body = %{
+        "id" => "resp_789",
+        "object" => "response",
+        "model" => "gpt-5-nano",
+        "previous_response_id" => "resp_456",
+        "output" => [
+          %{
+            "type" => "message",
+            "content" => [
+              %{"type" => "output_text", "text" => "Final answer"}
+            ]
+          }
+        ],
+        "usage" => %{
+          "input_tokens" => 10,
+          "output_tokens" => 6,
+          "total_tokens" => 16,
+          "input_tokens_details" => %{"cached_tokens" => 4}
+        }
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenAIResponses,
+         [
+           model: "gpt-5-nano",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port),
+           track_costs: true,
+           input_price_per_million: "1.0",
+           cache_read_price_per_million: "0.25",
+           output_price_per_million: "2.0"
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "Explain quantum computing")
+
+    assert response.response_id == "resp_789"
+    assert response.cached_tokens == 4
+    assert response.raw["id"] == "resp_789"
+    assert response.raw["previous_response_id"] == "resp_456"
+    assert response.raw["usage"]["input_tokens_details"] == %{"cached_tokens" => 4}
+    assert response.cost_info.cached_tokens == 4
+  end
+
+  test "OpenAIResponses sends previous_response_id when provided", %{bypass: bypass} do
+    Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      payload = Jason.decode!(body)
+
+      assert payload["previous_response_id"] == "resp_prev_123"
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(
+        200,
+        Jason.encode!(%{
+          "id" => "resp_790",
+          "object" => "response",
+          "model" => "gpt-5-nano",
+          "output" => [
+            %{
+              "type" => "message",
+              "content" => [
+                %{"type" => "output_text", "text" => "Final answer"}
+              ]
+            }
+          ],
+          "usage" => %{"input_tokens" => 10, "output_tokens" => 6, "total_tokens" => 16}
+        })
+      )
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenAIResponses,
+         [
+           model: "gpt-5-nano",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port),
+           previous_response_id: "resp_prev_123"
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    assert {:ok, _response} = LlmComposer.simple_chat(settings, "Explain quantum computing")
+  end
+
   test "OpenAIResponses reads non-text reasoning summary shapes in non-streaming responses", %{
     bypass: bypass
   } do

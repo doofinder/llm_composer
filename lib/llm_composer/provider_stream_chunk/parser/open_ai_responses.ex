@@ -115,12 +115,19 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAIResponses do
   def parse(_, _, _), do: :skip
 
   @spec format_usage(map() | nil) :: StreamChunk.usage() | nil
-  defp format_usage(%{
-         "input_tokens" => input,
-         "output_tokens" => output,
-         "total_tokens" => total
-       }) do
-    %{input_tokens: input, output_tokens: output, total_tokens: total}
+  defp format_usage(
+         %{
+           "input_tokens" => input,
+           "output_tokens" => output,
+           "total_tokens" => total
+         } = usage
+       ) do
+    %{
+      input_tokens: input,
+      output_tokens: output,
+      total_tokens: total,
+      cached_tokens: get_in(usage, ["input_tokens_details", "cached_tokens"])
+    }
   end
 
   defp format_usage(_), do: nil

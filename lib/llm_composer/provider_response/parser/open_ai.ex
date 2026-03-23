@@ -53,11 +53,15 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
           }
 
           function_calls = FunctionCallExtractors.from_tool_calls(main_response)
-          {input_tokens, output_tokens} = CostAssembler.extract_tokens(provider, response)
+
+          {input_tokens, output_tokens, cached_tokens} =
+            CostAssembler.extract_tokens(provider, response)
+
           cost_info = CostAssembler.get_cost_info(provider, response, opts)
 
           {:ok,
            LlmResponse.new(%{
+             cached_tokens: cached_tokens,
              provider: provider,
              status: :ok,
              main_response: message,
@@ -66,7 +70,8 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
              output_tokens: output_tokens,
              cost_info: cost_info,
              metadata: Map.get(provider_response, :metadata, %{}),
-             raw: response
+             raw: response,
+             response_id: response["id"]
            })}
 
         [] ->

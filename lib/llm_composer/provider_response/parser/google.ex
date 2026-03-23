@@ -37,7 +37,9 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
         other -> String.to_existing_atom(other)
       end
 
-    {input_tokens, output_tokens} = CostAssembler.extract_tokens(:google, response)
+    {input_tokens, output_tokens, _cached_tokens} =
+      CostAssembler.extract_tokens(:google, response)
+
     cost_info = CostAssembler.get_cost_info(:google, response, opts)
     function_calls = FunctionCallExtractors.from_google_parts(content)
 

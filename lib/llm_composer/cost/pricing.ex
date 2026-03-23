@@ -42,11 +42,16 @@ defmodule LlmComposer.Cost.Pricing do
 
   # Extract explicit pricing from opts
   defp extract_explicit_pricing(opts) do
-    [
+    pricing = [
       input_price_per_million: Decimal.new(opts[:input_price_per_million]),
       output_price_per_million: Decimal.new(opts[:output_price_per_million]),
       currency: "USD"
     ]
+
+    case opts[:cache_read_price_per_million] do
+      nil -> pricing
+      price -> Keyword.put(pricing, :cache_read_price_per_million, Decimal.new(price))
+    end
   end
 
   defp fetch_openrouter_pricing(opts) do
@@ -71,15 +76,22 @@ defmodule LlmComposer.Cost.Pricing do
     end
   end
 
-  defp transform_fetcher_response(%{
-         input_price_per_million: input,
-         output_price_per_million: output
-       }) do
-    [
+  defp transform_fetcher_response(
+         %{
+           input_price_per_million: input,
+           output_price_per_million: output
+         } = pricing
+       ) do
+    result = [
       input_price_per_million: input,
       output_price_per_million: output,
       currency: "USD"
     ]
+
+    case Map.get(pricing, :cache_read_price_per_million) do
+      nil -> result
+      cache_read -> Keyword.put(result, :cache_read_price_per_million, cache_read)
+    end
   end
 
   defp transform_fetcher_response(nil), do: nil

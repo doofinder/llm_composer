@@ -195,7 +195,7 @@ defmodule LlmComposer.StreamChunkTest do
       assert %StreamChunk{
                provider: :open_ai_responses,
                type: :done,
-               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15},
+               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15, cached_tokens: nil},
                metadata: %{finish_reason: "stop"}
              } = chunk
     end
@@ -231,7 +231,23 @@ defmodule LlmComposer.StreamChunkTest do
                type: :done,
                reasoning: "Final summary",
                reasoning_details: [%{"text" => "Final summary"}],
-               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15}
+               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15, cached_tokens: nil}
+             } = chunk
+    end
+
+    test "response.completed exposes cached prompt tokens in usage" do
+      data =
+        ~s(data: {"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15,"input_tokens_details":{"cached_tokens":7}}}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :open_ai_responses,
+               type: :done,
+               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15, cached_tokens: 7}
              } = chunk
     end
 

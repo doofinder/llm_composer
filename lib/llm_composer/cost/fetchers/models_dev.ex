@@ -80,12 +80,12 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
     provider_key = provider_key(provider)
 
     case get_cost(data, provider_key, model) do
-      %{"input" => input, "output" => output} ->
+      %{"input" => input, "output" => output} = cost ->
         Logger.debug(
           "Extracted pricing for #{provider_key}/#{model}: input=$#{input}/M, output=$#{output}/M"
         )
 
-        %{
+        pricing = %{
           input_price_per_million:
             input
             |> to_string()
@@ -95,6 +95,20 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
             |> to_string()
             |> Decimal.new()
         }
+
+        case Map.get(cost, "cache_read") do
+          nil ->
+            pricing
+
+          cache_read ->
+            Map.put(
+              pricing,
+              :cache_read_price_per_million,
+              cache_read
+              |> to_string()
+              |> Decimal.new()
+            )
+        end
 
       nil ->
         Logger.debug("No pricing found for #{provider_key}/#{model} in models.dev data")
