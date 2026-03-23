@@ -306,6 +306,50 @@ defmodule LlmComposer.Providers.OpenAITest do
            ]
   end
 
+  test "OpenAIResponses preserves reasoning token details in non-streaming responses", %{
+    bypass: bypass
+  } do
+    Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
+      response_body = %{
+        "id" => "resp_789",
+        "object" => "response",
+        "model" => "gpt-5.4-mini",
+        "output_text" => "pong",
+        "usage" => %{
+          "input_tokens" => 17,
+          "output_tokens" => 29,
+          "total_tokens" => 46,
+          "output_tokens_details" => %{"reasoning_tokens" => 26}
+        }
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenAIResponses,
+         [
+           model: "gpt-5.4-mini",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "ping")
+
+    assert response.input_tokens == 17
+    assert response.output_tokens == 29
+
+    assert response.raw["usage"]["completion_tokens_details"] == %{
+             "reasoning_tokens" => 26
+           }
+  end
+
   test "OpenAIResponses supports manual function-call flow", %{bypass: bypass} do
     Bypass.expect(bypass, "POST", "/responses", fn conn ->
       {:ok, body, _conn} = Plug.Conn.read_body(conn)

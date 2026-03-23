@@ -146,12 +146,22 @@ defmodule LlmComposer.Providers.OpenAIResponses do
 
   @spec normalize_usage(map()) :: map()
   defp normalize_usage(usage) do
-    %{
+    normalized_usage = %{
       "prompt_tokens" => usage["input_tokens"] || 0,
       "completion_tokens" => usage["output_tokens"] || 0,
       "total_tokens" => usage["total_tokens"] || 0
     }
+
+    maybe_put_completion_tokens_details(normalized_usage, usage["output_tokens_details"])
   end
+
+  @spec maybe_put_completion_tokens_details(map(), map() | nil) :: map()
+  defp maybe_put_completion_tokens_details(normalized_usage, %{} = output_tokens_details) do
+    Map.put(normalized_usage, "completion_tokens_details", output_tokens_details)
+  end
+
+  defp maybe_put_completion_tokens_details(normalized_usage, _output_tokens_details),
+    do: normalized_usage
 
   @spec extract_text_from_output(list()) :: String.t()
   defp extract_text_from_output(output_items) do
