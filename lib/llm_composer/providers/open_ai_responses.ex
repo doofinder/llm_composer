@@ -12,6 +12,7 @@ defmodule LlmComposer.Providers.OpenAIResponses do
   alias LlmComposer.Helpers
   alias LlmComposer.HttpClient
   alias LlmComposer.ProviderResponse
+  alias LlmComposer.Providers.OpenAIResponses.Reasoning
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -116,8 +117,8 @@ defmodule LlmComposer.Providers.OpenAIResponses do
     tool_calls = extract_tool_calls(output_items)
     text = extract_response_text(body, output_items)
     message_content = normalize_message_content(text, tool_calls)
-    reasoning = extract_reasoning_summary(output_items)
-    reasoning_details = extract_reasoning_details(output_items)
+    reasoning = Reasoning.extract_output_summary(output_items)
+    reasoning_details = Reasoning.extract_output_details(output_items)
 
     message =
       %{"role" => "assistant", "content" => message_content}
@@ -168,33 +169,6 @@ defmodule LlmComposer.Providers.OpenAIResponses do
     output_items
     |> Enum.flat_map(&Map.get(&1, "content", []))
     |> Enum.map_join("", &Map.get(&1, "text", ""))
-  end
-
-  @spec extract_reasoning_summary(list()) :: String.t() | nil
-  defp extract_reasoning_summary(output_items) when is_list(output_items) do
-    text =
-      output_items
-      |> reasoning_summary_items()
-      |> Enum.map_join("", &Map.get(&1, "text", ""))
-
-    case text do
-      "" -> nil
-      text -> text
-    end
-  end
-
-  @spec extract_reasoning_details(list()) :: list() | nil
-  defp extract_reasoning_details(output_items) when is_list(output_items) do
-    case reasoning_summary_items(output_items) do
-      [] -> nil
-      details -> details
-    end
-  end
-
-  defp reasoning_summary_items(output_items) do
-    output_items
-    |> Enum.filter(&(Map.get(&1, "type") == "reasoning"))
-    |> Enum.flat_map(&Map.get(&1, "summary", []))
   end
 
   @spec to_responses_input_items(map()) :: [map()]

@@ -306,6 +306,64 @@ defmodule LlmComposer.Providers.OpenAITest do
            ]
   end
 
+  test "OpenAIResponses reads non-text reasoning summary shapes in non-streaming responses", %{
+    bypass: bypass
+  } do
+    Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
+      response_body = %{
+        "id" => "resp_457",
+        "object" => "response",
+        "model" => "gpt-5-nano",
+        "output" => [
+          %{
+            "type" => "reasoning",
+            "summary" => [
+              %{"type" => "summary_text", "summary" => "First "},
+              %{"type" => "summary_text", "content" => "second"}
+            ]
+          },
+          %{
+            "type" => "message",
+            "content" => [
+              %{"type" => "output_text", "text" => "Final answer"}
+            ]
+          }
+        ],
+        "usage" => %{
+          "input_tokens" => 10,
+          "output_tokens" => 6,
+          "total_tokens" => 16
+        }
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenAIResponses,
+         [
+           model: "gpt-5-nano",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "Explain quantum computing")
+
+    assert response.main_response.content == "Final answer"
+    assert response.main_response.reasoning == "First second"
+
+    assert response.main_response.reasoning_details == [
+             %{"summary" => "First ", "type" => "summary_text"},
+             %{"content" => "second", "type" => "summary_text"}
+           ]
+  end
+
   test "OpenAIResponses preserves reasoning token details in non-streaming responses", %{
     bypass: bypass
   } do
