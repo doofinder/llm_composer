@@ -306,5 +306,63 @@ defmodule LlmComposer.Providers.OpenRouterTest do
     {:ok, _response} = LlmComposer.simple_chat(settings, "hi")
   end
 
+  test "reasoning and reasoning_details are forwarded in multi-turn conversation", %{
+    bypass: bypass
+  } do
+    reasoning_details = [
+      %{"type" => "reasoning.text", "text" => "Let me think step by step..."},
+      %{"type" => "reasoning.summary", "summary" => "Concluded 42 is the answer."}
+    ]
+
+    Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
+      {:ok, body, _conn} = Plug.Conn.read_body(conn)
+      request_data = Jason.decode!(body)
+
+      messages = request_data["messages"]
+      assistant_msg = Enum.find(messages, &(&1["role"] == "assistant"))
+
+      assert assistant_msg["reasoning"] == "Let me think step by step..."
+      assert assistant_msg["reasoning_details"] == reasoning_details
+
+      response_body = %{
+        "choices" => [%{"message" => %{"role" => "assistant", "content" => "Sure!"}}],
+        "usage" => %{"prompt_tokens" => 30, "completion_tokens" => 5}
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenRouter,
+         [
+           model: "anthropic/claude-3-haiku:beta",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    bot_message = %LlmComposer.Message{
+      type: :assistant,
+      content: "The answer is 42.",
+      reasoning: "Let me think step by step...",
+      reasoning_details: reasoning_details
+    }
+
+    messages = [
+      LlmComposer.Message.new(:user, "What is the answer?"),
+      bot_message,
+      LlmComposer.Message.new(:user, "Are you sure?")
+    ]
+
+    {:ok, response} = LlmComposer.run_completion(settings, messages)
+    assert response.main_response.type == :assistant
+    assert response.main_response.content == "Sure!"
+  end
+
   defp endpoint_url(port), do: "http://localhost:#{port}/"
 end
