@@ -115,7 +115,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   end
 
   defp fallback_cost(data, provider_key, model) do
-    case normalize_snapshot_model(model) do
+    case strip_snapshot_date_suffix(model) do
       ^model ->
         nil
 
@@ -128,7 +128,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
     end
   end
 
-  defp normalize_snapshot_model(model) when is_binary(model) do
+  defp strip_snapshot_date_suffix(model) when is_binary(model) do
     Regex.replace(~r/-\d{4}-\d{2}-\d{2}$/, model, "")
   end
 
