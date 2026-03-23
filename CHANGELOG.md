@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- Added `:reasoning_delta` stream chunk support for OpenAI, OpenAI Responses, and Ollama streams, including `reasoning` and `reasoning_details` payloads on normalized `%LlmComposer.StreamChunk{}` values.
+- Added parsing of reasoning summary blocks from OpenAI Responses streaming events (`response.output_item.added`, `response.output_item.done`, and `response.completed`).
+
+### Changed
+- Updated OpenAI/OpenRouter response parsing to better handle streamed chunk lists, tuple-list payloads with string or atom keys, content arrays, and empty-choice errors.
+- Updated Ollama response parsing so non-streaming responses map `message.thinking` into `reasoning`, and streaming responses preserve raw chunk lists for normalized stream parsing.
+- Updated token and pricing extraction to support both map and keyword-style payloads when assembling cost information.
+- Updated pricing lookup so `:open_ai_responses` reuses OpenAI pricing data from models.dev, including fallback from dated snapshot model names to the base model entry.
+
 ## [0.16.1] - 2026-03-23
 
 ### Added
