@@ -1,6 +1,7 @@
 defmodule LlmComposer.Providers.OpenAIResponses.Reasoning do
   @moduledoc false
 
+  @doc false
   @spec extract_summary(list() | nil) :: String.t() | nil
   def extract_summary(summary) when is_list(summary) do
     text =
@@ -19,16 +20,13 @@ defmodule LlmComposer.Providers.OpenAIResponses.Reasoning do
 
   def extract_summary(_summary), do: nil
 
+  @doc false
   @spec extract_details(list() | nil) :: list() | nil
-  def extract_details(summary) when is_list(summary) do
-    case summary do
-      [] -> nil
-      details -> details
-    end
-  end
-
+  def extract_details([]), do: nil
+  def extract_details(summary) when is_list(summary), do: summary
   def extract_details(_summary), do: nil
 
+  @doc false
   @spec extract_output_summary(list() | nil) :: String.t() | nil
   def extract_output_summary(output_items) when is_list(output_items) do
     output_items
@@ -38,6 +36,7 @@ defmodule LlmComposer.Providers.OpenAIResponses.Reasoning do
 
   def extract_output_summary(_output_items), do: nil
 
+  @doc false
   @spec extract_output_details(list() | nil) :: list() | nil
   def extract_output_details(output_items) when is_list(output_items) do
     output_items
