@@ -29,10 +29,16 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
     [first_choice | _rest] = response["choices"]
     main_response = get_in(first_choice, ["message"])
 
-    message =
+    base_msg =
       main_response["role"]
       |> String.to_existing_atom()
       |> Message.new(main_response["content"], %{original: main_response})
+
+    message = %{
+      base_msg
+      | reasoning: main_response["reasoning"],
+        reasoning_details: main_response["reasoning_details"]
+    }
 
     function_calls = FunctionCallExtractors.from_tool_calls(main_response)
     {input_tokens, output_tokens} = CostAssembler.extract_tokens(provider, response)

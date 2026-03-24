@@ -6,8 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-### Docs
-- Document how to use `ex_aws` per-service credential configuration to supply Bedrock-specific AWS credentials independent of the global `ex_aws` config.
+## [0.16.1] - 2026-03-23
+
+### Added
+- Added `reasoning` and `reasoning_details` optional fields to `LlmComposer.Message` to capture reasoning tokens returned by reasoning models (e.g. via OpenRouter).
+- OpenRouter provider now forwards `reasoning` and `reasoning_details` when serializing assistant messages, enabling multi-turn conversations that preserve reasoning context across requests.
+
+### Changed
+- Added `mix precommit` alias (compile + format check + credo + tests) for a single pre-commit verification command.
 
 ## [0.16.0] - 2026-02-23
 
@@ -203,7 +209,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.16.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.16.1...HEAD
+[0.16.1]: https://github.com/doofinder/llm_composer/compare/0.16.0...0.16.1
 [0.16.0]: https://github.com/doofinder/llm_composer/compare/0.15.0...0.16.0
 [0.15.0]: https://github.com/doofinder/llm_composer/compare/0.14.2...0.15.0
 [0.14.2]: https://github.com/doofinder/llm_composer/compare/0.14.1...0.14.2

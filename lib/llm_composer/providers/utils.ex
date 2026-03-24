@@ -34,7 +34,42 @@ defmodule LlmComposer.Providers.Utils do
     |> Enum.reject(&is_nil/1)
   end
 
-  def map_messages(messages, :open_router), do: map_messages(messages, :open_ai)
+  def map_messages(messages, :open_router) do
+    messages
+    |> Stream.map(fn
+      %Message{type: :user, content: message} ->
+        %{"role" => "user", "content" => message}
+
+      %Message{type: :system, content: message} when message in ["", nil] ->
+        nil
+
+      %Message{type: :system, content: message} ->
+        %{"role" => "system", "content" => message}
+
+      %Message{
+        type: :assistant,
+        content: message,
+        reasoning: reasoning,
+        reasoning_details: reasoning_details,
+        metadata: metadata
+      } ->
+        message
+        |> build_assistant_message(metadata)
+        |> maybe_put("reasoning", reasoning)
+        |> maybe_put("reasoning_details", reasoning_details)
+
+      %Message{type: :tool_result, content: content, metadata: metadata} ->
+        %{
+          "role" => "tool",
+          "tool_call_id" => metadata["tool_call_id"],
+          "content" => to_string(content)
+        }
+
+      _other ->
+        nil
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
 
   def map_messages(messages, :google) do
     messages
@@ -202,6 +237,10 @@ defmodule LlmComposer.Providers.Utils do
       "parameters" => function.schema
     }
   end
+
+  @spec maybe_put(map(), String.t(), any()) :: map()
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   @spec build_assistant_message(String.t() | nil, map()) :: map()
   defp build_assistant_message(message, metadata) do

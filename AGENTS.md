@@ -1,10 +1,11 @@
 # Agent Development Guide
 
-Important: ensure credo and compile works before finishing any code changes
+Important: before finishing any code changes, run `mix precommit` to verify everything passes.
 
 **IMPORTANT**: NEVER use git write commands (commit, tag, push, git add, etc.) unless explicit request of the user. Normally only use git for reading repository history if needed.
 
 ## Build/Test Commands
+- **Precommit check** (compile + format + credo + tests): `mix precommit` — run this before finishing any changes
 - **Run tests**: `mix test`
 - **Run single test**: `mix test test/llm_composer_test.exs` or `mix test test/file.exs:line_number` for specific test
 - **Run tests with coverage**: `mix test --cover`
