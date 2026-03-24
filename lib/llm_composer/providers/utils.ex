@@ -103,6 +103,18 @@ defmodule LlmComposer.Providers.Utils do
 
   @spec build_google_assistant_message(String.t() | nil, map()) :: map()
   defp build_google_assistant_message(message, metadata) do
+    # When the original response content is available, use its parts directly
+    # to preserve fields like thought_signature that Gemini thinking models require.
+    case metadata[:original] do
+      %{"parts" => parts} when is_list(parts) ->
+        %{"role" => "model", "parts" => parts}
+
+      _ ->
+        build_google_assistant_parts(message, metadata)
+    end
+  end
+
+  defp build_google_assistant_parts(message, metadata) do
     base_message = %{"role" => "model"}
 
     case metadata[:tool_calls] do
