@@ -1,9 +1,9 @@
 defmodule LlmComposer.Providers.UtilsTest do
   use ExUnit.Case, async: true
 
-  alias LlmComposer.Providers.Utils
-  alias LlmComposer.Message
   alias LlmComposer.FunctionCall
+  alias LlmComposer.Message
+  alias LlmComposer.Providers.Utils
 
   describe "map_messages/2 with :google provider" do
     test "uses original parts when metadata has original with parts" do
