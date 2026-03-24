@@ -2,6 +2,77 @@ defmodule LlmComposer.Providers.UtilsTest do
   use ExUnit.Case, async: true
 
   alias LlmComposer.Providers.Utils
+  alias LlmComposer.Message
+  alias LlmComposer.FunctionCall
+
+  describe "map_messages/2 with :google provider" do
+    test "uses original parts when metadata has original with parts" do
+      original_parts = [
+        %{"text" => "Let me help", "thought_signature" => "abc123"},
+        %{"functionCall" => %{"name" => "search", "args" => %{"q" => "test"}}}
+      ]
+
+      messages = [
+        %Message{
+          type: :assistant,
+          content: "Let me help",
+          metadata: %{original: %{"parts" => original_parts, "role" => "model"}}
+        }
+      ]
+
+      [result] = Utils.map_messages(messages, :google)
+
+      assert result == %{"role" => "model", "parts" => original_parts}
+    end
+
+    test "falls back to building parts when metadata has no original" do
+      messages = [
+        %Message{type: :assistant, content: "Hello", metadata: %{}}
+      ]
+
+      [result] = Utils.map_messages(messages, :google)
+
+      assert result == %{"role" => "model", "parts" => [%{"text" => "Hello"}]}
+    end
+
+    test "falls back to building parts when original has no parts key" do
+      messages = [
+        %Message{
+          type: :assistant,
+          content: "Hello",
+          metadata: %{original: %{"role" => "model"}}
+        }
+      ]
+
+      [result] = Utils.map_messages(messages, :google)
+
+      assert result == %{"role" => "model", "parts" => [%{"text" => "Hello"}]}
+    end
+
+    test "falls back to building parts with tool calls when original is nil" do
+      messages = [
+        %Message{
+          type: :assistant,
+          content: "",
+          metadata: %{
+            original: nil,
+            tool_calls: [
+              %FunctionCall{name: "search", arguments: %{"q" => "test"}}
+            ]
+          }
+        }
+      ]
+
+      [result] = Utils.map_messages(messages, :google)
+
+      assert result == %{
+               "role" => "model",
+               "parts" => [
+                 %{"functionCall" => %{"name" => "search", "args" => %{"q" => "test"}}}
+               ]
+             }
+    end
+  end
 
   test "get_req_opts returns stream adapter when stream_response true" do
     assert Utils.get_req_opts(stream_response: true) == [adapter: [response: :stream]]

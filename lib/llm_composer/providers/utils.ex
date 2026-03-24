@@ -114,6 +114,7 @@ defmodule LlmComposer.Providers.Utils do
     end
   end
 
+  @spec build_google_assistant_parts(String.t() | nil, map()) :: map()
   defp build_google_assistant_parts(message, metadata) do
     base_message = %{"role" => "model"}
 
