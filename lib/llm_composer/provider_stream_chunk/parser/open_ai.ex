@@ -26,9 +26,9 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
     type =
       cond do
         not is_nil(finish_reason) -> :done
+        text not in [nil, ""] -> :text_delta
         reasoning not in [nil, ""] or reasoning_details not in [nil, []] -> :reasoning_delta
         is_list(tool_calls) and tool_calls != [] -> :tool_call_delta
-        text not in [nil, ""] -> :text_delta
         true -> :unknown
       end
 

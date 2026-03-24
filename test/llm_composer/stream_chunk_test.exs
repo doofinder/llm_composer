@@ -100,6 +100,24 @@ defmodule LlmComposer.StreamChunkTest do
              } = chunk
     end
 
+    test "OpenAI mixed text and reasoning chunk stays a text delta" do
+      data =
+        ~s(data: {"choices":[{"delta":{"content":"Answer","reasoning":"Let me think","reasoning_details":[{"type":"reasoning.text","text":"Let me think"}]},"index":0,"finish_reason":null}]})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :open_ai,
+               type: :text_delta,
+               text: "Answer",
+               reasoning: "Let me think",
+               reasoning_details: [%{"text" => "Let me think"}]
+             } = chunk
+    end
+
     test "Google chunk exposes usage and text" do
       data =
         ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Yo"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"totalTokenCount":8}})

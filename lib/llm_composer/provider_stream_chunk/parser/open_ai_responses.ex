@@ -73,11 +73,10 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAIResponses do
   end
 
   def parse(
-        %{"type" => type, "item" => %{"type" => "reasoning"} = item} = raw,
+        %{"type" => "response.output_item.done", "item" => %{"type" => "reasoning"} = item} = raw,
         provider,
         _opts
-      )
-      when type in ["response.output_item.added", "response.output_item.done"] do
+      ) do
     reasoning = Reasoning.extract_summary(item["summary"])
     reasoning_details = Reasoning.extract_details(item["summary"])
 

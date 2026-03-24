@@ -165,6 +165,37 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
       assert Decimal.equal?(result.output_cost, Decimal.new("0.300"))
       assert Decimal.equal?(result.total_cost, Decimal.new("0.450"))
     end
+
+    test "prices using the response model when it differs from opts" do
+      response = %{
+        "model" => "gpt-5.4-mini-2026-03-17",
+        "usage" => %{"prompt_tokens" => 1_000_000, "completion_tokens" => 500_000}
+      }
+
+      data = %{
+        "openai" => %{
+          "models" => %{
+            "gpt-5.4-mini" => %{
+              "cost" => %{
+                "input" => "0.250",
+                "output" => "2.000"
+              }
+            }
+          }
+        }
+      }
+
+      Ets.put("models_dev_api", data, 3600)
+
+      opts = [track_costs: true, model: "gpt-4.1-mini"]
+
+      result = CostAssembler.get_cost_info(:open_ai, response, opts)
+
+      assert result.provider_model == "gpt-5.4-mini-2026-03-17"
+      assert Decimal.equal?(result.input_cost, Decimal.new("0.250"))
+      assert Decimal.equal?(result.output_cost, Decimal.new("1.000"))
+      assert Decimal.equal?(result.total_cost, Decimal.new("1.250"))
+    end
   end
 
   describe "get_cost_info/3 for OpenRouter" do

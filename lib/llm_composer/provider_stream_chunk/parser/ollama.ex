@@ -11,6 +11,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Ollama do
     type =
       cond do
         done -> :done
+        content not in [nil, ""] -> :text_delta
         thinking not in [nil, ""] -> :reasoning_delta
         true -> :text_delta
       end
