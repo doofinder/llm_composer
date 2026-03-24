@@ -124,10 +124,14 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   end
 
   defp get_cost(data, provider_key, model) do
-    get_in(data, [provider_key, "models", model, "cost"]) ||
-      fallback_cost(data, provider_key, model)
+    case get_in(data, [provider_key, "models", model, "cost"]) do
+      nil -> fallback_cost(data, provider_key, model)
+      cost -> cost
+    end
   end
 
+  # APIs like OpenAI return snapshot model names with a date suffix (e.g. "gpt-5.4-mini-2026-03-17"),
+  # but models.dev only indexes the base name. Strip the suffix and retry.
   defp fallback_cost(data, provider_key, model) do
     case strip_snapshot_date_suffix(model) do
       ^model ->

@@ -8,13 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 - Added `:reasoning_delta` stream chunk support for OpenAI, OpenAI Responses, and Ollama streams, including `reasoning` and `reasoning_details` payloads on normalized `%LlmComposer.StreamChunk{}` values.
-- Added parsing of reasoning summary blocks from OpenAI Responses streaming events (`response.output_item.added`, `response.output_item.done`, and `response.completed`).
+- Added parsing of reasoning summary blocks from OpenAI Responses streaming events (`response.output_item.done` and `response.completed`).
 - Added cached prompt token tracking to normalized OpenAI/OpenAI Responses usage data, including `cached_tokens` on `%LlmComposer.LlmResponse{}`, `%LlmComposer.CostInfo{}`, and streamed `%LlmComposer.StreamChunk{}` usage payloads.
 
 ### Changed
 - Updated OpenAI/OpenRouter response parsing to better handle streamed chunk lists, tuple-list payloads with string or atom keys, content arrays, and empty-choice errors.
 - Updated Ollama response parsing so non-streaming responses map `message.thinking` into `reasoning`, and streaming responses preserve raw chunk lists for normalized stream parsing.
-- Updated token and pricing extraction to support both map and keyword-style payloads when assembling cost information.
+- Updated token and pricing extraction to support both map and keyword-style payloads when assembling cost information, using the actual response model for OpenAI/OpenAI Responses pricing.
 - Updated pricing lookup so `:open_ai_responses` reuses OpenAI pricing data from models.dev, including fallback from dated snapshot model names to the base model entry.
 - Updated cost calculation to bill cached prompt tokens with provider cache-read pricing when available, and fall back to standard input pricing when no separate cached-token price is exposed.
 

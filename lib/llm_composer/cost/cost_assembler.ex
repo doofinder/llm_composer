@@ -117,6 +117,14 @@ defmodule LlmComposer.Cost.CostAssembler do
     opts
   end
 
+  defp prepare_pricing_opts(provider, raw_response, opts)
+       when provider in [:open_ai, :open_ai_responses] do
+    case Map.get(raw_response, "model") do
+      nil -> opts
+      model -> Keyword.put(opts, :model, model)
+    end
+  end
+
   defp prepare_pricing_opts(_provider, _raw_response, opts) do
     opts
   end
