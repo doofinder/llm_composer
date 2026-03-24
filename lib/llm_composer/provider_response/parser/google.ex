@@ -45,6 +45,7 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
 
     {:ok,
      LlmResponse.new(%{
+       provider_model: Keyword.get(opts, :model),
        provider: :google,
        status: :ok,
        main_response: Message.new(role, message_content, %{original: content}),
@@ -52,7 +53,8 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
        input_tokens: input_tokens,
        output_tokens: output_tokens,
        cost_info: cost_info,
-       raw: response
+       raw: response,
+       reasoning_tokens: nil
      })}
   end
 

@@ -70,6 +70,8 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert response.input_tokens == 20
     assert response.output_tokens == 8
     assert response.provider == :open_ai
+    assert response.provider_model == "gpt-3.5-turbo-0125"
+    assert response.reasoning_tokens == nil
   end
 
   test "parser accepts tuple-list payloads with string keys" do
@@ -101,6 +103,8 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert response.main_response.content == "Hello world"
     assert response.input_tokens == 3
     assert response.output_tokens == 2
+    assert response.provider_model == "minimax/minimax-m2.7"
+    assert response.reasoning_tokens == nil
   end
 
   test "parser normalizes ordered-object payloads with atom keys for cost tracking" do
@@ -132,6 +136,7 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert response.cost_info.input_tokens == 3
     assert response.cost_info.output_tokens == 2
     assert response.cost_info.provider_model == "minimax/minimax-m2.7"
+    assert response.provider_model == "minimax/minimax-m2.7"
   end
 
   test "parser keeps streamed chunk lists on the streaming path" do
@@ -502,6 +507,8 @@ defmodule LlmComposer.Providers.OpenAITest do
 
     assert response.input_tokens == 17
     assert response.output_tokens == 29
+    assert response.provider_model == "gpt-5.4-mini"
+    assert response.reasoning_tokens == 26
 
     assert response.raw["usage"]["completion_tokens_details"] == %{
              "reasoning_tokens" => 26

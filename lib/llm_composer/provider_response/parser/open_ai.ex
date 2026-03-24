@@ -62,6 +62,7 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
           {:ok,
            LlmResponse.new(%{
              cached_tokens: cached_tokens,
+             provider_model: response["model"],
              provider: provider,
              status: :ok,
              main_response: message,
@@ -71,6 +72,8 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
              cost_info: cost_info,
              metadata: Map.get(provider_response, :metadata, %{}),
              raw: response,
+             reasoning_tokens:
+               get_in(response, ["usage", "completion_tokens_details", "reasoning_tokens"]),
              response_id: response["id"]
            })}
 

@@ -74,6 +74,8 @@ defmodule LlmComposer.Providers.OpenRouterTest do
     assert response.input_tokens == 20
     assert response.output_tokens == 8
     assert response.provider == :open_router
+    assert response.provider_model == "anthropic/claude-3-haiku:beta"
+    assert response.reasoning_tokens == nil
   end
 
   test "fallback models are included in request", %{bypass: bypass} do

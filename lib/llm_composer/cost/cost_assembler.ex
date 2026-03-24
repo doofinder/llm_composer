@@ -62,7 +62,13 @@ defmodule LlmComposer.Cost.CostAssembler do
     usage = Map.get(raw_response, "usage", %{})
     input = Map.get(usage, "prompt_tokens", 0)
     output = Map.get(usage, "completion_tokens", 0)
-    cached_tokens = get_in(usage, ["input_tokens_details", "cached_tokens"])
+
+    cached_tokens =
+      case get_in(usage, ["input_tokens_details", "cached_tokens"]) do
+        nil -> get_in(usage, ["prompt_tokens_details", "cached_tokens"])
+        value -> value
+      end
+
     {input, output, cached_tokens}
   end
 

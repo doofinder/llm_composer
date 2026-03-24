@@ -1,6 +1,7 @@
 defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAIResponses do
   @moduledoc false
 
+  alias LlmComposer.Cost.CostAssembler
   alias LlmComposer.Providers.OpenAIResponses.Reasoning
   alias LlmComposer.StreamChunk
 
@@ -94,7 +95,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAIResponses do
     end
   end
 
-  def parse(%{"type" => "response.completed", "response" => response} = raw, provider, _opts) do
+  def parse(%{"type" => "response.completed", "response" => response} = raw, provider, opts) do
     usage = format_usage(response["usage"])
     reasoning = Reasoning.extract_output_summary(response["output"])
     reasoning_details = Reasoning.extract_output_details(response["output"])
@@ -106,6 +107,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAIResponses do
        reasoning: reasoning,
        reasoning_details: reasoning_details,
        usage: usage,
+       cost_info: build_cost_info(response, usage, opts),
        metadata: %{finish_reason: "stop"},
        raw: raw
      }}
@@ -125,9 +127,29 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAIResponses do
       input_tokens: input,
       output_tokens: output,
       total_tokens: total,
-      cached_tokens: get_in(usage, ["input_tokens_details", "cached_tokens"])
+      cached_tokens: get_in(usage, ["input_tokens_details", "cached_tokens"]),
+      reasoning_tokens: get_in(usage, ["output_tokens_details", "reasoning_tokens"])
     }
   end
 
   defp format_usage(_), do: nil
+
+  @spec build_cost_info(map(), StreamChunk.usage() | nil, keyword()) ::
+          LlmComposer.CostInfo.t() | nil
+  defp build_cost_info(response, usage, opts) when is_map(usage) do
+    normalized_response = %{
+      "model" => response["model"],
+      "usage" => %{
+        "prompt_tokens" => usage.input_tokens,
+        "completion_tokens" => usage.output_tokens,
+        "total_tokens" => usage.total_tokens,
+        "input_tokens_details" => %{"cached_tokens" => usage.cached_tokens},
+        "completion_tokens_details" => %{"reasoning_tokens" => usage.reasoning_tokens}
+      }
+    }
+
+    CostAssembler.get_cost_info(:open_ai_responses, normalized_response, opts)
+  end
+
+  defp build_cost_info(_response, _usage, _opts), do: nil
 end

@@ -21,7 +21,9 @@ defmodule LlmComposer.LlmResponse do
           output_tokens: non_neg_integer() | nil,
           previous_response: map() | nil,
           provider: provider(),
+          provider_model: String.t() | nil,
           raw: any(),
+          reasoning_tokens: non_neg_integer() | nil,
           response_id: String.t() | nil,
           status: :ok | :error,
           stream: nil | Enumerable.t()
@@ -37,7 +39,9 @@ defmodule LlmComposer.LlmResponse do
     :output_tokens,
     :previous_response,
     :provider,
+    :provider_model,
     :raw,
+    :reasoning_tokens,
     :response_id,
     :status,
     :stream
