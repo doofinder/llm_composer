@@ -39,35 +39,7 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
 
       case Map.get(response, "choices", []) do
         [first_choice | _rest] ->
-          main_response = Map.get(first_choice, "message", %{})
-          role = normalize_role(Map.get(main_response, "role", "assistant"))
-          content = normalize_content(Map.get(main_response, "content"))
-
-          base_msg = Message.new(role, content, %{original: main_response})
-
-          message = %{
-            base_msg
-            | content: content,
-              reasoning: Map.get(main_response, "reasoning"),
-              reasoning_details: Map.get(main_response, "reasoning_details")
-          }
-
-          function_calls = FunctionCallExtractors.from_tool_calls(main_response)
-          {input_tokens, output_tokens} = CostAssembler.extract_tokens(provider, response)
-          cost_info = CostAssembler.get_cost_info(provider, response, opts)
-
-          {:ok,
-           LlmResponse.new(%{
-             provider: provider,
-             status: :ok,
-             main_response: message,
-             function_calls: function_calls,
-             input_tokens: input_tokens,
-             output_tokens: output_tokens,
-             cost_info: cost_info,
-             metadata: Map.get(provider_response, :metadata, %{}),
-             raw: response
-           })}
+          build_response(first_choice, provider, provider_response, response, opts)
 
         [] ->
           Logger.warning("[#{provider}] response had no choices: #{inspect(response)}")
@@ -89,6 +61,39 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
        provider: provider,
        response: result
      }}
+  end
+
+  @spec build_response(map(), atom(), map(), map(), keyword()) :: {:ok, LlmResponse.t()}
+  defp build_response(first_choice, provider, provider_response, response, opts) do
+    main_response = Map.get(first_choice, "message", %{})
+    role = normalize_role(Map.get(main_response, "role", "assistant"))
+    content = normalize_content(Map.get(main_response, "content"))
+
+    base_msg = Message.new(role, content, %{original: main_response})
+
+    message = %{
+      base_msg
+      | content: content,
+        reasoning: Map.get(main_response, "reasoning"),
+        reasoning_details: Map.get(main_response, "reasoning_details")
+    }
+
+    function_calls = FunctionCallExtractors.from_tool_calls(main_response)
+    {input_tokens, output_tokens} = CostAssembler.extract_tokens(provider, response)
+    cost_info = CostAssembler.get_cost_info(provider, response, opts)
+
+    {:ok,
+     LlmResponse.new(%{
+       provider: provider,
+       status: :ok,
+       main_response: message,
+       function_calls: function_calls,
+       input_tokens: input_tokens,
+       output_tokens: output_tokens,
+       cost_info: cost_info,
+       metadata: Map.get(provider_response, :metadata, %{}),
+       raw: response
+     })}
   end
 
   defp log_fallback(response, opts) do
