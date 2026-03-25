@@ -198,6 +198,122 @@ defmodule LlmComposer.Providers.GoogleTest do
     {:ok, _response} = LlmComposer.simple_chat(settings, "What's the weather?")
   end
 
+  test "native_tools are included in request without functions", %{bypass: bypass} do
+    Bypass.expect_once(
+      bypass,
+      "POST",
+      "/v1beta/models/gemini-2.5-flash:generateContent",
+      fn conn ->
+        {:ok, body, _conn} = Plug.Conn.read_body(conn)
+        request_data = Jason.decode!(body)
+
+        tools = request_data["tools"]
+        assert is_list(tools)
+        assert length(tools) == 1
+        assert hd(tools) == %{"googleSearch" => %{}}
+
+        response_body = %{
+          "candidates" => [
+            %{
+              "content" => %{
+                "role" => "model",
+                "parts" => [%{"text" => "Here are the results."}]
+              }
+            }
+          ],
+          "usageMetadata" => %{"promptTokenCount" => 10, "candidatesTokenCount" => 5}
+        }
+
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(200, Jason.encode!(response_body))
+      end
+    )
+
+    settings = %Settings{
+      providers: [
+        {Google,
+         [
+           model: "gemini-2.5-flash",
+           native_tools: [%{"googleSearch" => %{}}],
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, _response} = LlmComposer.simple_chat(settings, "Search for Elixir.")
+  end
+
+  test "native_tools and functions appear together in request", %{bypass: bypass} do
+    functions = [
+      %LlmComposer.Function{
+        name: "get_weather",
+        description: "Get weather information",
+        schema: %{"type" => "object", "properties" => %{"location" => %{"type" => "string"}}},
+        mf: {TestModule, :get_weather}
+      }
+    ]
+
+    Bypass.expect_once(
+      bypass,
+      "POST",
+      "/v1beta/models/gemini-2.5-flash:generateContent",
+      fn conn ->
+        {:ok, body, _conn} = Plug.Conn.read_body(conn)
+        request_data = Jason.decode!(body)
+
+        tools = request_data["tools"]
+        assert is_list(tools)
+        assert length(tools) == 2
+
+        assert Enum.any?(tools, &Map.has_key?(&1, "googleSearch"))
+        assert Enum.any?(tools, &Map.has_key?(&1, "functionDeclarations"))
+
+        function_declarations =
+          tools
+          |> Enum.find(&Map.has_key?(&1, "functionDeclarations"))
+          |> Map.get("functionDeclarations")
+
+        assert length(function_declarations) == 1
+        assert hd(function_declarations)["name"] == "get_weather"
+
+        response_body = %{
+          "candidates" => [
+            %{
+              "content" => %{
+                "role" => "model",
+                "parts" => [%{"text" => "I'll help with that."}]
+              }
+            }
+          ],
+          "usageMetadata" => %{"promptTokenCount" => 15, "candidatesTokenCount" => 6}
+        }
+
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(200, Jason.encode!(response_body))
+      end
+    )
+
+    settings = %Settings{
+      providers: [
+        {Google,
+         [
+           model: "gemini-2.5-flash",
+           functions: functions,
+           native_tools: [%{"googleSearch" => %{}}],
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, _response} = LlmComposer.simple_chat(settings, "Search and check weather.")
+  end
+
   test "handles API errors gracefully", %{bypass: bypass} do
     Bypass.expect_once(
       bypass,
