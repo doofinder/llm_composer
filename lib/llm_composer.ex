@@ -88,7 +88,7 @@ defmodule LlmComposer do
     messages
     |> ProvidersRunner.run(settings, system_msg)
     |> then(fn
-      {:ok, res} ->
+      {:ok, %LlmResponse{} = res} ->
         # set previous response all the time
         res = %LlmResponse{res | previous_response: previous_response}
 
