@@ -21,6 +21,7 @@ defmodule LlmComposer.Cost.CostAssembler do
 
   alias LlmComposer.Cost.Pricing
   alias LlmComposer.CostInfo
+  alias LlmComposer.Helpers
 
   require Logger
 
@@ -31,6 +32,7 @@ defmodule LlmComposer.Cost.CostAssembler do
         ) :: CostInfo.t() | nil
   def get_cost_info(provider, raw_response, opts) do
     if Keyword.get(opts, :track_costs) do
+      raw_response = Helpers.normalize_json(raw_response)
       {input_tokens, output_tokens} = extract_tokens(provider, raw_response)
       model = get_model(provider, raw_response, opts)
 
@@ -56,15 +58,17 @@ defmodule LlmComposer.Cost.CostAssembler do
   @spec extract_tokens(atom(), map()) :: {non_neg_integer(), non_neg_integer()}
   def extract_tokens(provider, raw_response)
       when provider in [:open_ai, :open_ai_responses, :open_router] do
-    input = get_in(raw_response, ["usage", "prompt_tokens"]) || 0
-    output = get_in(raw_response, ["usage", "completion_tokens"]) || 0
+    usage = Map.get(raw_response, "usage", %{})
+    input = Map.get(usage, "prompt_tokens", 0)
+    output = Map.get(usage, "completion_tokens", 0)
     {input, output}
   end
 
   def extract_tokens(:google, raw_response) do
-    usage = raw_response["usageMetadata"] || %{}
-    input = usage["promptTokenCount"] || 0
-    output = usage["candidatesTokenCount"] || 0
+    raw_response = Helpers.normalize_json(raw_response)
+    usage = Map.get(raw_response, "usageMetadata", %{})
+    input = Map.get(usage, "promptTokenCount", 0)
+    output = Map.get(usage, "candidatesTokenCount", 0)
     {input, output}
   end
 
@@ -75,7 +79,7 @@ defmodule LlmComposer.Cost.CostAssembler do
   @spec get_model(atom(), map(), keyword()) :: String.t() | nil
   defp get_model(provider, raw_response, _opts)
        when provider in [:open_ai, :open_ai_responses, :open_router] do
-    get_in(raw_response, ["model"])
+    Map.get(raw_response, "model")
   end
 
   defp get_model(:google, _raw_response, opts) do
@@ -93,8 +97,30 @@ defmodule LlmComposer.Cost.CostAssembler do
     Keyword.put(opts, :body, body)
   end
 
+  defp prepare_pricing_opts(:open_router, raw_response, opts) do
+    raw_response = Helpers.normalize_json(raw_response)
+
+    case Map.get(raw_response, "model") do
+      nil ->
+        opts
+
+      _model ->
+        provider = Map.get(raw_response, "provider", "openrouter")
+        body = Map.put(raw_response, "provider", provider)
+        Keyword.put(opts, :body, body)
+    end
+  end
+
   defp prepare_pricing_opts(:google, _raw_response, opts) do
     opts
+  end
+
+  defp prepare_pricing_opts(provider, raw_response, opts)
+       when provider in [:open_ai, :open_ai_responses] do
+    case Map.get(raw_response, "model") do
+      nil -> opts
+      model -> Keyword.put(opts, :model, model)
+    end
   end
 
   defp prepare_pricing_opts(_provider, _raw_response, opts) do

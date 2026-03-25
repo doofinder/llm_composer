@@ -9,8 +9,10 @@ defmodule LlmComposer.Providers.OpenAIResponses do
   """
   @behaviour LlmComposer.Provider
 
+  alias LlmComposer.Helpers
   alias LlmComposer.HttpClient
   alias LlmComposer.ProviderResponse
+  alias LlmComposer.Providers.OpenAIResponses.Reasoning
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -110,13 +112,19 @@ defmodule LlmComposer.Providers.OpenAIResponses do
   # existing `Parser.OpenAI` can handle it without changes.
   @spec normalize_body(map()) :: map()
   defp normalize_body(body) do
+    body = Helpers.normalize_json(body)
     output_items = body["output"] || []
     tool_calls = extract_tool_calls(output_items)
     text = extract_response_text(body, output_items)
     message_content = normalize_message_content(text, tool_calls)
+    reasoning = Reasoning.extract_output_summary(output_items)
+    reasoning_details = Reasoning.extract_output_details(output_items)
 
     message =
-      maybe_put_tool_calls(%{"role" => "assistant", "content" => message_content}, tool_calls)
+      %{"role" => "assistant", "content" => message_content}
+      |> maybe_put_tool_calls(tool_calls)
+      |> maybe_put_reasoning(reasoning)
+      |> maybe_put_reasoning_details(reasoning_details)
 
     usage = normalize_usage(body["usage"] || %{})
 
@@ -139,12 +147,22 @@ defmodule LlmComposer.Providers.OpenAIResponses do
 
   @spec normalize_usage(map()) :: map()
   defp normalize_usage(usage) do
-    %{
+    normalized_usage = %{
       "prompt_tokens" => usage["input_tokens"] || 0,
       "completion_tokens" => usage["output_tokens"] || 0,
       "total_tokens" => usage["total_tokens"] || 0
     }
+
+    maybe_put_completion_tokens_details(normalized_usage, usage["output_tokens_details"])
   end
+
+  @spec maybe_put_completion_tokens_details(map(), map() | nil) :: map()
+  defp maybe_put_completion_tokens_details(normalized_usage, %{} = output_tokens_details) do
+    Map.put(normalized_usage, "completion_tokens_details", output_tokens_details)
+  end
+
+  defp maybe_put_completion_tokens_details(normalized_usage, _output_tokens_details),
+    do: normalized_usage
 
   @spec extract_text_from_output(list()) :: String.t()
   defp extract_text_from_output(output_items) do
@@ -274,6 +292,17 @@ defmodule LlmComposer.Providers.OpenAIResponses do
   @spec maybe_put_tool_calls(map(), [map()] | nil) :: map()
   defp maybe_put_tool_calls(message, nil), do: message
   defp maybe_put_tool_calls(message, tool_calls), do: Map.put(message, "tool_calls", tool_calls)
+
+  @spec maybe_put_reasoning(map(), String.t() | nil) :: map()
+  defp maybe_put_reasoning(message, nil), do: message
+  defp maybe_put_reasoning(message, reasoning), do: Map.put(message, "reasoning", reasoning)
+
+  @spec maybe_put_reasoning_details(map(), list() | nil) :: map()
+  defp maybe_put_reasoning_details(message, nil), do: message
+
+  defp maybe_put_reasoning_details(message, reasoning_details) do
+    Map.put(message, "reasoning_details", reasoning_details)
+  end
 
   @spec maybe_add_reasoning(map(), keyword()) :: map()
   defp maybe_add_reasoning(request, opts) do

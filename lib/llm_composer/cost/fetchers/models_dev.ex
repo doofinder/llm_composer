@@ -8,6 +8,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   ## Supported Providers
 
   - `:open_ai` - OpenAI models (GPT series)
+  - `:open_ai_responses` - OpenAI Responses API models (same pricing family as `:open_ai`)
   - `:google` - Google Gemini models
 
   ## Implementation Notes
@@ -26,7 +27,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @default_cache_ttl_in_hours 24
 
   @spec fetch_pricing(atom(), String.t()) :: map() | nil
-  def fetch_pricing(provider, model) when provider in [:open_ai, :google] do
+  def fetch_pricing(provider, model) when provider in [:open_ai, :open_ai_responses, :google] do
     case fetch_with_cache() do
       {:ok, data} -> extract_pricing_from_data(data, provider, model)
       :error -> nil
@@ -76,12 +77,9 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   end
 
   defp extract_pricing_from_data(data, provider, model) do
-    provider_key =
-      provider
-      |> Atom.to_string()
-      |> String.replace("_", "")
+    provider_key = provider_key(provider)
 
-    case get_in(data, [provider_key, "models", model, "cost"]) do
+    case get_cost(data, provider_key, model) do
       %{"input" => input, "output" => output} ->
         Logger.debug(
           "Extracted pricing for #{provider_key}/#{model}: input=$#{input}/M, output=$#{output}/M"
@@ -110,4 +108,35 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
         nil
     end
   end
+
+  defp get_cost(data, provider_key, model) do
+    case get_in(data, [provider_key, "models", model, "cost"]) do
+      nil -> fallback_cost(data, provider_key, model)
+      cost -> cost
+    end
+  end
+
+  # APIs like OpenAI return snapshot model names with a date suffix (e.g. "gpt-5.4-mini-2026-03-17"),
+  # but models.dev only indexes the base name. Strip the suffix and retry.
+  defp fallback_cost(data, provider_key, model) do
+    case strip_snapshot_date_suffix(model) do
+      ^model ->
+        nil
+
+      fallback_model ->
+        Logger.debug(
+          "Retrying models.dev pricing lookup for #{provider_key}/#{model} with fallback #{fallback_model}"
+        )
+
+        get_in(data, [provider_key, "models", fallback_model, "cost"])
+    end
+  end
+
+  defp strip_snapshot_date_suffix(model) when is_binary(model) do
+    Regex.replace(~r/-\d{4}-\d{2}-\d{2}$/, model, "")
+  end
+
+  defp provider_key(:open_ai), do: "openai"
+  defp provider_key(:open_ai_responses), do: "openai"
+  defp provider_key(:google), do: "google"
 end

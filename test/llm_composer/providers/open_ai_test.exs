@@ -72,6 +72,107 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert response.provider == :open_ai
   end
 
+  test "parser accepts tuple-list payloads with string keys" do
+    result =
+      {:ok,
+       %{
+         response: [
+           {"choices",
+            [
+              %{
+                "message" => %{
+                  "role" => "assistant",
+                  "content" => [
+                    %{"type" => "output_text", "text" => "Hello"},
+                    %{"type" => "output_text", "text" => " world"}
+                  ]
+                }
+              }
+            ]},
+           {"usage", %{"prompt_tokens" => 3, "completion_tokens" => 2, "total_tokens" => 5}},
+           {"model", "minimax/minimax-m2.7"}
+         ]
+       }}
+
+    assert {:ok, response} =
+             LlmComposer.ProviderResponse.Parser.OpenAI.parse(result, :open_router, [])
+
+    assert response.main_response.type == :assistant
+    assert response.main_response.content == "Hello world"
+    assert response.input_tokens == 3
+    assert response.output_tokens == 2
+  end
+
+  test "parser normalizes ordered-object payloads with atom keys for cost tracking" do
+    result =
+      {:ok,
+       %{
+         response: [
+           {:choices,
+            [
+              %{
+                message: %{
+                  role: "assistant",
+                  content: "Hello world"
+                }
+              }
+            ]},
+           {:usage, %{prompt_tokens: 3, completion_tokens: 2, total_tokens: 5}},
+           {:model, "minimax/minimax-m2.7"},
+           {:provider, "openrouter"}
+         ]
+       }}
+
+    opts = [track_costs: true, input_price_per_million: "1.5", output_price_per_million: "2.5"]
+
+    assert {:ok, response} =
+             LlmComposer.ProviderResponse.Parser.OpenAI.parse(result, :open_router, opts)
+
+    assert response.main_response.content == "Hello world"
+    assert response.cost_info.input_tokens == 3
+    assert response.cost_info.output_tokens == 2
+    assert response.cost_info.provider_model == "minimax/minimax-m2.7"
+  end
+
+  test "parser keeps streamed chunk lists on the streaming path" do
+    result =
+      {:ok,
+       %{
+         response: [
+           ~s(data: {"choices":[{"delta":{"content":"Hello"},"index":0,"finish_reason":null}]}),
+           ~s(data: {"choices":[{"delta":{},"index":0,"finish_reason":"stop"}]})
+         ]
+       }}
+
+    assert {:ok, response} =
+             LlmComposer.ProviderResponse.Parser.OpenAI.parse(result, :open_router, [])
+
+    assert response.stream == elem(result, 1).response
+
+    chunks =
+      response.stream
+      |> LlmComposer.parse_stream_response(:open_router)
+      |> Enum.to_list()
+
+    assert Enum.map(chunks, & &1.type) == [:text_delta, :done]
+    assert Enum.at(chunks, 0).text == "Hello"
+  end
+
+  test "parser returns error when choices are empty" do
+    result =
+      {:ok,
+       %{
+         response: %{
+           "choices" => [],
+           "usage" => %{"prompt_tokens" => 3, "completion_tokens" => 2, "total_tokens" => 5},
+           "model" => "minimax/minimax-m2.7"
+         }
+       }}
+
+    assert {:error, %{reason: :missing_choices, provider: :open_router}} =
+             LlmComposer.ProviderResponse.Parser.OpenAI.parse(result, :open_router, [])
+  end
+
   test "handles API errors gracefully", %{bypass: bypass} do
     Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
       error_body = %{
@@ -149,6 +250,162 @@ defmodule LlmComposer.Providers.OpenAITest do
     assert response.input_tokens == 15
     assert response.output_tokens == 9
     assert response.provider == :open_ai_responses
+  end
+
+  test "OpenAIResponses preserves reasoning summary in non-streaming responses", %{bypass: bypass} do
+    Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
+      response_body = %{
+        "id" => "resp_456",
+        "object" => "response",
+        "model" => "gpt-5-nano",
+        "output" => [
+          %{
+            "type" => "reasoning",
+            "summary" => [
+              %{"type" => "summary_text", "text" => "Condensed reasoning"}
+            ]
+          },
+          %{
+            "type" => "message",
+            "content" => [
+              %{"type" => "output_text", "text" => "Final answer"}
+            ]
+          }
+        ],
+        "usage" => %{
+          "input_tokens" => 10,
+          "output_tokens" => 6,
+          "total_tokens" => 16
+        }
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenAIResponses,
+         [
+           model: "gpt-5-nano",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "Explain quantum computing")
+
+    assert response.main_response.content == "Final answer"
+    assert response.main_response.reasoning == "Condensed reasoning"
+
+    assert response.main_response.reasoning_details == [
+             %{"text" => "Condensed reasoning", "type" => "summary_text"}
+           ]
+  end
+
+  test "OpenAIResponses reads non-text reasoning summary shapes in non-streaming responses", %{
+    bypass: bypass
+  } do
+    Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
+      response_body = %{
+        "id" => "resp_457",
+        "object" => "response",
+        "model" => "gpt-5-nano",
+        "output" => [
+          %{
+            "type" => "reasoning",
+            "summary" => [
+              %{"type" => "summary_text", "summary" => "First "},
+              %{"type" => "summary_text", "content" => "second"}
+            ]
+          },
+          %{
+            "type" => "message",
+            "content" => [
+              %{"type" => "output_text", "text" => "Final answer"}
+            ]
+          }
+        ],
+        "usage" => %{
+          "input_tokens" => 10,
+          "output_tokens" => 6,
+          "total_tokens" => 16
+        }
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenAIResponses,
+         [
+           model: "gpt-5-nano",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "Explain quantum computing")
+
+    assert response.main_response.content == "Final answer"
+    assert response.main_response.reasoning == "First second"
+
+    assert response.main_response.reasoning_details == [
+             %{"summary" => "First ", "type" => "summary_text"},
+             %{"content" => "second", "type" => "summary_text"}
+           ]
+  end
+
+  test "OpenAIResponses preserves reasoning token details in non-streaming responses", %{
+    bypass: bypass
+  } do
+    Bypass.expect_once(bypass, "POST", "/responses", fn conn ->
+      response_body = %{
+        "id" => "resp_789",
+        "object" => "response",
+        "model" => "gpt-5.4-mini",
+        "output_text" => "pong",
+        "usage" => %{
+          "input_tokens" => 17,
+          "output_tokens" => 29,
+          "total_tokens" => 46,
+          "output_tokens_details" => %{"reasoning_tokens" => 26}
+        }
+      }
+
+      conn
+      |> Plug.Conn.put_resp_header("content-type", "application/json")
+      |> Plug.Conn.resp(200, Jason.encode!(response_body))
+    end)
+
+    settings = %Settings{
+      providers: [
+        {OpenAIResponses,
+         [
+           model: "gpt-5.4-mini",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "ping")
+
+    assert response.input_tokens == 17
+    assert response.output_tokens == 29
+
+    assert response.raw["usage"]["completion_tokens_details"] == %{
+             "reasoning_tokens" => 26
+           }
   end
 
   test "OpenAIResponses supports manual function-call flow", %{bypass: bypass} do

@@ -40,6 +40,31 @@ defmodule LlmComposer.PricingTest do
       result = Pricing.fetch_pricing(:open_ai, opts)
       assert result == nil
     end
+
+    test "returns models.dev pricing for open_ai_responses" do
+      data = %{
+        "openai" => %{
+          "models" => %{
+            "gpt-5.4-mini" => %{
+              "cost" => %{
+                "input" => "0.250",
+                "output" => "2.000"
+              }
+            }
+          }
+        }
+      }
+
+      Ets.put("models_dev_api", data, 3600)
+
+      result = Pricing.fetch_pricing(:open_ai_responses, model: "gpt-5.4-mini")
+
+      assert result == [
+               input_price_per_million: Decimal.new("0.250"),
+               output_price_per_million: Decimal.new("2.000"),
+               currency: "USD"
+             ]
+    end
   end
 
   describe "models_dev_fetcher/2" do
@@ -82,6 +107,54 @@ defmodule LlmComposer.PricingTest do
       }
 
       assert result == expected
+    end
+
+    test "extracts pricing for open_ai_responses from openai dataset" do
+      data = %{
+        "openai" => %{
+          "models" => %{
+            "gpt-5.4-mini" => %{
+              "cost" => %{
+                "input" => "0.250",
+                "output" => "2.000"
+              }
+            }
+          }
+        }
+      }
+
+      Ets.put("models_dev_api", data, 3600)
+
+      result = ModelsDev.fetch_pricing(:open_ai_responses, "gpt-5.4-mini")
+
+      assert result == %{
+               input_price_per_million: Decimal.new("0.250"),
+               output_price_per_million: Decimal.new("2.000")
+             }
+    end
+
+    test "falls back from dated openai snapshot model names" do
+      data = %{
+        "openai" => %{
+          "models" => %{
+            "gpt-5.4-mini" => %{
+              "cost" => %{
+                "input" => "0.250",
+                "output" => "2.000"
+              }
+            }
+          }
+        }
+      }
+
+      Ets.put("models_dev_api", data, 3600)
+
+      result = ModelsDev.fetch_pricing(:open_ai_responses, "gpt-5.4-mini-2026-03-17")
+
+      assert result == %{
+               input_price_per_million: Decimal.new("0.250"),
+               output_price_per_million: Decimal.new("2.000")
+             }
     end
 
     test "returns nil when model not found in cached data" do

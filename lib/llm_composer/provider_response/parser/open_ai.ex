@@ -3,6 +3,7 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
 
   alias LlmComposer.Cost.CostAssembler
   alias LlmComposer.FunctionCallExtractors
+  alias LlmComposer.Helpers
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
   require Logger
@@ -24,20 +25,57 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
   end
 
   def parse({:ok, %{response: response} = provider_response}, provider, opts) do
-    log_fallback(response, opts)
+    if streamed_chunks?(response) do
+      {:ok,
+       LlmResponse.new(%{
+         provider: provider,
+         status: :ok,
+         stream: response,
+         raw: %{provider_response | response: response}
+       })}
+    else
+      response = Helpers.normalize_json(response)
+      log_fallback(response, opts)
 
-    [first_choice | _rest] = response["choices"]
-    main_response = get_in(first_choice, ["message"])
+      case Map.get(response, "choices", []) do
+        [first_choice | _rest] ->
+          build_response(first_choice, provider, provider_response, response, opts)
 
-    base_msg =
-      main_response["role"]
-      |> String.to_existing_atom()
-      |> Message.new(main_response["content"], %{original: main_response})
+        [] ->
+          Logger.warning("[#{provider}] response had no choices: #{inspect(response)}")
+
+          {:error,
+           %{
+             reason: :missing_choices,
+             provider: provider,
+             response: response
+           }}
+      end
+    end
+  end
+
+  def parse(result, provider, _opts) do
+    {:error,
+     %{
+       reason: :unhandled_response_format,
+       provider: provider,
+       response: result
+     }}
+  end
+
+  @spec build_response(map(), atom(), map(), map(), keyword()) :: {:ok, LlmResponse.t()}
+  defp build_response(first_choice, provider, provider_response, response, opts) do
+    main_response = Map.get(first_choice, "message", %{})
+    role = normalize_role(Map.get(main_response, "role", "assistant"))
+    content = normalize_content(Map.get(main_response, "content"))
+
+    base_msg = Message.new(role, content, %{original: main_response})
 
     message = %{
       base_msg
-      | reasoning: main_response["reasoning"],
-        reasoning_details: main_response["reasoning_details"]
+      | content: content,
+        reasoning: Map.get(main_response, "reasoning"),
+        reasoning_details: Map.get(main_response, "reasoning_details")
     }
 
     function_calls = FunctionCallExtractors.from_tool_calls(main_response)
@@ -58,23 +96,33 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
      })}
   end
 
-  def parse(result, provider, _opts) do
-    {:error,
-     %{
-       reason: :unhandled_response_format,
-       provider: provider,
-       response: result
-     }}
-  end
-
   defp log_fallback(response, opts) do
     if Keyword.get(opts, :models) && not is_function(response) do
       original_model = Keyword.get(opts, :model)
-      used_model = response["model"]
+      used_model = Map.get(response, "model")
 
       if original_model && used_model && original_model != used_model do
         Logger.warning("The '#{used_model}' model has been used instead of '#{original_model}'")
       end
     end
   end
+
+  defp normalize_role(role) when is_atom(role), do: role
+  defp normalize_role(role) when is_binary(role), do: String.to_existing_atom(role)
+  defp normalize_role(_role), do: :assistant
+
+  defp normalize_content(content) when is_binary(content) or is_nil(content), do: content
+
+  defp normalize_content(content) when is_list(content) do
+    Enum.map_join(content, "", fn
+      %{"text" => text} when is_binary(text) -> text
+      %{text: text} when is_binary(text) -> text
+      _ -> ""
+    end)
+  end
+
+  defp normalize_content(_content), do: nil
+
+  defp streamed_chunks?(response) when is_list(response), do: Enum.all?(response, &is_binary/1)
+  defp streamed_chunks?(_response), do: false
 end
