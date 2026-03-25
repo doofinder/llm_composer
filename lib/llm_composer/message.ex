@@ -20,13 +20,14 @@ defmodule LlmComposer.Message do
   @type t :: %__MODULE__{
           type: binary() | atom(),
           content: binary() | list() | nil,
+          function_calls: [LlmComposer.FunctionCall.t()] | nil,
           reasoning: binary() | nil,
           reasoning_details: list() | nil,
           metadata: map()
         }
 
   @enforce_keys [:type]
-  defstruct [:type, :content, :reasoning, :reasoning_details, :metadata]
+  defstruct [:type, :content, :function_calls, :reasoning, :reasoning_details, :metadata]
 
   @doc """
   Creates a new message struct with a given type and content.

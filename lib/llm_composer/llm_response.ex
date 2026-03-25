@@ -7,6 +7,7 @@ defmodule LlmComposer.LlmResponse do
   """
 
   alias LlmComposer.CostInfo
+  alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
   @type provider() :: :open_ai | :open_ai_responses | :ollama | :open_router | :bedrock | :google
@@ -14,7 +15,6 @@ defmodule LlmComposer.LlmResponse do
   @type t() :: %__MODULE__{
           cached_tokens: non_neg_integer() | nil,
           cost_info: CostInfo.t() | nil,
-          function_calls: [LlmComposer.FunctionCall.t()] | nil,
           input_tokens: non_neg_integer() | nil,
           main_response: Message.t() | nil,
           metadata: map(),
@@ -32,7 +32,6 @@ defmodule LlmComposer.LlmResponse do
   defstruct [
     :cached_tokens,
     :cost_info,
-    :function_calls,
     :input_tokens,
     :main_response,
     :metadata,
@@ -52,4 +51,13 @@ defmodule LlmComposer.LlmResponse do
     attrs = Map.put_new(attrs, :metadata, %{})
     struct!(__MODULE__, attrs)
   end
+
+  @doc """
+  Returns the function calls from the main response message.
+
+  Delegates to `main_response.function_calls` for convenience.
+  """
+  @spec function_calls(t()) :: [FunctionCall.t()] | nil
+  def function_calls(%__MODULE__{main_response: nil}), do: nil
+  def function_calls(%__MODULE__{main_response: msg}), do: msg.function_calls
 end

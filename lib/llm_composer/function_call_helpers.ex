@@ -4,9 +4,9 @@ defmodule LlmComposer.FunctionCallHelpers do
   function (tool) calls returned by LLM providers.
 
   This module provides a default implementation for composing the assistant
-  message that preserves the original assistant response and attaches the
-  `tool_calls` metadata. Providers can optionally implement
-  `build_assistant_with_tools/3` to customize behavior.
+  message that preserves the original assistant response and its function calls.
+  Providers can optionally implement `build_assistant_with_tools/3` to customize
+  behavior.
   """
 
   alias LlmComposer.LlmResponse
@@ -14,8 +14,8 @@ defmodule LlmComposer.FunctionCallHelpers do
 
   @doc """
   Build an assistant message that preserves the original assistant response and
-  attaches `tool_calls` so it can be sent back to the provider along with
-  tool result messages.
+  its function calls so it can be sent back to the provider along with tool
+  result messages.
 
   If `provider_mod` exports `build_assistant_with_tools/3`, this function will
   delegate to that implementation; otherwise it uses a sensible default.
@@ -34,9 +34,9 @@ defmodule LlmComposer.FunctionCallHelpers do
       %Message{
         type: :assistant,
         content: resp.main_response.content || "Using tool results",
+        function_calls: resp.main_response.function_calls,
         metadata: %{
-          original: resp.main_response.metadata[:original],
-          tool_calls: resp.function_calls
+          original: resp.main_response.metadata[:original]
         }
       }
     end
