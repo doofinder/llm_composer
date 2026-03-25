@@ -37,13 +37,6 @@ defmodule LlmComposer.Providers.Google do
   * `:stream_response` - Boolean to enable streaming responses (default: false)
   * `:request_params` - Map of additional request parameters to merge with the request body
   * `:functions` - List of function definitions for tool calling
-  * `:native_tools` - List of raw Google-native tool maps to include alongside function declarations.
-    Use this for built-in Google tools such as `googleSearch`. Each entry is a map that is passed
-    as-is in the `tools` array. For example:
-    ```elixir
-    native_tools: [%{"googleSearch" => %{}}]
-    ```
-    Can be combined with `:functions`; both will appear in the same `tools` array.
 
   ### Response Format Options
 
@@ -255,7 +248,6 @@ defmodule LlmComposer.Providers.Google do
       |> Keyword.get(:functions)
       |> Utils.get_tools(name())
 
-    native_tools = Keyword.get(opts, :native_tools, [])
     req_params = Keyword.get(opts, :request_params, %{})
 
     %{
@@ -263,7 +255,7 @@ defmodule LlmComposer.Providers.Google do
     }
     |> maybe_add_system_instructs(system_message)
     |> maybe_add_structured_outputs(opts)
-    |> maybe_add_tools(tools, native_tools)
+    |> maybe_add_tools(tools)
     |> Utils.merge_request_params(req_params)
     |> Utils.cleanup_body()
   end
@@ -317,24 +309,12 @@ defmodule LlmComposer.Providers.Google do
     end
   end
 
-  @spec maybe_add_tools(map(), list() | nil, list()) :: map()
-  defp maybe_add_tools(base_req, tools, native_tools) do
-    function_entries =
-      case tools do
-        tool when tool in [nil, []] ->
-          []
+  @spec maybe_add_tools(map(), list() | nil) :: map()
+  defp maybe_add_tools(base_req, nil), do: base_req
+  defp maybe_add_tools(base_req, []), do: base_req
 
-        tool ->
-          [%{"functionDeclarations" => tool}]
-      end
-
-    tool_entries = native_tools ++ function_entries
-
-    if tool_entries == [] do
-      base_req
-    else
-      Map.put(base_req, :tools, tool_entries)
-    end
+  defp maybe_add_tools(base_req, tools) do
+    Map.put(base_req, :tools, [%{"functionDeclarations" => tools}])
   end
 
   defp get_request_data(opts) do

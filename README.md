@@ -624,54 +624,6 @@ The `:vertex` map accepts the following options:
 
 **Note:** Vertex AI provides the same feature set as Google AI API but with enterprise security, audit logging, and VPC support. All LlmComposer features including function calls, streaming, and structured outputs are fully supported.
 
-#### Using Native Google Tools
-
-Google provides built-in tools (such as `googleSearch` and `codeExecution`) that can be enabled directly in the request without defining any function schemas. Pass them via the `:native_tools` option as a list of raw maps matching the Google API format.
-
-**Search grounding with `googleSearch`:**
-
-```elixir
-settings = %LlmComposer.Settings{
-  providers: [
-    {LlmComposer.Providers.Google,
-     [
-       model: "gemini-2.5-flash",
-       native_tools: [%{"googleSearch" => %{}}]
-     ]}
-  ],
-  system_prompt: "You are a helpful assistant."
-}
-
-{:ok, res} = LlmComposer.simple_chat(settings, "What happened in the news today?")
-```
-
-**Combining native tools with user-defined functions:**
-
-Both can be used together. The resulting request will include all native tool entries alongside the `functionDeclarations` for your functions:
-
-```elixir
-settings = %LlmComposer.Settings{
-  providers: [
-    {LlmComposer.Providers.Google,
-     [
-       model: "gemini-2.5-flash",
-       native_tools: [%{"googleSearch" => %{}}],
-       functions: [my_custom_function]
-     ]}
-  ],
-  system_prompt: "You are a helpful assistant."
-}
-```
-
-The API request `tools` array will look like:
-
-```json
-[
-  {"googleSearch": {}},
-  {"functionDeclarations": [{ ... }]}
-]
-```
-
 ### Streaming Responses
 
 LlmComposer supports streaming responses for real-time output, which is particularly useful for long-form content generation. This feature works with providers that support streaming (OpenAI, OpenAI Responses API, OpenRouter, Ollama, and Google).

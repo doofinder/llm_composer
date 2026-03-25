@@ -9,7 +9,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 - Added `:reasoning_delta` stream chunk support for OpenAI, OpenAI Responses, and Ollama streams, including `reasoning` and `reasoning_details` payloads on normalized `%LlmComposer.StreamChunk{}` values.
 - Added parsing of reasoning summary blocks from OpenAI Responses streaming events (`response.output_item.done` and `response.completed`).
-- Added `:native_tools` option to the Google provider for passing built-in Google tools (e.g. `googleSearch`, `codeExecution`) directly in the request. Can be combined with `:functions` to include both native tools and user-defined function declarations in the same request.
 
 ### Fixed
 - Fixed Google provider message mapping to preserve `thought_signature` and other fields from Gemini thinking models by reusing `parts` from the original response when available.
