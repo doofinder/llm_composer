@@ -16,17 +16,22 @@ defmodule LlmComposer.MixProject do
       ],
       source_url: "https://github.com/doofinder/llm_composer",
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.html": :test,
-        "coveralls.json": :test,
-        precommit: :test
-      ],
       aliases: aliases()
     ]
   end
 
   # Run "mix help compile.app" to learn about applications.
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test,
+        precommit: :test
+      ]
+    ]
+  end
+
   def application do
     [
       extra_applications: [:logger]
