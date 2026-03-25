@@ -80,10 +80,9 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
 
   defp format_usage(_), do: nil
 
-  defp cached_tokens(usage) do
-    get_in(usage, ["prompt_tokens_details", "cached_tokens"]) ||
-      get_in(usage, ["input_tokens_details", "cached_tokens"])
-  end
+  defp cached_tokens(%{"prompt_tokens_details" => %{"cached_tokens" => tokens}}), do: tokens
+  defp cached_tokens(%{"input_tokens_details" => %{"cached_tokens" => tokens}}), do: tokens
+  defp cached_tokens(_), do: nil
 
   defp build_cost_info(provider, raw, opts) do
     CostAssembler.get_cost_info(provider, raw, opts)
