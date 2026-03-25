@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added `:reasoning_delta` stream chunk support for OpenAI, OpenAI Responses, and Ollama streams, including `reasoning` and `reasoning_details` payloads on normalized `%LlmComposer.StreamChunk{}` values.
 - Added parsing of reasoning summary blocks from OpenAI Responses streaming events (`response.output_item.done` and `response.completed`).
 
+### Fixed
+- Fixed Google provider message mapping to preserve `thought_signature` and other fields from Gemini thinking models by reusing `parts` from the original response when available.
+- Fixed Google provider parallel tool call handling by merging consecutive `functionResponse` user turns into a single turn, as required by the Google API.
+
 ### Changed
 - Updated OpenAI/OpenRouter response parsing to better handle streamed chunk lists, tuple-list payloads with string or atom keys, content arrays, and empty-choice errors.
 - Updated Ollama response parsing so non-streaming responses map `message.thinking` into `reasoning`, and streaming responses preserve raw chunk lists for normalized stream parsing.
