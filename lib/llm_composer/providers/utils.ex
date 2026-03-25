@@ -104,7 +104,7 @@ defmodule LlmComposer.Providers.Utils do
 
   @spec build_google_assistant_message(String.t() | nil, map()) :: map()
   defp build_google_assistant_message(_message, %{original: original})
-       when not is_nil(original) do
+       when is_map(original) or is_list(original) or is_binary(original) do
     original
   end
 
