@@ -103,11 +103,6 @@ defmodule LlmComposer.Providers.Utils do
   end
 
   @spec build_google_assistant_message(String.t() | nil, map()) :: map()
-  defp build_google_assistant_message(_message, %{original: original})
-       when is_map(original) do
-    original
-  end
-
   defp build_google_assistant_message(message, metadata) do
     # When the original response content is available, use its parts directly
     # to preserve fields like thought_signature that Gemini thinking models require.
