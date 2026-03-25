@@ -18,6 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Updated pricing lookup so `:open_ai_responses` reuses OpenAI pricing data from models.dev, including fallback from dated snapshot model names to the base model entry.
 - Updated cost calculation to bill cached prompt tokens with provider cache-read pricing when available, and fall back to standard input pricing when no separate cached-token price is exposed.
 
+## [0.16.2] - 2026-03-25
+
+### Changed
+- Adjusted `@spec` for `ProvidersRunner.run/3` to use `{:error, term()}` instead of `{:error, atom()}`, reflecting that errors are not always atoms.
+
 ## [0.16.1] - 2026-03-23
 
 ### Added
@@ -221,7 +226,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.16.1...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.16.2...HEAD
+[0.16.2]: https://github.com/doofinder/llm_composer/compare/0.16.1...0.16.2
 [0.16.1]: https://github.com/doofinder/llm_composer/compare/0.16.0...0.16.1
 [0.16.0]: https://github.com/doofinder/llm_composer/compare/0.15.0...0.16.0
 [0.15.0]: https://github.com/doofinder/llm_composer/compare/0.14.2...0.15.0

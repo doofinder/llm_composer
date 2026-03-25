@@ -15,7 +15,7 @@ defmodule LlmComposer.ProvidersRunner do
   @doc """
   Runs provider execution with fallback support for multiple providers.
   """
-  @spec run(messages(), Settings.t(), Message.t()) :: {:ok, any()} | {:error, atom()}
+  @spec run(messages(), Settings.t(), Message.t()) :: {:ok, any()} | {:error, term()}
   def run(messages, %Settings{providers: [{provider, provider_opts}]} = settings, system_msg) do
     # only one provider, directly run it.
     provider_opts = get_provider_opts(provider_opts, settings)
