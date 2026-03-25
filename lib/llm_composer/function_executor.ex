@@ -36,7 +36,7 @@ defmodule LlmComposer.FunctionExecutor do
   """
   @spec execute(FunctionCall.t(), [Function.t()]) ::
           {:ok, FunctionCall.t()} | {:error, term()}
-  def execute(function_call, functions) when is_list(functions) do
+  def execute(%FunctionCall{} = function_call, functions) when is_list(functions) do
     with {:ok, function} <- find_function(function_call.name, functions),
          {:ok, args} <- parse_arguments(function_call.arguments),
          {:ok, result} <- invoke_function(function, args) do
