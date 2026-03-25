@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [0.17.0] - 2026-03-25
 
 ### Added
@@ -23,6 +25,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Updated pricing lookup so `:open_ai_responses` reuses OpenAI pricing data from models.dev, including fallback from dated snapshot model names to the base model entry.
 - Updated cost calculation to bill cached prompt tokens with provider cache-read pricing when available, and fall back to standard input pricing when no separate cached-token price is exposed.
 - Updated OpenAI Responses `normalize_usage` to preserve `input_tokens_details` so cached-token cost calculation receives the correct data downstream.
+- Fixed compiler warnings introduced by Elixir 1.19: struct updates in `FunctionExecutor` and `LlmComposer` now include the required struct pattern match at the binding site.
+- Moved `preferred_cli_env` from `def project` to the new `def cli` callback in `mix.exs`, removing the deprecation warning on Elixir 1.19+.
+- Updated `credo` from 1.7.12 to 1.7.17 to fix a crash in `DuplicatedCode` check on Elixir 1.19.
 
 ## [0.16.2] - 2026-03-25
 
@@ -232,6 +237,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.17.0...HEAD
 [0.17.0]: https://github.com/doofinder/llm_composer/compare/0.16.2...0.17.0
 [0.16.2]: https://github.com/doofinder/llm_composer/compare/0.16.1...0.16.2
 [0.16.1]: https://github.com/doofinder/llm_composer/compare/0.16.0...0.16.1
