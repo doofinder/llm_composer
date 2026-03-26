@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-03-26
+
+### Fixed
+- Fixed Google provider parallel tool call message mapping to correctly merge consecutive `functionResponse` user turns into a single turn as required by the Google API.
+
 ## [0.17.0] - 2026-03-25
 
 ### Added
@@ -241,7 +246,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.17.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.17.1...HEAD
+[0.17.1]: https://github.com/doofinder/llm_composer/compare/0.17.0...0.17.1
 [0.17.0]: https://github.com/doofinder/llm_composer/compare/0.16.2...0.17.0
 [0.16.2]: https://github.com/doofinder/llm_composer/compare/0.16.1...0.16.2
 [0.16.1]: https://github.com/doofinder/llm_composer/compare/0.16.0...0.16.1
