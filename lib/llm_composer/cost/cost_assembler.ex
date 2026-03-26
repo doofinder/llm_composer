@@ -33,7 +33,7 @@ defmodule LlmComposer.Cost.CostAssembler do
   def get_cost_info(provider, raw_response, opts) do
     if Keyword.get(opts, :track_costs) do
       raw_response = Helpers.normalize_json(raw_response)
-      {input_tokens, output_tokens} = extract_tokens(provider, raw_response)
+      {input_tokens, output_tokens, cached_tokens} = extract_tokens(provider, raw_response)
       model = get_model(provider, raw_response, opts)
 
       pricing_opts_prepared = prepare_pricing_opts(provider, raw_response, opts)
@@ -48,20 +48,28 @@ defmodule LlmComposer.Cost.CostAssembler do
         model,
         input_tokens,
         output_tokens,
-        pricing_opts || []
+        Keyword.merge(pricing_opts || [], cached_tokens: cached_tokens)
       )
     else
       nil
     end
   end
 
-  @spec extract_tokens(atom(), map()) :: {non_neg_integer(), non_neg_integer()}
+  @spec extract_tokens(atom(), map()) ::
+          {non_neg_integer() | nil, non_neg_integer() | nil, non_neg_integer() | nil}
   def extract_tokens(provider, raw_response)
       when provider in [:open_ai, :open_ai_responses, :open_router] do
     usage = Map.get(raw_response, "usage", %{})
     input = Map.get(usage, "prompt_tokens", 0)
     output = Map.get(usage, "completion_tokens", 0)
-    {input, output}
+
+    cached_tokens =
+      case get_in(usage, ["input_tokens_details", "cached_tokens"]) do
+        nil -> get_in(usage, ["prompt_tokens_details", "cached_tokens"])
+        value -> value
+      end
+
+    {input, output, cached_tokens}
   end
 
   def extract_tokens(:google, raw_response) do
@@ -69,11 +77,11 @@ defmodule LlmComposer.Cost.CostAssembler do
     usage = Map.get(raw_response, "usageMetadata", %{})
     input = Map.get(usage, "promptTokenCount", 0)
     output = Map.get(usage, "candidatesTokenCount", 0)
-    {input, output}
+    {input, output, nil}
   end
 
   def extract_tokens(_provider, _raw_response) do
-    {0, 0}
+    {0, 0, nil}
   end
 
   @spec get_model(atom(), map(), keyword()) :: String.t() | nil

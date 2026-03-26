@@ -63,6 +63,7 @@ defmodule LlmComposer.Providers.OpenAIResponses do
 
     base_request
     |> Utils.merge_request_params(req_params)
+    |> maybe_add_previous_response_id(opts)
     |> maybe_add_reasoning(opts)
     |> maybe_structured_output(opts)
     |> Utils.cleanup_body()
@@ -129,7 +130,9 @@ defmodule LlmComposer.Providers.OpenAIResponses do
     usage = normalize_usage(body["usage"] || %{})
 
     %{
+      "id" => body["id"],
       "model" => body["model"],
+      "previous_response_id" => body["previous_response_id"],
       "choices" => [
         %{"message" => message}
       ],
@@ -153,8 +156,18 @@ defmodule LlmComposer.Providers.OpenAIResponses do
       "total_tokens" => usage["total_tokens"] || 0
     }
 
-    maybe_put_completion_tokens_details(normalized_usage, usage["output_tokens_details"])
+    normalized_usage
+    |> maybe_put_input_tokens_details(usage["input_tokens_details"])
+    |> maybe_put_completion_tokens_details(usage["output_tokens_details"])
   end
+
+  @spec maybe_put_input_tokens_details(map(), map() | nil) :: map()
+  defp maybe_put_input_tokens_details(normalized_usage, %{} = input_tokens_details) do
+    Map.put(normalized_usage, "input_tokens_details", input_tokens_details)
+  end
+
+  defp maybe_put_input_tokens_details(normalized_usage, _input_tokens_details),
+    do: normalized_usage
 
   @spec maybe_put_completion_tokens_details(map(), map() | nil) :: map()
   defp maybe_put_completion_tokens_details(normalized_usage, %{} = output_tokens_details) do
@@ -239,6 +252,17 @@ defmodule LlmComposer.Providers.OpenAIResponses do
 
   defp normalize_role_content("assistant", _), do: ""
   defp normalize_role_content(_role, content), do: to_input_content(content)
+
+  @spec maybe_add_previous_response_id(map(), keyword()) :: map()
+  defp maybe_add_previous_response_id(request, opts) do
+    case Keyword.get(opts, :previous_response_id) do
+      previous_response_id when is_binary(previous_response_id) and previous_response_id != "" ->
+        Map.put(request, :previous_response_id, previous_response_id)
+
+      _ ->
+        request
+    end
+  end
 
   @spec format_tools([LlmComposer.Function.t()] | nil) :: [map()] | nil
   defp format_tools(nil), do: nil

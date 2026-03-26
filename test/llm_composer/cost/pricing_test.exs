@@ -103,7 +103,8 @@ defmodule LlmComposer.PricingTest do
 
       expected = %{
         input_price_per_million: Decimal.new("0.001"),
-        output_price_per_million: Decimal.new("0.002")
+        output_price_per_million: Decimal.new("0.002"),
+        cache_read_price_per_million: Decimal.new("0.0005")
       }
 
       assert result == expected

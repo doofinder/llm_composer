@@ -67,6 +67,8 @@ defmodule LlmComposer.Providers.GoogleTest do
     assert response.input_tokens == 20
     assert response.output_tokens == 8
     assert response.provider == :google
+    assert response.provider_model == "gemini-2.5-flash"
+    assert response.reasoning_tokens == nil
   end
 
   test "structured output is included in request", %{bypass: bypass} do

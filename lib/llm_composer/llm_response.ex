@@ -12,6 +12,7 @@ defmodule LlmComposer.LlmResponse do
   @type provider() :: :open_ai | :open_ai_responses | :ollama | :open_router | :bedrock | :google
 
   @type t() :: %__MODULE__{
+          cached_tokens: non_neg_integer() | nil,
           cost_info: CostInfo.t() | nil,
           function_calls: [LlmComposer.FunctionCall.t()] | nil,
           input_tokens: non_neg_integer() | nil,
@@ -20,12 +21,16 @@ defmodule LlmComposer.LlmResponse do
           output_tokens: non_neg_integer() | nil,
           previous_response: map() | nil,
           provider: provider(),
+          provider_model: String.t() | nil,
           raw: any(),
+          reasoning_tokens: non_neg_integer() | nil,
+          response_id: String.t() | nil,
           status: :ok | :error,
           stream: nil | Enumerable.t()
         }
 
   defstruct [
+    :cached_tokens,
     :cost_info,
     :function_calls,
     :input_tokens,
@@ -34,7 +39,10 @@ defmodule LlmComposer.LlmResponse do
     :output_tokens,
     :previous_response,
     :provider,
+    :provider_model,
     :raw,
+    :reasoning_tokens,
+    :response_id,
     :status,
     :stream
   ]

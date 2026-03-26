@@ -83,6 +83,37 @@ defmodule LlmComposer.StreamChunkTest do
              } = chunk
     end
 
+    test "OpenAI usage-only chunk includes cached tokens, reasoning tokens, and cost info" do
+      data =
+        ~s(data: {"model":"gpt-4o-mini","usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":19,"prompt_tokens_details":{"cached_tokens":4},"completion_tokens_details":{"reasoning_tokens":3}}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(
+          :open_ai,
+          track_costs: true,
+          input_price_per_million: "1.0",
+          cache_read_price_per_million: "0.5",
+          output_price_per_million: "2.0"
+        )
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :open_ai,
+               type: :usage,
+               usage: %{
+                 input_tokens: 12,
+                 output_tokens: 7,
+                 total_tokens: 19,
+                 cached_tokens: 4,
+                 reasoning_tokens: 3
+               }
+             } = chunk
+
+      assert chunk.cost_info.provider_model == "gpt-4o-mini"
+      assert chunk.cost_info.cached_tokens == 4
+    end
+
     test "OpenAI reasoning-only chunk becomes :reasoning_delta" do
       data =
         ~s(data: {"choices":[{"delta":{"content":"","reasoning":"Let me think","reasoning_details":[{"type":"reasoning.text","text":"Let me think"}]},"index":0,"finish_reason":null}]})
@@ -133,6 +164,26 @@ defmodule LlmComposer.StreamChunkTest do
                text: "Yo",
                usage: %{input_tokens: 5, output_tokens: 3, total_tokens: 8}
              } = chunk
+    end
+
+    test "Google final chunk includes cost info when pricing opts are provided" do
+      data =
+        ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Yo"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"totalTokenCount":8}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(
+          :google,
+          model: "gemini-2.5-flash",
+          track_costs: true,
+          input_price_per_million: "1.0",
+          output_price_per_million: "2.0"
+        )
+        |> Enum.to_list()
+
+      assert chunk.cost_info.provider_model == "gemini-2.5-flash"
+      assert chunk.cost_info.input_tokens == 5
+      assert chunk.cost_info.output_tokens == 3
     end
   end
 
@@ -213,9 +264,28 @@ defmodule LlmComposer.StreamChunkTest do
       assert %StreamChunk{
                provider: :open_ai_responses,
                type: :done,
-               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15},
+               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15, cached_tokens: nil},
                metadata: %{finish_reason: "stop"}
              } = chunk
+    end
+
+    test "OpenRouter usage-only chunk includes cost info through the shared parser" do
+      data =
+        ~s(data: {"model":"anthropic/claude-3-haiku:beta","provider":"openrouter","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15,"completion_tokens_details":{"reasoning_tokens":2}}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(
+          :open_router,
+          track_costs: true,
+          input_price_per_million: "1.0",
+          output_price_per_million: "2.0"
+        )
+        |> Enum.to_list()
+
+      assert chunk.type == :usage
+      assert chunk.usage.reasoning_tokens == 2
+      assert chunk.cost_info.provider_model == "anthropic/claude-3-haiku:beta"
     end
 
     test "response.output_item.done with reasoning summary becomes :reasoning_delta" do
@@ -249,8 +319,56 @@ defmodule LlmComposer.StreamChunkTest do
                type: :done,
                reasoning: "Final summary",
                reasoning_details: [%{"text" => "Final summary"}],
-               usage: %{input_tokens: 10, output_tokens: 5, total_tokens: 15}
+               usage: %{
+                 input_tokens: 10,
+                 output_tokens: 5,
+                 total_tokens: 15,
+                 cached_tokens: nil,
+                 reasoning_tokens: 43
+               }
              } = chunk
+    end
+
+    test "response.completed exposes cached prompt tokens in usage" do
+      data =
+        ~s(data: {"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15,"input_tokens_details":{"cached_tokens":7}}}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:open_ai_responses)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :open_ai_responses,
+               type: :done,
+               usage: %{
+                 input_tokens: 10,
+                 output_tokens: 5,
+                 total_tokens: 15,
+                 cached_tokens: 7,
+                 reasoning_tokens: nil
+               }
+             } = chunk
+    end
+
+    test "response.completed includes reasoning token usage and cost info" do
+      data =
+        ~s(data: {"type":"response.completed","response":{"model":"gpt-5.4-mini","usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15,"input_tokens_details":{"cached_tokens":7},"output_tokens_details":{"reasoning_tokens":43}}}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(
+          :open_ai_responses,
+          track_costs: true,
+          input_price_per_million: "1.0",
+          cache_read_price_per_million: "0.25",
+          output_price_per_million: "2.0"
+        )
+        |> Enum.to_list()
+
+      assert chunk.usage.reasoning_tokens == 43
+      assert chunk.cost_info.provider_model == "gpt-5.4-mini"
+      assert chunk.cost_info.cached_tokens == 7
     end
 
     test "response.completed with missing usage still becomes :done" do

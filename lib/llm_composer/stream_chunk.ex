@@ -20,7 +20,9 @@ defmodule LlmComposer.StreamChunk do
           %{
             input_tokens: non_neg_integer() | nil,
             output_tokens: non_neg_integer() | nil,
-            total_tokens: non_neg_integer() | nil
+            total_tokens: non_neg_integer() | nil,
+            cached_tokens: non_neg_integer() | nil,
+            reasoning_tokens: non_neg_integer() | nil
           }
 
   @type t() :: %__MODULE__{

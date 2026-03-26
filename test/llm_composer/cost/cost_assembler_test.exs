@@ -20,28 +20,47 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
         }
       }
 
-      {input, output} = CostAssembler.extract_tokens(:open_ai, response)
+      {input, output, cached} = CostAssembler.extract_tokens(:open_ai, response)
 
       assert input == 150
       assert output == 75
+      assert cached == nil
     end
 
     test "returns 0 for missing tokens in OpenAI response" do
       response = %{"usage" => %{}}
 
-      {input, output} = CostAssembler.extract_tokens(:open_ai, response)
+      {input, output, cached} = CostAssembler.extract_tokens(:open_ai, response)
 
       assert input == 0
       assert output == 0
+      assert cached == nil
     end
 
     test "returns 0 when no usage field in OpenAI response" do
       response = %{}
 
-      {input, output} = CostAssembler.extract_tokens(:open_ai, response)
+      {input, output, cached} = CostAssembler.extract_tokens(:open_ai, response)
 
       assert input == 0
       assert output == 0
+      assert cached == nil
+    end
+
+    test "extracts cached tokens from OpenAI response format" do
+      response = %{
+        "usage" => %{
+          "prompt_tokens" => 150,
+          "completion_tokens" => 75,
+          "input_tokens_details" => %{"cached_tokens" => 60}
+        }
+      }
+
+      {input, output, cached} = CostAssembler.extract_tokens(:open_ai, response)
+
+      assert input == 150
+      assert output == 75
+      assert cached == 60
     end
   end
 
@@ -54,10 +73,11 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
         }
       }
 
-      {input, output} = CostAssembler.extract_tokens(:open_router, response)
+      {input, output, cached} = CostAssembler.extract_tokens(:open_router, response)
 
       assert input == 200
       assert output == 100
+      assert cached == nil
     end
   end
 
@@ -70,28 +90,31 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
         }
       }
 
-      {input, output} = CostAssembler.extract_tokens(:google, response)
+      {input, output, cached} = CostAssembler.extract_tokens(:google, response)
 
       assert input == 120
       assert output == 60
+      assert cached == nil
     end
 
     test "returns 0 for missing tokens in Google response" do
       response = %{"usageMetadata" => %{}}
 
-      {input, output} = CostAssembler.extract_tokens(:google, response)
+      {input, output, cached} = CostAssembler.extract_tokens(:google, response)
 
       assert input == 0
       assert output == 0
+      assert cached == nil
     end
 
     test "returns 0 when no usageMetadata field in Google response" do
       response = %{}
 
-      {input, output} = CostAssembler.extract_tokens(:google, response)
+      {input, output, cached} = CostAssembler.extract_tokens(:google, response)
 
       assert input == 0
       assert output == 0
+      assert cached == nil
     end
   end
 
@@ -99,10 +122,11 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
     test "returns 0 for unsupported provider" do
       response = %{"usage" => %{"prompt_tokens" => 100, "completion_tokens" => 50}}
 
-      {input, output} = CostAssembler.extract_tokens(:unknown, response)
+      {input, output, cached} = CostAssembler.extract_tokens(:unknown, response)
 
       assert input == 0
       assert output == 0
+      assert cached == nil
     end
   end
 
@@ -164,6 +188,31 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
       assert Decimal.equal?(result.input_cost, Decimal.new("0.150"))
       assert Decimal.equal?(result.output_cost, Decimal.new("0.300"))
       assert Decimal.equal?(result.total_cost, Decimal.new("0.450"))
+    end
+
+    test "assembles cost info for OpenAI with cached token pricing" do
+      response = %{
+        "model" => "gpt-4o-mini",
+        "usage" => %{
+          "prompt_tokens" => 1_000_000,
+          "completion_tokens" => 500_000,
+          "input_tokens_details" => %{"cached_tokens" => 200_000}
+        }
+      }
+
+      opts = [
+        track_costs: true,
+        input_price_per_million: "0.150",
+        cache_read_price_per_million: "0.050",
+        output_price_per_million: "0.600"
+      ]
+
+      result = CostAssembler.get_cost_info(:open_ai, response, opts)
+
+      assert result.cached_tokens == 200_000
+      assert Decimal.equal?(result.input_cost, Decimal.new("0.130"))
+      assert Decimal.equal?(result.output_cost, Decimal.new("0.300"))
+      assert Decimal.equal?(result.total_cost, Decimal.new("0.430"))
     end
 
     test "prices using the response model when it differs from opts" do

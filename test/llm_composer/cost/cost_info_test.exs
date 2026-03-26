@@ -19,13 +19,17 @@ defmodule LlmComposer.CostInfoTest do
       cost_info =
         CostInfo.new(:open_ai, "gpt-4", 100, 50,
           currency: "USD",
+          cached_tokens: 20,
           input_price_per_million: Decimal.new("1.0"),
+          cache_read_price_per_million: Decimal.new("0.5"),
           output_price_per_million: Decimal.new("2.0"),
           metadata: %{batch: true}
         )
 
       assert cost_info.currency == "USD"
+      assert cost_info.cached_tokens == 20
       assert Decimal.equal?(cost_info.input_price_per_million, Decimal.new("1.0"))
+      assert Decimal.equal?(cost_info.cache_read_price_per_million, Decimal.new("0.5"))
       assert Decimal.equal?(cost_info.output_price_per_million, Decimal.new("2.0"))
       assert cost_info.metadata == %{batch: true}
     end
@@ -120,6 +124,48 @@ defmodule LlmComposer.CostInfoTest do
       assert Decimal.equal?(cost_info.input_cost, Decimal.new("0.0015"))
       assert Decimal.equal?(cost_info.output_cost, Decimal.new("0.0030"))
       assert Decimal.equal?(cost_info.total_cost, Decimal.new("0.0045"))
+    end
+
+    test "uses cache-read pricing for cached prompt tokens when available" do
+      cost_info =
+        CostInfo.new(:open_ai, "gpt-4o-mini", 100, 50,
+          cached_tokens: 30,
+          input_price_per_million: Decimal.new("1.0"),
+          cache_read_price_per_million: Decimal.new("0.25"),
+          output_price_per_million: Decimal.new("2.0")
+        )
+
+      assert Decimal.equal?(cost_info.input_cost, Decimal.new("0.0000775"))
+      assert Decimal.equal?(cost_info.output_cost, Decimal.new("0.0001"))
+      assert Decimal.equal?(cost_info.total_cost, Decimal.new("0.0001775"))
+    end
+
+    test "falls back to normal input pricing for cached prompt tokens when cache-read pricing is unavailable" do
+      cost_info =
+        CostInfo.new(:open_ai, "gpt-4o-mini", 100, 50,
+          cached_tokens: 30,
+          input_price_per_million: Decimal.new("1.0"),
+          output_price_per_million: Decimal.new("2.0")
+        )
+
+      assert Decimal.equal?(cost_info.input_cost, Decimal.new("0.0001"))
+      assert Decimal.equal?(cost_info.output_cost, Decimal.new("0.0001"))
+      assert Decimal.equal?(cost_info.total_cost, Decimal.new("0.0002"))
+    end
+
+    test "clamps cached_tokens to input_tokens when provider reports more cached than total input" do
+      cost_info =
+        CostInfo.new(:open_ai, "gpt-4o-mini", 100, 50,
+          cached_tokens: 150,
+          input_price_per_million: Decimal.new("1.0"),
+          cache_read_price_per_million: Decimal.new("0.25"),
+          output_price_per_million: Decimal.new("2.0")
+        )
+
+      # all 100 input tokens treated as cached (clamped), 0 uncached
+      assert Decimal.equal?(cost_info.input_cost, Decimal.new("0.000025"))
+      assert Decimal.equal?(cost_info.output_cost, Decimal.new("0.0001"))
+      assert Decimal.equal?(cost_info.total_cost, Decimal.new("0.000125"))
     end
   end
 
