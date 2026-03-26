@@ -56,7 +56,7 @@ defmodule LlmComposer.Cost.CostAssembler do
   end
 
   @spec extract_tokens(atom(), map()) ::
-          {non_neg_integer(), non_neg_integer(), non_neg_integer() | nil}
+          {non_neg_integer() | nil, non_neg_integer() | nil, non_neg_integer() | nil}
   def extract_tokens(provider, raw_response)
       when provider in [:open_ai, :open_ai_responses, :open_router] do
     usage = Map.get(raw_response, "usage", %{})

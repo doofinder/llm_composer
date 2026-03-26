@@ -77,8 +77,13 @@ defmodule LlmComposer.Providers.Utils do
       %Message{type: :user, content: message} ->
         %{"role" => "user", "parts" => [%{"text" => message}]}
 
-      %Message{type: :assistant, content: message, function_calls: function_calls} ->
-        build_google_assistant_message(message, function_calls)
+      %Message{
+        type: :assistant,
+        content: message,
+        function_calls: function_calls,
+        metadata: metadata
+      } ->
+        build_google_assistant_message(message, function_calls, metadata)
 
       %Message{type: :tool_result, content: content, metadata: metadata} ->
         %{
@@ -101,13 +106,30 @@ defmodule LlmComposer.Providers.Utils do
     |> Enum.reject(&is_nil/1)
   end
 
-  @spec build_google_assistant_message(String.t() | nil, [LlmComposer.FunctionCall.t()] | nil) ::
+  @spec build_google_assistant_message(
+          String.t() | nil,
+          [LlmComposer.FunctionCall.t()] | nil,
           map()
-  defp build_google_assistant_message(message, nil) do
+        ) :: map()
+  defp build_google_assistant_message(message, function_calls, metadata) do
+    # When the original response content is available, use its parts directly
+    # to preserve fields like thought_signature that Gemini thinking models require.
+    case metadata[:original] do
+      %{"parts" => parts} when is_list(parts) ->
+        %{"role" => "model", "parts" => parts}
+
+      _ ->
+        build_google_assistant_parts(message, function_calls)
+    end
+  end
+
+  @spec build_google_assistant_parts(String.t() | nil, [LlmComposer.FunctionCall.t()] | nil) ::
+          map()
+  defp build_google_assistant_parts(message, nil) do
     %{"role" => "model", "parts" => [%{"text" => message}]}
   end
 
-  defp build_google_assistant_message(message, tool_calls) when is_list(tool_calls) do
+  defp build_google_assistant_parts(message, tool_calls) when is_list(tool_calls) do
     call_parts =
       Enum.map(tool_calls, fn call ->
         arguments =
