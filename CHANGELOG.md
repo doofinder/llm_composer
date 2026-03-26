@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-03-26
+
 ### Added
 - Added `function_calls` as a typed `[LlmComposer.FunctionCall.t()] | nil` field directly on `%LlmComposer.Message{}`, replacing the untyped `metadata[:tool_calls]` map access previously used in conversation history.
 - Added `LlmResponse.function_calls/1` delegate function for convenient access to the function calls of the main response message.
@@ -249,7 +251,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.17.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.18.0...HEAD
+[0.18.0]: https://github.com/doofinder/llm_composer/compare/0.17.0...0.18.0
 [0.17.0]: https://github.com/doofinder/llm_composer/compare/0.16.2...0.17.0
 [0.16.2]: https://github.com/doofinder/llm_composer/compare/0.16.1...0.16.2
 [0.16.1]: https://github.com/doofinder/llm_composer/compare/0.16.0...0.16.1
