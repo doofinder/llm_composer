@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- Added `function_calls` as a typed `[LlmComposer.FunctionCall.t()] | nil` field directly on `%LlmComposer.Message{}`, replacing the untyped `metadata[:tool_calls]` map access previously used in conversation history.
+- Added `LlmResponse.function_calls/1` delegate function for convenient access to the function calls of the main response message.
+
+### Changed
+- Moved `function_calls` from `%LlmComposer.LlmResponse{}` struct field to `%LlmComposer.Message{}`, eliminating the duplication between `LlmResponse.function_calls` (initial response) and `Message.metadata[:tool_calls]` (conversation history). OpenAI, OpenRouter, and Google parsers now set `function_calls` directly on the assistant message.
+- Updated `Providers.Utils` message mappers for OpenAI, OpenRouter, and Google to read `message.function_calls` instead of `message.metadata[:tool_calls]`.
+
 ## [0.17.0] - 2026-03-25
 
 ### Added
