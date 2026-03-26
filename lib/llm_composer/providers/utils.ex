@@ -158,7 +158,6 @@ defmodule LlmComposer.Providers.Utils do
     %{"role" => "model", "parts" => parts}
   end
 
-
   # Merges consecutive tool-result user messages into a single content block.
   # Google requires all functionResponse parts for one model turn to be in one "user" turn.
   @spec merge_consecutive_function_responses([map()]) :: [map()]
