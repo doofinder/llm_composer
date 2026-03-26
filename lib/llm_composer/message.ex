@@ -13,8 +13,9 @@ defmodule LlmComposer.Message do
     reasoning models. Use this instead of (or alongside) `:reasoning` when the provider
     returns structured reasoning blocks (e.g. encrypted or summarised thinking blocks).
     Like `:reasoning`, this field is forwarded by the OpenRouter provider on resend.
-  - `:metadata` — arbitrary map for provider-specific data (tool calls, original raw
-    response, etc.).
+  - `:function_calls` — optional list of `LlmComposer.FunctionCall` structs returned by the
+    model when it requests tool execution. Set by parsers on assistant messages.
+  - `:metadata` — arbitrary map for provider-specific data (e.g. original raw response).
   """
 
   @type t :: %__MODULE__{
