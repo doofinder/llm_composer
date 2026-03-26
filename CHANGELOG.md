@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added `cache_read_price_per_million` extraction from models.dev API responses when available, enabling automatic cache-read pricing for OpenAI models.
 - Added `previous_response_id` forwarding in OpenAI Responses API requests via the `:previous_response_id` option.
 
+### Fixed
+- Fixed Google provider message mapping to preserve `thought_signature` and other fields from Gemini thinking models by reusing `parts` from the original response when available.
+- Fixed Google provider parallel tool call handling by merging consecutive `functionResponse` user turns into a single turn, as required by the Google API.
+
 ### Changed
 - Updated OpenAI/OpenRouter response parsing to better handle streamed chunk lists, tuple-list payloads with string or atom keys, content arrays, and empty-choice errors.
 - Updated Ollama response parsing so non-streaming responses map `message.thinking` into `reasoning`, and streaming responses preserve raw chunk lists for normalized stream parsing.

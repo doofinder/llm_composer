@@ -104,6 +104,7 @@ defmodule LlmComposer.Providers.Utils do
         nil
     end)
     |> Enum.reject(&is_nil/1)
+    |> merge_consecutive_function_responses()
   end
 
   @spec build_google_assistant_message(
@@ -155,6 +156,22 @@ defmodule LlmComposer.Providers.Utils do
       end
 
     %{"role" => "model", "parts" => parts}
+  end
+
+  # Merges consecutive tool-result user messages into a single content block.
+  # Google requires all functionResponse parts for one model turn to be in one "user" turn.
+  @spec merge_consecutive_function_responses([map()]) :: [map()]
+  defp merge_consecutive_function_responses(messages) do
+    messages
+    |> Enum.reduce([], fn
+      %{"role" => "user", "parts" => [%{"functionResponse" => _} | _] = parts} = _msg,
+      [%{"role" => "user", "parts" => [%{"functionResponse" => _} | _] = prev_parts} | rest] ->
+        [%{"role" => "user", "parts" => prev_parts ++ parts} | rest]
+
+      msg, acc ->
+        [msg | acc]
+    end)
+    |> Enum.reverse()
   end
 
   @spec cleanup_body(map()) :: map()
