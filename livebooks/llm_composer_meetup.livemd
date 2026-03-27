@@ -1,0 +1,514 @@
+# LLMComposer Meetup Demo
+
+```elixir
+Mix.install(
+  [
+    {:decimal, "~> 2.3"},
+    {:finch, "~> 0.21.0"},
+    {:kino, "~> 0.19"},
+    {:llm_composer, "~> 0.18.0"},
+    {:yaml_elixir, "~> 2.12"}
+  ],
+  config: [
+    tesla: [disable_deprecated_builder_warning: true],
+    llm_composer: [
+      # Keys reading from livebook secrets
+      open_ai: [api_key: System.get_env("LB_OPENAI_KEY")],
+      open_router: [api_key: System.get_env("LB_OPENROUTER_KEY")]
+    ]
+  ]
+)
+```
+
+## Setup Helpers
+
+```elixir
+alias LlmComposer.Providers.OpenAI
+alias LlmComposer.Providers.OpenAIResponses
+alias LlmComposer.Providers.OpenRouter
+alias LlmComposer.Settings
+
+defmodule DemoHelpers do
+  @json_mod if Code.ensure_loaded?(JSON), do: JSON, else: Jason
+
+  def response_summary(res) do
+    %{
+      provider: res.provider,
+      provider_model: res.provider_model,
+      content: res.main_response && res.main_response.content,
+      reasoning: res.main_response && res.main_response.reasoning,
+      input_tokens: res.input_tokens,
+      output_tokens: res.output_tokens,
+      reasoning_tokens: res.reasoning_tokens
+    }
+  end
+
+  def print_response(label, res) do
+    IO.puts("\n=== #{label} ===")
+    IO.inspect(response_summary(res), pretty: true)
+    res
+  end
+
+  def decode_json!(text) do
+    @json_mod.decode!(text)
+  end
+
+  def print_json(label, json) do
+    IO.puts("\n=== #{label} ===")
+    IO.inspect(json, pretty: true)
+    json
+  end
+
+  def ensure_cache_started do
+    case Process.whereis(LlmComposer.Cache.Ets) do
+      nil -> LlmComposer.Cache.Ets.start_link()
+      pid when is_pid(pid) -> {:ok, pid}
+    end
+  end
+
+  def print_cost_info(res) do
+    info = res.cost_info
+
+    summary =
+      if info do
+        %{
+          provider: info.provider_name,
+          model: info.provider_model,
+          total_tokens: info.total_tokens,
+          input_cost: Decimal.to_string(info.input_cost, :normal),
+          output_cost: Decimal.to_string(info.output_cost, :normal),
+          total_cost: Decimal.to_string(info.total_cost, :normal)
+        }
+      else
+        %{error: "cost_info is nil"}
+      end
+
+    IO.puts("\n=== Cost info ===")
+    IO.inspect(summary, pretty: true)
+    res
+  end
+
+  def markdown_render(content, opts \\ []) do
+    Kino.Markdown.new(content)
+  end
+end
+
+# warning log level
+Logger.put_application_level(:llm_composer, :warning)
+
+["LB_OPENAI_KEY", "LB_OPENROUTER_KEY"]
+|> Enum.map(fn key -> {key, System.get_env(key)} end)
+|> Enum.each(fn
+  {key, val} when val in [nil, ""] ->
+    IO.puts("Missing env var #{key}")
+
+  _ ->
+    :ok
+end)
+```
+
+## 1. Minimal Chat
+
+Let's start with the happy path: one settings struct, one provider, one normalized response.
+
+```elixir
+alias LlmComposer.Settings
+
+basic_settings = %Settings{
+  providers: [
+    {OpenAI, [model: "gpt-5.4-mini"]}
+    # {OpenAI, [model: "gpt-4o-mini"]}
+  ],
+  system_prompt: "You are a concise assistant for an Elixir meetup."
+}
+
+{:ok, basic_res} =
+  LlmComposer.simple_chat(
+    basic_settings,
+    "In one sentence, what problem does LLMComposer solve?"
+  )
+
+basic_res.main_response
+```
+
+```elixir
+DemoHelpers.markdown_render(basic_res.main_response.content)
+```
+
+## 2. Same API, but With Turns
+
+The main change is just the message list. The response shape stays normalized.
+
+```elixir
+alias LlmComposer.Message
+
+history = [
+  Message.new(:user, "I am preparing a LiveView meetup."),
+  Message.new(:assistant, "Nice. What angle are you presenting?"),
+  Message.new(:user, "Explain LLMComposer in two short bullets for Elixir developers.")
+]
+
+{:ok, history_res} = LlmComposer.run_completion(basic_settings, history)
+
+DemoHelpers.markdown_render(history_res.main_response.content)
+```
+
+## 3. Manual Tool Calling
+
+The model decides to call a tool, but your app still owns execution.
+
+```elixir
+# A Calculator tool example
+
+defmodule CalculatorTool do
+  alias LlmComposer.Function
+
+  def calculator(%{"expression" => expression}) do
+    # to match only numbers, spaces and signs
+    if Regex.match?(~r/^[0-9\.\s\+\-\*\/\(\)]+$/, expression) do
+      {result, _binding} = Code.eval_string(expression)
+      result
+    else
+      {:error, "invalid expression"}
+    end
+  end
+
+  def calculator_function do
+    %Function{
+      mf: {__MODULE__, :calculator},
+      name: "calculator",
+      description: "Evaluate arithmetic expressions",
+      schema: %{
+        "type" => "object",
+        "properties" => %{
+          "expression" => %{
+            "type" => "string",
+            "example" => "2 ** 2 + 2 + 2 * (3 - 1)"
+          }
+        },
+        "additionalProperties" => false,
+        "required" => ["expression"]
+      }
+    }
+  end
+end
+
+:ok
+```
+
+```elixir
+functions = [CalculatorTool.calculator_function()]
+
+model = "gpt-4o-mini"
+
+tool_settings = %Settings{
+  providers: [
+    {OpenAI,
+     [
+       model: model,
+       functions: functions,
+       # optional argument, to make mandatory tool call
+       tool_choice: "required"
+     ]}
+  ],
+  system_prompt: """
+  You are a concise math assistant.
+  Always use the calculator tool for arithmetic before answering.
+  """
+}
+
+# user_message = Message.new(:user, "What is (15 + 27) * 2?")
+user_message = Message.new(:user, """
+Help me know the result of this calculations: 
+
+* (15 * 12) + 3
+* 11 ** 11
+
+""")
+
+{:ok, first_tool_res} = LlmComposer.run_completion(tool_settings, [user_message])
+
+IO.inspect(first_tool_res.main_response)
+
+first_tool_res.main_response.function_calls
+```
+
+```elixir
+alias LlmComposer.FunctionExecutor
+alias LlmComposer.LlmResponse
+
+executed_calls =
+  first_tool_res
+  |> LlmResponse.function_calls()
+  |> Enum.map(fn call ->
+    {:ok, executed_call} = FunctionExecutor.execute(call, functions)
+    executed_call
+  end)
+
+executed_calls
+```
+
+```elixir
+alias LlmComposer.FunctionCallHelpers
+
+tool_messages = FunctionCallHelpers.build_tool_result_messages(executed_calls)
+
+IO.inspect tool_messages, label: "Message object to send to provider: "
+
+assistant_with_tools =
+  FunctionCallHelpers.build_assistant_with_tools(
+    OpenAI,
+    first_tool_res,
+    user_message,
+    model: model,
+    functions: functions
+  )
+
+messages = [user_message, assistant_with_tools] ++ tool_messages
+
+{:ok, final_tool_res} = LlmComposer.run_completion(tool_settings, messages)
+
+# final_tool_res.main_response.content
+DemoHelpers.markdown_render(final_tool_res.main_response.content)
+```
+
+---
+
+### Summary
+
+That's how llm's can access the world!
+
+Interesting tools to have when working with AI and LLMs
+
+* Database querying and interpreting
+  * connected to a data warehouse for reading
+* API calling and interpreting response
+  * Doofinder API integration
+  * Current weather / stock prices / flight status
+* Tool that runs code and generates PDFs
+* Email sending
+  * Slack / Teams notifications
+  * Calendar scheduling (create/read events)
+* Web search and scraping (we also can use provided tools from openai/google/openrouter ...)
+* File system operations (read CSVs, write reports)
+* Running shell commands or Elixir code snippets
+
+## 4. Structured Outputs
+
+Free text is nice for chat. Structured data is nicer for apps.
+
+```elixir
+# yaml usage for easier reading
+ticket_schema = """
+type: object
+properties:
+  intent:
+    type: string
+  priority:
+    type: string
+  reply_needed:
+    type: boolean
+  summary:
+    type: boolean
+additionalProperties: false
+required: [intent, priority, reply_needed, summary]
+"""
+
+
+structured_settings = %Settings{
+  providers: [
+    {OpenRouter,
+     [
+       # very cheap model! supports structured outputs, function calls, reasoning...
+       model: "x-ai/grok-4.1-fast",
+       response_schema: YamlElixir.read_from_string!(ticket_schema),
+       
+       # disable reasoning for speed
+       request_params: %{reasoning: %{enabled: false}}
+     ]}
+  ],
+  system_prompt: """
+  Your job is to classify incoming messages based on provided output json schema.
+  """
+}
+
+ticket_prompt = """
+Classify this message:
+
+"We rolled out your package for the meetup, but the HDMI adapter
+is missing and the talk starts in 20 minutes."
+
+"""
+
+{:ok, structured_res} = LlmComposer.simple_chat(structured_settings, ticket_prompt)
+
+structured_json = DemoHelpers.decode_json!(structured_res.main_response.content)
+
+DemoHelpers.print_response("Structured output raw response", structured_res)
+DemoHelpers.print_json("Structured output parsed JSON", structured_json)
+```
+
+## 5. OpenAI Responses API
+
+Same normalized response, but richer upstream semantics like reasoning summaries and reasoning tokens.
+
+```elixir
+responses_settings = %Settings{
+  providers: [
+    {OpenAIResponses,
+     [
+       model: "gpt-5.4-mini",
+       
+       # simpler reasoning effort usage
+       # reasoning_effort: "high",
+       
+       # using request_params instead of reasoning_effort to allow summary parameter usage
+       request_params: %{
+         reasoning: %{
+           effort: "high",
+           summary: "detailed"
+         }
+       }
+     ]}
+  ],
+  system_prompt: "You are a concise assistant for senior Elixir developers."
+}
+
+{:ok, responses_res} =
+  LlmComposer.simple_chat(
+    responses_settings,
+    "Give me three short bullets on why LiveView works well for AI features."
+  )
+
+# DemoHelpers.print_response("Responses API", responses_res)
+# IO.inspect(responses_res)
+
+to_render = """
+## Reasoning
+
+#{responses_res.main_response.reasoning}
+
+## Response
+
+#{responses_res.main_response.content}
+"""
+
+DemoHelpers.markdown_render(to_render)
+```
+
+## 6. Cost Tracking
+
+This is the production-oriented closer: same request flow, but now you can inspect token usage and cost.
+
+```elixir
+{:ok, _cache} = DemoHelpers.ensure_cache_started()
+
+cost_settings = %Settings{
+  providers: [
+    {OpenAI,
+     [
+       model: "gpt-4o-mini",
+       track_costs: true
+     ]}
+  ],
+  system_prompt: "You are a concise assistant."
+}
+
+{:ok, cost_res} =
+  LlmComposer.simple_chat(
+    cost_settings,
+    "Explain in one paragraph why cost tracking matters in production LLM apps."
+  )
+
+# DemoHelpers.print_response("Cost tracking response", cost_res)
+# DemoHelpers.print_cost_info(cost_res)
+
+IO.inspect cost_res.cost_info
+
+DemoHelpers.markdown_render(cost_res.main_response.content)
+```
+
+## 7. Streaming
+
+```elixir
+# minimal Finch setup
+
+Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MeetupFinch})
+
+:ok =
+  case Finch.start_link(name: MeetupFinch) do
+    {:ok, _finch} -> :ok
+    {:error, {:already_started, _pid}} -> :ok
+  end
+```
+
+```elixir
+alias LlmComposer.Providers.Ollama
+
+streaming_settings = %Settings{
+  providers: [
+    {OpenAI, [model: "gpt-4o-mini"]}
+    # local ollama with very small model gemma3 1b 
+    # {Ollama, [model: "gemma3:1b"]}
+  ],
+  system_prompt: "You are a concise assistant.",
+  stream_response: true
+}
+
+{:ok, streaming_res} =
+  LlmComposer.simple_chat(
+    streaming_settings,
+    "Write four short bullets about what makes a good meetup demo."
+  )
+
+streaming_res.stream
+|> LlmComposer.parse_stream_response(streaming_res.provider)
+|> Enum.each(fn chunk ->
+  if chunk.type == :text_delta and is_binary(chunk.text) do
+    IO.write(chunk.text)
+  end
+end)
+```
+
+## 8. Provider fallback
+
+```elixir
+alias LlmComposer.ProviderRouter
+
+:ok =
+  case ProviderRouter.Simple.start_link([]) do
+    {:ok, _pid} -> :ok
+    {:error, {:already_started, _pid}} -> :ok
+  end
+```
+
+```elixir
+alias LlmComposer.Providers.Ollama
+
+fallback_settings = %Settings{
+  providers: [
+    # just forcing an error, wrong url
+    {Ollama, [model: "gemma3:1b", url: "http://localhost:9999"]},
+    {OpenAI, [model: "gpt-4o-mini"]}
+  ],
+  system_prompt: "You are a concise assistant."
+}
+
+{:ok, res} = LlmComposer.simple_chat(fallback_settings, "In one sentence, what is Elixir?")
+
+IO.puts("Answered by: #{res.provider}")
+
+DemoHelpers.markdown_render(res.main_response.content)
+```
+
+If you need to cut time live, keep this order:
+
+1. Minimal chat
+2. Tool calling
+3. Structured outputs
+4. Responses API
+5. Cost tracking
+
+The app demo can then own the more visual streaming experience.
+
+<!-- livebook:{"offset":11946,"stamp":{"token":"XCP.1s2xCr-WeMK5BNGP3wH4FBseGctsfU1JFW97YIXLL0PcBg_FDKfHpO5m7TpJg-pW6UyU1dS4v_wVuXddZSYCFCltHbXMzeS_Tk2YqcMWs7sMC3mYMBBaJhEZXvrSoQq4sDIRCX-6_B0","version":2}} -->
