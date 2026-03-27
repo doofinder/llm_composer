@@ -41,15 +41,18 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
       CostAssembler.extract_tokens(:google, response)
 
     cost_info = CostAssembler.get_cost_info(:google, response, opts)
-    function_calls = FunctionCallExtractors.from_google_parts(content)
+
+    main_response = %{
+      Message.new(role, message_content, %{original: content})
+      | function_calls: FunctionCallExtractors.from_google_parts(content)
+    }
 
     {:ok,
      LlmResponse.new(%{
        provider_model: Keyword.get(opts, :model),
        provider: :google,
        status: :ok,
-       main_response: Message.new(role, message_content, %{original: content}),
-       function_calls: function_calls,
+       main_response: main_response,
        input_tokens: input_tokens,
        output_tokens: output_tokens,
        cost_info: cost_info,

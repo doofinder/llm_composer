@@ -54,12 +54,10 @@ defmodule LlmComposer.Providers.UtilsTest do
         %Message{
           type: :assistant,
           content: "",
-          metadata: %{
-            original: nil,
-            tool_calls: [
-              %FunctionCall{name: "search", arguments: %{"q" => "test"}}
-            ]
-          }
+          function_calls: [
+            %FunctionCall{name: "search", arguments: %{"q" => "test"}}
+          ],
+          metadata: %{original: nil}
         }
       ]
 

@@ -48,11 +48,10 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
           message = %{
             base_msg
             | content: content,
+              function_calls: FunctionCallExtractors.from_tool_calls(main_response),
               reasoning: Map.get(main_response, "reasoning"),
               reasoning_details: Map.get(main_response, "reasoning_details")
           }
-
-          function_calls = FunctionCallExtractors.from_tool_calls(main_response)
 
           {input_tokens, output_tokens, cached_tokens} =
             CostAssembler.extract_tokens(provider, response)
@@ -66,7 +65,6 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
              provider: provider,
              status: :ok,
              main_response: message,
-             function_calls: function_calls,
              input_tokens: input_tokens,
              output_tokens: output_tokens,
              cost_info: cost_info,

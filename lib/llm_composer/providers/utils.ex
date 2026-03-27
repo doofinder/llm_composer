@@ -18,8 +18,8 @@ defmodule LlmComposer.Providers.Utils do
       %Message{type: :system, content: message} ->
         %{"role" => "system", "content" => message}
 
-      %Message{type: :assistant, content: message, metadata: metadata} ->
-        build_assistant_message(message, metadata)
+      %Message{type: :assistant, content: message, function_calls: function_calls} ->
+        build_assistant_message(message, function_calls)
 
       %Message{type: :tool_result, content: content, metadata: metadata} ->
         %{
@@ -49,12 +49,12 @@ defmodule LlmComposer.Providers.Utils do
       %Message{
         type: :assistant,
         content: message,
+        function_calls: function_calls,
         reasoning: reasoning,
-        reasoning_details: reasoning_details,
-        metadata: metadata
+        reasoning_details: reasoning_details
       } ->
         message
-        |> build_assistant_message(metadata)
+        |> build_assistant_message(function_calls)
         |> maybe_put("reasoning", reasoning)
         |> maybe_put("reasoning_details", reasoning_details)
 
@@ -77,8 +77,13 @@ defmodule LlmComposer.Providers.Utils do
       %Message{type: :user, content: message} ->
         %{"role" => "user", "parts" => [%{"text" => message}]}
 
-      %Message{type: :assistant, content: message, metadata: metadata} ->
-        build_google_assistant_message(message, metadata)
+      %Message{
+        type: :assistant,
+        content: message,
+        function_calls: function_calls,
+        metadata: metadata
+      } ->
+        build_google_assistant_message(message, function_calls, metadata)
 
       %Message{type: :tool_result, content: content, metadata: metadata} ->
         %{
@@ -102,8 +107,12 @@ defmodule LlmComposer.Providers.Utils do
     |> merge_consecutive_function_responses()
   end
 
-  @spec build_google_assistant_message(String.t() | nil, map()) :: map()
-  defp build_google_assistant_message(message, metadata) do
+  @spec build_google_assistant_message(
+          String.t() | nil,
+          [LlmComposer.FunctionCall.t()] | nil,
+          map()
+        ) :: map()
+  defp build_google_assistant_message(message, function_calls, metadata) do
     # When the original response content is available, use its parts directly
     # to preserve fields like thought_signature that Gemini thinking models require.
     case metadata[:original] do
@@ -111,46 +120,42 @@ defmodule LlmComposer.Providers.Utils do
         %{"role" => "model", "parts" => parts}
 
       _ ->
-        build_google_assistant_parts(message, metadata)
+        build_google_assistant_parts(message, function_calls)
     end
   end
 
-  @spec build_google_assistant_parts(String.t() | nil, map()) :: map()
-  defp build_google_assistant_parts(message, metadata) do
-    base_message = %{"role" => "model"}
+  @spec build_google_assistant_parts(String.t() | nil, [LlmComposer.FunctionCall.t()] | nil) ::
+          map()
+  defp build_google_assistant_parts(message, nil) do
+    %{"role" => "model", "parts" => [%{"text" => message}]}
+  end
 
-    case metadata[:tool_calls] do
-      nil ->
-        Map.put(base_message, "parts", [%{"text" => message}])
-
-      tool_calls ->
-        parts =
-          Enum.map(tool_calls, fn call ->
-            arguments =
-              if is_binary(call.arguments) do
-                Jason.decode!(call.arguments)
-              else
-                call.arguments
-              end
-
-            %{
-              "functionCall" => %{
-                "name" => call.name,
-                "args" => arguments
-              }
-            }
-          end)
-
-        # Add text part if message is not empty
-        parts =
-          if message && message != "" do
-            [%{"text" => message} | parts]
+  defp build_google_assistant_parts(message, tool_calls) when is_list(tool_calls) do
+    call_parts =
+      Enum.map(tool_calls, fn call ->
+        arguments =
+          if is_binary(call.arguments) do
+            Jason.decode!(call.arguments)
           else
-            parts
+            call.arguments
           end
 
-        Map.put(base_message, "parts", parts)
-    end
+        %{
+          "functionCall" => %{
+            "name" => call.name,
+            "args" => arguments
+          }
+        }
+      end)
+
+    parts =
+      if message && message != "" do
+        [%{"text" => message} | call_parts]
+      else
+        call_parts
+      end
+
+    %{"role" => "model", "parts" => parts}
   end
 
   # Merges consecutive tool-result user messages into a single content block.
@@ -272,30 +277,24 @@ defmodule LlmComposer.Providers.Utils do
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
-  @spec build_assistant_message(String.t() | nil, map()) :: map()
-  defp build_assistant_message(message, metadata) do
-    assistant_msg = %{"role" => "assistant"}
+  @spec build_assistant_message(String.t() | nil, [LlmComposer.FunctionCall.t()] | nil) :: map()
+  defp build_assistant_message(message, nil) do
+    %{"role" => "assistant", "content" => message}
+  end
 
-    case metadata[:tool_calls] do
-      nil ->
-        Map.put(assistant_msg, "content", message)
+  defp build_assistant_message(message, tool_calls) when is_list(tool_calls) do
+    formatted_calls =
+      Enum.map(tool_calls, fn call ->
+        %{
+          "id" => call.id,
+          "type" => call.type || "function",
+          "function" => %{
+            "name" => call.name,
+            "arguments" => call.arguments
+          }
+        }
+      end)
 
-      tool_calls ->
-        formatted_calls =
-          Enum.map(tool_calls, fn call ->
-            %{
-              "id" => call.id,
-              "type" => call.type || "function",
-              "function" => %{
-                "name" => call.name,
-                "arguments" => call.arguments
-              }
-            }
-          end)
-
-        assistant_msg
-        |> Map.put("content", message)
-        |> Map.put("tool_calls", formatted_calls)
-    end
+    %{"role" => "assistant", "content" => message, "tool_calls" => formatted_calls}
   end
 end

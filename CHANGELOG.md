@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-03-26
+
+### Added
+- Added `function_calls` as a typed `[LlmComposer.FunctionCall.t()] | nil` field directly on `%LlmComposer.Message{}`, replacing the untyped `metadata[:tool_calls]` map access previously used in conversation history.
+- Added `LlmResponse.function_calls/1` delegate function for convenient access to the function calls of the main response message.
+
+### Changed
+- Moved `function_calls` from `%LlmComposer.LlmResponse{}` struct field to `%LlmComposer.Message{}`, eliminating the duplication between `LlmResponse.function_calls` (initial response) and `Message.metadata[:tool_calls]` (conversation history). OpenAI, OpenRouter, and Google parsers now set `function_calls` directly on the assistant message.
+- Updated `Providers.Utils` message mappers for OpenAI, OpenRouter, and Google to read `message.function_calls` instead of `message.metadata[:tool_calls]`.
+
 ## [0.17.1] - 2026-03-26
 
 ### Fixed
@@ -25,7 +35,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 - Fixed Google provider message mapping to preserve `thought_signature` and other fields from Gemini thinking models by reusing `parts` from the original response when available.
-- Fixed Google provider parallel tool call handling by merging consecutive `functionResponse` user turns into a single turn, as required by the Google API.
 
 ### Changed
 - Updated OpenAI/OpenRouter response parsing to better handle streamed chunk lists, tuple-list payloads with string or atom keys, content arrays, and empty-choice errors.
@@ -246,7 +255,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.17.1...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.18.0...HEAD
+[0.18.0]: https://github.com/doofinder/llm_composer/compare/0.17.1...0.18.0
 [0.17.1]: https://github.com/doofinder/llm_composer/compare/0.17.0...0.17.1
 [0.17.0]: https://github.com/doofinder/llm_composer/compare/0.16.2...0.17.0
 [0.16.2]: https://github.com/doofinder/llm_composer/compare/0.16.1...0.16.2

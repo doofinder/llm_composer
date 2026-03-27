@@ -729,6 +729,7 @@ Application.put_env(:llm_composer, :open_ai, api_key: "<your api key>")
 defmodule ManualFunctionCallExample do
   alias LlmComposer.FunctionExecutor
   alias LlmComposer.Function
+  alias LlmComposer.LlmResponse
   alias LlmComposer.Message
 
   # 1) Define the actual function that will run locally
@@ -772,7 +773,7 @@ defmodule ManualFunctionCallExample do
     # Step 1: send initial chat that may request function calls
     {:ok, resp} = LlmComposer.simple_chat(settings, user_prompt)
 
-    case resp.function_calls do
+    case LlmResponse.function_calls(resp) do
       nil ->
         # Model provided a direct answer
         IO.puts("Assistant: #{resp.main_response.content}")

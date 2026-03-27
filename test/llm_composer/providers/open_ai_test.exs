@@ -592,7 +592,7 @@ defmodule LlmComposer.Providers.OpenAITest do
     }
 
     {:ok, first_response} = LlmComposer.simple_chat(settings, "How much is 1 + 2?")
-    [function_call] = first_response.function_calls
+    [function_call] = first_response.main_response.function_calls
 
     executed_call = %{function_call | result: 3}
     tool_messages = FunctionCallHelpers.build_tool_result_messages([executed_call])
@@ -611,7 +611,7 @@ defmodule LlmComposer.Providers.OpenAITest do
     {:ok, final_response} = LlmComposer.run_completion(settings, messages)
 
     assert first_response.provider == :open_ai_responses
-    assert [%{name: "calculator", id: "call_123"}] = first_response.function_calls
+    assert [%{name: "calculator", id: "call_123"}] = first_response.main_response.function_calls
     assert final_response.main_response.content == "The result is 3."
   end
 
