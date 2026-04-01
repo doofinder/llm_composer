@@ -166,6 +166,56 @@ defmodule LlmComposer.StreamChunkTest do
              } = chunk
     end
 
+    test "Google chunk with functionCall becomes :tool_call_delta" do
+      data =
+        ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"name":"http_client","args":{"method":"GET","url":"https://example.com"}}}]}}]})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:google)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :google,
+               type: :tool_call_delta,
+               text: nil,
+               tool_call: [%LlmComposer.FunctionCall{name: "http_client"}]
+             } = chunk
+    end
+
+    test "Google done chunk with functionCall still becomes :done" do
+      data =
+        ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"name":"http_client","args":{}}}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"totalTokenCount":15}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:google)
+        |> Enum.to_list()
+
+      assert %StreamChunk{provider: :google, type: :done} = chunk
+    end
+
+    test "Google done chunk maps thoughtsTokenCount to reasoning_tokens" do
+      data =
+        ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"text":""}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":147,"candidatesTokenCount":151,"totalTokenCount":841,"thoughtsTokenCount":543}})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:google)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :google,
+               type: :done,
+               usage: %{
+                 input_tokens: 147,
+                 output_tokens: 151,
+                 total_tokens: 841,
+                 reasoning_tokens: 543
+               }
+             } = chunk
+    end
+
     test "Google final chunk includes cost info when pricing opts are provided" do
       data =
         ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Yo"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"totalTokenCount":8}})

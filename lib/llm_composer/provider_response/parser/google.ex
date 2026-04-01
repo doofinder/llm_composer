@@ -40,6 +40,7 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
     {input_tokens, output_tokens, _cached_tokens} =
       CostAssembler.extract_tokens(:google, response)
 
+    reasoning_tokens = get_in(response, ["usageMetadata", "thoughtsTokenCount"])
     cost_info = CostAssembler.get_cost_info(:google, response, opts)
 
     main_response = %{
@@ -57,7 +58,7 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
        output_tokens: output_tokens,
        cost_info: cost_info,
        raw: response,
-       reasoning_tokens: nil
+       reasoning_tokens: reasoning_tokens
      })}
   end
 
