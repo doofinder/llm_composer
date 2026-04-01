@@ -71,6 +71,52 @@ defmodule LlmComposer.Providers.GoogleTest do
     assert response.reasoning_tokens == nil
   end
 
+  test "thoughtsTokenCount is mapped to reasoning_tokens", %{bypass: bypass} do
+    Bypass.expect_once(
+      bypass,
+      "POST",
+      "/v1beta/models/gemini-2.5-flash:generateContent",
+      fn conn ->
+        response_body = %{
+          "candidates" => [
+            %{
+              "content" => %{
+                "role" => "model",
+                "parts" => [%{"text" => "Hello!"}]
+              },
+              "finishReason" => "STOP"
+            }
+          ],
+          "usageMetadata" => %{
+            "promptTokenCount" => 10,
+            "candidatesTokenCount" => 5,
+            "totalTokenCount" => 558,
+            "thoughtsTokenCount" => 543
+          }
+        }
+
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(200, Jason.encode!(response_body))
+      end
+    )
+
+    settings = %Settings{
+      providers: [
+        {Google,
+         [
+           model: "gemini-2.5-flash",
+           api_key: "test-key",
+           url: endpoint_url(bypass.port)
+         ]}
+      ],
+      system_prompt: "You are a helpful assistant"
+    }
+
+    {:ok, response} = LlmComposer.simple_chat(settings, "hi")
+    assert response.reasoning_tokens == 543
+  end
+
   test "structured output is included in request", %{bypass: bypass} do
     schema = %{
       "type" => "object",
