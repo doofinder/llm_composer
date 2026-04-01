@@ -7,7 +7,7 @@ defmodule LlmComposer.StreamChunk do
   - `:text` is the accumulated text delta (if any)
   - `:reasoning` is the accumulated reasoning delta (if any)
   - `:reasoning_details` keeps structured reasoning detail fragments when providers emit them
-  - `:tool_call` keeps normalized tool/function call fragments
+  - `:tool_calls` keeps normalized tool/function call fragments
   - `:usage` stores the token usage payload when available
   - `:cost_info` can surface cost data on the final chunk
   - `:metadata` holds provider-specific attributes (finish reason, role, etc.)
@@ -15,6 +15,7 @@ defmodule LlmComposer.StreamChunk do
   """
 
   alias LlmComposer.CostInfo
+  alias LlmComposer.FunctionCall
 
   @type usage() ::
           %{
@@ -32,7 +33,7 @@ defmodule LlmComposer.StreamChunk do
           text: String.t() | nil,
           reasoning: String.t() | nil,
           reasoning_details: list() | nil,
-          tool_call: map() | nil,
+          tool_calls: list(FunctionCall.t() | map()) | nil,
           usage: usage() | nil,
           cost_info: CostInfo.t() | nil,
           metadata: map(),
@@ -45,7 +46,7 @@ defmodule LlmComposer.StreamChunk do
     :text,
     :reasoning,
     :reasoning_details,
-    :tool_call,
+    :tool_calls,
     :usage,
     :cost_info,
     :raw,

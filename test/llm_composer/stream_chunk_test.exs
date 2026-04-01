@@ -14,8 +14,8 @@ defmodule LlmComposer.StreamChunkTest do
         |> Enum.to_list()
 
       assert %StreamChunk{provider: :open_ai, type: :tool_call_delta} = chunk
-      assert is_list(chunk.tool_call)
-      assert [%{"function" => %{"name" => "get_weather"}}] = chunk.tool_call
+      assert is_list(chunk.tool_calls)
+      assert [%{"function" => %{"name" => "get_weather"}}] = chunk.tool_calls
     end
 
     test "OpenAI tool_call argument delta chunk is :tool_call_delta" do
@@ -28,7 +28,7 @@ defmodule LlmComposer.StreamChunkTest do
         |> Enum.to_list()
 
       assert %StreamChunk{type: :tool_call_delta} = chunk
-      assert [%{"function" => %{"arguments" => "{\"loc"}}] = chunk.tool_call
+      assert [%{"function" => %{"arguments" => "{\"loc"}}] = chunk.tool_calls
     end
 
     test "opts passed to parse_stream_response/3 are forwarded to parser" do
@@ -179,7 +179,7 @@ defmodule LlmComposer.StreamChunkTest do
                provider: :google,
                type: :tool_call_delta,
                text: nil,
-               tool_call: [%LlmComposer.FunctionCall{name: "http_client"}]
+               tool_calls: [%LlmComposer.FunctionCall{name: "http_client"}]
              } = chunk
     end
 
@@ -270,9 +270,10 @@ defmodule LlmComposer.StreamChunkTest do
         |> Enum.to_list()
 
       assert %StreamChunk{provider: :open_ai_responses, type: :tool_call_delta} = chunk
-      assert chunk.tool_call["type"] == "function_call_started"
-      assert chunk.tool_call["name"] == "calculator"
-      assert chunk.tool_call["call_id"] == "call_abc"
+      assert [tc] = chunk.tool_calls
+      assert tc["type"] == "function_call_started"
+      assert tc["name"] == "calculator"
+      assert tc["call_id"] == "call_abc"
     end
 
     test "response.output_item.added with non-function type is skipped" do
@@ -297,9 +298,10 @@ defmodule LlmComposer.StreamChunkTest do
         |> Enum.to_list()
 
       assert %StreamChunk{provider: :open_ai_responses, type: :tool_call_delta} = chunk
-      assert chunk.tool_call["type"] == "function_call_arguments_delta"
-      assert chunk.tool_call["call_id"] == "call_abc"
-      assert chunk.tool_call["arguments_delta"] == "{\"expr"
+      assert [tc] = chunk.tool_calls
+      assert tc["type"] == "function_call_arguments_delta"
+      assert tc["call_id"] == "call_abc"
+      assert tc["arguments_delta"] == "{\"expr"
     end
 
     test "response.completed becomes :done with usage" do

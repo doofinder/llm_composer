@@ -47,7 +47,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAIResponses do
      %StreamChunk{
        provider: provider,
        type: :tool_call_delta,
-       tool_call: tool_call,
+       tool_calls: [tool_call],
        raw: raw
      }}
   end
@@ -68,7 +68,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAIResponses do
      %StreamChunk{
        provider: provider,
        type: :tool_call_delta,
-       tool_call: tool_call,
+       tool_calls: [tool_call],
        raw: raw
      }}
   end

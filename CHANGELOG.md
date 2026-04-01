@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.18.2] - 2026-04-01
+
+### Changed
+- Renamed `StreamChunk.tool_call` to `tool_calls` and updated its typespec from `map() | nil` to `list(LlmComposer.FunctionCall.t() | map()) | nil` — the field was already carrying a list in all parsers, so this aligns the struct definition with actual runtime values.
+
+### Fixed
+- Fixed Google streaming cost info to be built whenever usage data is present, not only on `:done` chunks — removes the unused `type` parameter from `build_cost_info/4`.
+
 ## [0.18.1] - 2026-04-01
 
 ### Added
@@ -262,7 +270,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.18.1...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.18.2...HEAD
+[0.18.2]: https://github.com/doofinder/llm_composer/compare/0.18.1...0.18.2
 [0.18.1]: https://github.com/doofinder/llm_composer/compare/0.18.0...0.18.1
 [0.18.0]: https://github.com/doofinder/llm_composer/compare/0.17.1...0.18.0
 [0.17.1]: https://github.com/doofinder/llm_composer/compare/0.17.0...0.17.1
