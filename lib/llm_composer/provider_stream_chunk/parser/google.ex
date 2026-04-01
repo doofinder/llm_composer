@@ -36,7 +36,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
        text: text,
        tool_call: tool_calls,
        usage: usage,
-       cost_info: build_cost_info(type, raw, usage, opts),
+       cost_info: build_cost_info(raw, usage, opts),
        metadata: %{finish_reason: finish_reason, role: content["role"]},
        raw: raw
      }}
@@ -67,9 +67,9 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
 
   defp format_usage(_), do: nil
 
-  defp build_cost_info(:done, raw, usage, opts) when is_map(usage) do
+  defp build_cost_info(raw, usage, opts) when is_map(usage) do
     CostAssembler.get_cost_info(:google, raw, opts)
   end
 
-  defp build_cost_info(_type, _raw, _usage, _opts), do: nil
+  defp build_cost_info(_raw, _usage, _opts), do: nil
 end
