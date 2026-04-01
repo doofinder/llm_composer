@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Fixed Google streaming cost info to be built whenever usage data is present, not only on `:done` chunks — removes the unused `type` parameter from `build_cost_info/4`.
+
 ## [0.18.1] - 2026-04-01
 
 ### Added
