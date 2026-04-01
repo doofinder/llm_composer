@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- Added `:tool_call_delta` stream chunk type for Google provider: chunks containing `functionCall` parts are now correctly classified as `:tool_call_delta` with the `tool_call` field populated as a list of `%LlmComposer.FunctionCall{}` structs, instead of being silently emitted as empty `:text_delta` chunks.
+- Added `reasoning_tokens` extraction from `thoughtsTokenCount` in Google streaming responses — the final `:done` chunk now populates `chunk.usage.reasoning_tokens` for Gemini thinking models.
+- Added `reasoning_tokens` extraction from `thoughtsTokenCount` in Google non-streaming responses — `LlmResponse.reasoning_tokens` is now populated from `usageMetadata.thoughtsTokenCount`.
+
 ## [0.18.0] - 2026-03-26
 
 ### Added
