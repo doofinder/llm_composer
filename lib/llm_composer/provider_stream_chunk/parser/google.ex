@@ -22,7 +22,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
         text not in [nil, ""] ->
           :text_delta
 
-        is_list(tool_calls) and tool_calls != [] ->
+        is_list(tool_calls) ->
           :tool_call_delta
 
         true ->
