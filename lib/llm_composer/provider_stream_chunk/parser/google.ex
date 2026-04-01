@@ -34,7 +34,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
        provider: :google,
        type: type,
        text: text,
-       tool_call: tool_calls,
+       tool_calls: tool_calls,
        usage: usage,
        cost_info: build_cost_info(raw, usage, opts),
        metadata: %{finish_reason: finish_reason, role: content["role"]},

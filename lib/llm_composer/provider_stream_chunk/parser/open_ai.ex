@@ -41,7 +41,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
        text: text,
        reasoning: reasoning,
        reasoning_details: reasoning_details,
-       tool_call: tool_calls,
+       tool_calls: tool_calls,
        usage: usage,
        cost_info: build_cost_info(type, provider, raw, usage, opts),
        metadata: %{finish_reason: finish_reason},

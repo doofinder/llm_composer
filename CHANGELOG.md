@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- Renamed `StreamChunk.tool_call` to `tool_calls` and updated its typespec from `map() | nil` to `list(LlmComposer.FunctionCall.t() | map()) | nil` — the field was already carrying a list in all parsers, so this aligns the struct definition with actual runtime values.
+
 ### Fixed
 - Fixed Google streaming cost info to be built whenever usage data is present, not only on `:done` chunks — removes the unused `type` parameter from `build_cost_info/4`.
 
