@@ -1,6 +1,7 @@
 defmodule LlmComposer.Providers.Utils do
   @moduledoc false
 
+  alias LlmComposer.Helpers
   alias LlmComposer.Message
 
   @spec map_messages([Message.t()], atom) :: [map()]
@@ -135,7 +136,7 @@ defmodule LlmComposer.Providers.Utils do
       Enum.map(tool_calls, fn call ->
         arguments =
           if is_binary(call.arguments) do
-            Jason.decode!(call.arguments)
+            Helpers.json_engine().decode!(call.arguments)
           else
             call.arguments
           end

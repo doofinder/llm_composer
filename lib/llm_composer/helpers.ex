@@ -36,6 +36,20 @@ defmodule LlmComposer.Helpers do
       end)
   end
 
+  @doc """
+  Returns the configured JSON engine module.
+
+  Reads `:json_engine` from application config. Defaults to `JSON` if available,
+  otherwise falls back to `Jason`.
+  """
+  @spec json_engine() :: module()
+  def json_engine do
+    case Application.get_env(:llm_composer, :json_engine) do
+      nil -> if Code.ensure_loaded?(JSON), do: JSON, else: Jason
+      engine -> engine
+    end
+  end
+
   defp normalize_key(key) when is_binary(key), do: key
   defp normalize_key(key) when is_atom(key), do: Atom.to_string(key)
   defp normalize_key(key), do: to_string(key)
