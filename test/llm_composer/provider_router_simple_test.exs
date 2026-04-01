@@ -1,5 +1,5 @@
 defmodule LlmComposer.ProviderRouterSimpleTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias LlmComposer.ProviderRouter.Simple
   alias LlmComposer.Providers.Google
@@ -7,10 +7,8 @@ defmodule LlmComposer.ProviderRouterSimpleTest do
   alias LlmComposer.Settings
 
   setup do
-    # Start the provider router
-    {:ok, _router_pid} = Simple.start_link([])
+    start_supervised!(Simple)
 
-    # Set up bypass servers for both providers
     openai_bypass = Bypass.open()
     google_bypass = Bypass.open()
 
