@@ -10,6 +10,7 @@ if Code.ensure_loaded?(ExAws) do
     """
     @behaviour LlmComposer.Provider
 
+    alias LlmComposer.Helpers
     alias LlmComposer.Message
     alias LlmComposer.ProviderResponse
     alias LlmComposer.Providers.Bedrock.StreamOperation
@@ -41,7 +42,10 @@ if Code.ensure_loaded?(ExAws) do
     @spec build_request(list(Message.t()), Message.t(), keyword()) :: map()
     defp build_request(messages, system_message, opts) do
       base_request = %{
-        "messages" => Enum.map(messages, &format_message/1),
+        "messages" =>
+          messages
+          |> Enum.map(&format_message/1)
+          |> merge_consecutive_tool_results(),
         "system" => [format_message(system_message)]
       }
 
@@ -76,12 +80,77 @@ if Code.ensure_loaded?(ExAws) do
       %{"text" => content}
     end
 
+    defp format_message(%Message{type: :tool_result, content: content, metadata: metadata}) do
+      %{
+        "role" => "user",
+        "content" => [
+          %{
+            "toolResult" => %{
+              "toolUseId" => metadata["tool_call_id"],
+              "content" => [%{"text" => to_string(content)}]
+            }
+          }
+        ]
+      }
+    end
+
+    defp format_message(%Message{type: :assistant, metadata: metadata} = msg) do
+      case get_in(metadata, [:original, "content"]) do
+        original_content when is_list(original_content) ->
+          %{"role" => "assistant", "content" => original_content}
+
+        _ ->
+          build_assistant_content(msg)
+      end
+    end
+
     defp format_message(%Message{type: role, content: content}) when is_binary(content) do
       %{"role" => Atom.to_string(role), "content" => [%{"text" => content}]}
     end
 
     defp format_message(%Message{type: role, content: content}) do
       %{"role" => Atom.to_string(role), "content" => content}
+    end
+
+    @spec build_assistant_content(Message.t()) :: map()
+    defp build_assistant_content(%Message{content: content, function_calls: nil})
+         when is_binary(content) do
+      %{"role" => "assistant", "content" => [%{"text" => content}]}
+    end
+
+    defp build_assistant_content(%Message{content: content, function_calls: function_calls})
+         when is_list(function_calls) do
+      text_parts = if content && content != "", do: [%{"text" => content}], else: []
+
+      tool_parts =
+        Enum.map(function_calls, fn call ->
+          arguments =
+            if is_binary(call.arguments) do
+              Helpers.json_engine().decode!(call.arguments)
+            else
+              call.arguments || %{}
+            end
+
+          %{"toolUse" => %{"toolUseId" => call.id, "name" => call.name, "input" => arguments}}
+        end)
+
+      %{"role" => "assistant", "content" => text_parts ++ tool_parts}
+    end
+
+    # Merges consecutive tool-result user messages into a single content block.
+    # Bedrock requires all toolResult blocks for one assistant turn to be in one user turn.
+    @spec merge_consecutive_tool_results([map()]) :: [map()]
+    defp merge_consecutive_tool_results(messages) do
+      messages
+      |> Enum.reduce([], fn
+        %{"role" => "user", "content" => [%{"toolResult" => _} | _] = parts},
+        [%{"role" => "user", "content" => [%{"toolResult" => _} | _] = prev_parts} | rest] ->
+          [%{"role" => "user", "content" => prev_parts ++ parts} | rest]
+
+        msg, acc ->
+          [msg | acc]
+      end)
+      |> Enum.reverse()
     end
 
     @spec handle_response({:ok, term()} | {:error, term()}, boolean()) ::

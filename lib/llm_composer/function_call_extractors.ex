@@ -49,4 +49,28 @@ defmodule LlmComposer.FunctionCallExtractors do
   end
 
   def from_google_parts(_), do: nil
+
+  @spec from_bedrock_content(list()) :: [FunctionCall.t()] | nil
+  def from_bedrock_content(content) when is_list(content) do
+    calls =
+      content
+      |> Enum.filter(&Map.has_key?(&1, "toolUse"))
+      |> Enum.map(fn %{"toolUse" => tool_use} ->
+        %FunctionCall{
+          id: tool_use["toolUseId"],
+          name: tool_use["name"],
+          arguments: Helpers.json_engine().encode!(tool_use["input"] || %{}),
+          type: "tool_use",
+          metadata: %{},
+          result: nil
+        }
+      end)
+
+    case calls do
+      [] -> nil
+      list -> list
+    end
+  end
+
+  def from_bedrock_content(_), do: nil
 end
