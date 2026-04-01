@@ -12,6 +12,7 @@ if Code.ensure_loaded?(ExAws) do
 
     alias LlmComposer.Message
     alias LlmComposer.ProviderResponse
+    alias LlmComposer.Providers.Bedrock.StreamOperation
     alias LlmComposer.Providers.Utils
 
     @impl LlmComposer.Provider
@@ -20,15 +21,17 @@ if Code.ensure_loaded?(ExAws) do
     @impl LlmComposer.Provider
     @doc """
     Reference: https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html
+    Reference (stream): https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ConverseStream.html
     """
     def run(messages, system_message, opts) do
       model = Keyword.get(opts, :model)
+      stream = Keyword.get(opts, :stream_response, false)
 
       if model do
         messages
         |> build_request(system_message, opts)
-        |> send_request(model)
-        |> handle_response()
+        |> send_request(model, stream)
+        |> handle_response(stream)
         |> wrap_response(opts)
       else
         {:error, :model_not_provided}
@@ -49,8 +52,14 @@ if Code.ensure_loaded?(ExAws) do
       |> Utils.cleanup_body()
     end
 
-    @spec send_request(map(), String.t()) :: {:ok, map()} | {:error, term()}
-    defp send_request(payload, model) do
+    @spec send_request(map(), String.t(), boolean()) :: {:ok, term()} | {:error, term()}
+    defp send_request(payload, model, true) do
+      payload
+      |> StreamOperation.new(model)
+      |> ExAws.request(service_override: :bedrock, http_opts: [stream: true])
+    end
+
+    defp send_request(payload, model, false) do
       operation = %ExAws.Operation.JSON{
         data: payload,
         headers: [{"Content-Type", "application/json"}],
@@ -59,8 +68,7 @@ if Code.ensure_loaded?(ExAws) do
         service: :"bedrock-runtime"
       }
 
-      config = [service_override: :bedrock]
-      ExAws.request(operation, config)
+      ExAws.request(operation, service_override: :bedrock)
     end
 
     @spec format_message(Message.t()) :: map()
@@ -76,8 +84,21 @@ if Code.ensure_loaded?(ExAws) do
       %{"role" => Atom.to_string(role), "content" => content}
     end
 
-    @spec handle_response({:ok, map()} | {:error, map()}) :: {:ok, map()} | {:error, term}
-    defp handle_response({:ok, %{"output" => %{"message" => _message}} = response}) do
+    @spec handle_response({:ok, term()} | {:error, term()}, boolean()) ::
+            {:ok, map()} | {:error, term()}
+    defp handle_response({:ok, chunk_stream}, true) do
+      # Lazily parse AWS Event Stream frames from the binary chunk stream.
+      # Frame layout: [4B total_len][4B headers_len][4B prelude_crc][headers...][payload...][4B msg_crc]
+      # Each extracted payload is a JSON-encoded binary (one per event).
+      event_stream =
+        Stream.transform(chunk_stream, <<>>, fn chunk, buffer ->
+          extract_event_frames(buffer <> chunk, [])
+        end)
+
+      {:ok, %{stream: event_stream}}
+    end
+
+    defp handle_response({:ok, %{"output" => %{"message" => _}} = response}, false) do
       {:ok,
        %{
          response: response,
@@ -86,7 +107,7 @@ if Code.ensure_loaded?(ExAws) do
        }}
     end
 
-    defp handle_response({:error, resp}) do
+    defp handle_response({:error, resp}, _stream) do
       {:error, resp}
     end
 
@@ -95,5 +116,28 @@ if Code.ensure_loaded?(ExAws) do
       |> ProviderResponse.Bedrock.new(opts)
       |> ProviderResponse.to_llm_response(opts)
     end
+
+    # Extracts complete AWS Event Stream frames from a binary buffer.
+    # Returns {payloads, remaining_buffer} for use with Stream.transform.
+    # Incomplete frames are kept in the buffer for the next chunk.
+    @spec extract_event_frames(binary(), [binary()]) :: {[binary()], binary()}
+    defp extract_event_frames(
+           <<total_len::32-big-unsigned, headers_len::32-big-unsigned, _prelude_crc::32,
+             rest::binary>> = buffer,
+           acc
+         ) do
+      payload_len = total_len - headers_len - 16
+
+      if byte_size(rest) >= headers_len + payload_len + 4 do
+        <<_headers::binary-size(headers_len), payload::binary-size(payload_len), _msg_crc::32,
+          remaining::binary>> = rest
+
+        extract_event_frames(remaining, [payload | acc])
+      else
+        {Enum.reverse(acc), buffer}
+      end
+    end
+
+    defp extract_event_frames(buffer, acc), do: {Enum.reverse(acc), buffer}
   end
 end

@@ -8,6 +8,16 @@ defmodule LlmComposer.ProviderResponse.Parser.Bedrock do
           {:ok, LlmResponse.t()} | {:error, term()}
   def parse({:error, resp}, _provider, _opts), do: {:error, resp}
 
+  def parse({:ok, %{stream: stream}}, :bedrock, _opts) do
+    {:ok,
+     LlmResponse.new(%{
+       provider: :bedrock,
+       status: :ok,
+       stream: stream,
+       raw: stream
+     })}
+  end
+
   def parse({:ok, %{response: response} = provider_response}, :bedrock, _opts) do
     [%{"text" => message_content}] = response["output"]["message"]["content"]
     role = String.to_existing_atom(response["output"]["message"]["role"])
