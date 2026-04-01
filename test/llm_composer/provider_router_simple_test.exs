@@ -7,7 +7,7 @@ defmodule LlmComposer.ProviderRouterSimpleTest do
   alias LlmComposer.Settings
 
   setup do
-    start_supervised!(Simple)
+    start_supervised!(%{id: Simple, start: {Simple, :start_link, [[]]}})
 
     openai_bypass = Bypass.open()
     google_bypass = Bypass.open()
