@@ -95,14 +95,7 @@ if Code.ensure_loaded?(ExAws) do
         end)
 
       ref = Process.monitor(pid)
-
-      case await_response_metadata(ref) do
-        {:ok, {status, resp_headers}} ->
-          {:ok, %{status_code: status, headers: resp_headers, body: build_chunk_stream(ref)}}
-
-        {:error, reason} ->
-          {:error, %{reason: reason}}
-      end
+      handle_stream_response(ref)
     end
 
     # ---------------------------------------------------------------------------
@@ -144,14 +137,7 @@ if Code.ensure_loaded?(ExAws) do
         end)
 
       ref = Process.monitor(pid)
-
-      case await_response_metadata(ref) do
-        {:ok, {status, resp_headers}} ->
-          {:ok, %{status_code: status, headers: resp_headers, body: build_chunk_stream(ref)}}
-
-        {:error, reason} ->
-          {:error, %{reason: reason}}
-      end
+      handle_stream_response(ref)
     end
 
     @spec stream_mint_loop(Mint.HTTP.t(), Mint.Types.request_ref(), pid()) :: :ok
@@ -272,6 +258,20 @@ if Code.ensure_loaded?(ExAws) do
       end
     end
 
+    @spec handle_stream_response(reference()) :: {:ok, map()} | {:error, map()}
+    defp handle_stream_response(ref) do
+      case await_response_metadata(ref) do
+        {:ok, {status, resp_headers}} when status in 200..299 ->
+          {:ok, %{status_code: status, headers: resp_headers, body: build_chunk_stream(ref)}}
+
+        {:ok, {status, resp_headers}} ->
+          {:ok, %{status_code: status, headers: resp_headers, body: collect_error_body(ref)}}
+
+        {:error, reason} ->
+          {:error, %{reason: reason}}
+      end
+    end
+
     @spec await_response_metadata(reference()) ::
             {:ok, {pos_integer(), list()}} | {:error, term()}
     defp await_response_metadata(ref) do
@@ -297,6 +297,18 @@ if Code.ensure_loaded?(ExAws) do
           {:error, {:task_crashed, reason}}
       after
         @stream_timeout -> {:error, :timeout_waiting_for_status}
+      end
+    end
+
+    @spec collect_error_body(reference(), binary()) :: binary()
+    defp collect_error_body(ref, acc \\ "") do
+      receive do
+        {:bedrock_stream, {:data, chunk}} -> collect_error_body(ref, acc <> chunk)
+        {:bedrock_stream, :done} -> acc
+        {:bedrock_stream, {:error, _reason}} -> acc
+        {:DOWN, ^ref, :process, _pid, _reason} -> acc
+      after
+        @stream_timeout -> acc
       end
     end
 
