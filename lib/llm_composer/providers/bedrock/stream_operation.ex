@@ -36,7 +36,12 @@ if Code.ensure_loaded?(ExAws) do
       url = ExAws.Request.Url.build(operation, config)
       headers = [{"x-amz-content-sha256", ""} | operation.headers]
 
-      config = Map.put(config, :http_client, LlmComposer.Providers.Bedrock.HttpClient)
+      config =
+        if Application.get_env(:ex_aws, :http_client) do
+          config
+        else
+          Map.put(config, :http_client, LlmComposer.Providers.Bedrock.HttpClient)
+        end
 
       result =
         ExAws.Request.request(

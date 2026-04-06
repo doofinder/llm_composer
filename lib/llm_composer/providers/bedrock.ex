@@ -83,7 +83,18 @@ if Code.ensure_loaded?(ExAws) do
         service: :"bedrock-runtime"
       }
 
-      ExAws.request(operation, service_override: :bedrock)
+      ExAws.request(operation, ex_aws_opts())
+    end
+
+    @spec ex_aws_opts() :: keyword()
+    defp ex_aws_opts do
+      base = [service_override: :bedrock]
+
+      if Application.get_env(:ex_aws, :http_client) do
+        base
+      else
+        Keyword.put(base, :http_client, LlmComposer.Providers.Bedrock.HttpClient)
+      end
     end
 
     @spec format_message(Message.t()) :: map()
