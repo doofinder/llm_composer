@@ -7,6 +7,9 @@ if Code.ensure_loaded?(ExAws) do
     process that forwards events as messages to the caller. Returns a lazy `Stream` as
     the response body — required for the ConverseStream binary event-stream response.
 
+    The spawned task is monitored with `Process.monitor/1` so any unexpected crash
+    surfaces immediately to the caller instead of waiting for the stream timeout.
+
     ## Default behaviour (Mint)
 
     Uses `Mint.HTTP` directly for both streaming and regular requests. No additional
@@ -72,27 +75,30 @@ if Code.ensure_loaded?(ExAws) do
       req = Finch.build(method, url, headers, body)
       caller = self()
 
-      Task.start(fn ->
-        Finch.stream(req, finch_name, nil, fn
-          {:status, status}, _acc ->
-            send(caller, {:bedrock_stream, {:status, status}})
+      {:ok, pid} =
+        Task.start(fn ->
+          Finch.stream(req, finch_name, nil, fn
+            {:status, status}, _acc ->
+              send(caller, {:bedrock_stream, {:status, status}})
 
-          {:headers, resp_headers}, _acc ->
-            send(caller, {:bedrock_stream, {:headers, resp_headers}})
+            {:headers, resp_headers}, _acc ->
+              send(caller, {:bedrock_stream, {:headers, resp_headers}})
 
-          {:data, chunk}, _acc ->
-            send(caller, {:bedrock_stream, {:data, chunk}})
+            {:data, chunk}, _acc ->
+              send(caller, {:bedrock_stream, {:data, chunk}})
 
-          _, _acc ->
-            nil
+            _, _acc ->
+              nil
+          end)
+
+          send(caller, {:bedrock_stream, :done})
         end)
 
-        send(caller, {:bedrock_stream, :done})
-      end)
+      ref = Process.monitor(pid)
 
-      case await_response_metadata() do
+      case await_response_metadata(ref) do
         {:ok, {status, resp_headers}} ->
-          {:ok, %{status_code: status, headers: resp_headers, body: build_chunk_stream()}}
+          {:ok, %{status_code: status, headers: resp_headers, body: build_chunk_stream(ref)}}
 
         {:error, reason} ->
           {:error, %{reason: reason}}
@@ -126,20 +132,22 @@ if Code.ensure_loaded?(ExAws) do
     defp stream_request_mint(method, url, body, headers) do
       caller = self()
 
-      Task.start(fn ->
-        case mint_connect_and_request(method, url, body, headers) do
-          {:ok, conn, ref} ->
-            stream_mint_loop(conn, ref, caller)
+      {:ok, pid} =
+        Task.start(fn ->
+          case mint_connect_and_request(method, url, body, headers) do
+            {:ok, conn, ref} ->
+              stream_mint_loop(conn, ref, caller)
 
-          {:error, reason} ->
-            send(caller, {:bedrock_stream, {:error, reason}})
-            send(caller, {:bedrock_stream, :done})
-        end
-      end)
+            {:error, reason} ->
+              send(caller, {:bedrock_stream, {:error, reason}})
+          end
+        end)
 
-      case await_response_metadata() do
+      ref = Process.monitor(pid)
+
+      case await_response_metadata(ref) do
         {:ok, {status, resp_headers}} ->
-          {:ok, %{status_code: status, headers: resp_headers, body: build_chunk_stream()}}
+          {:ok, %{status_code: status, headers: resp_headers, body: build_chunk_stream(ref)}}
 
         {:error, reason} ->
           {:error, %{reason: reason}}
@@ -160,7 +168,6 @@ if Code.ensure_loaded?(ExAws) do
 
             {:error, _conn, reason, _responses} ->
               send(caller, {:bedrock_stream, {:error, reason}})
-              send(caller, {:bedrock_stream, :done})
 
             :unknown ->
               stream_mint_loop(conn, ref, caller)
@@ -265,29 +272,44 @@ if Code.ensure_loaded?(ExAws) do
       end
     end
 
-    @spec await_response_metadata() :: {:ok, {pos_integer(), list()}} | {:error, term()}
-    defp await_response_metadata do
+    @spec await_response_metadata(reference()) ::
+            {:ok, {pos_integer(), list()}} | {:error, term()}
+    defp await_response_metadata(ref) do
       receive do
         {:bedrock_stream, {:status, status}} ->
           receive do
             {:bedrock_stream, {:headers, resp_headers}} ->
               {:ok, {status, resp_headers}}
+
+            {:bedrock_stream, {:error, reason}} ->
+              {:error, reason}
+
+            {:DOWN, ^ref, :process, _pid, reason} ->
+              {:error, {:task_crashed, reason}}
           after
             @stream_timeout -> {:error, :timeout_waiting_for_headers}
           end
+
+        {:bedrock_stream, {:error, reason}} ->
+          {:error, reason}
+
+        {:DOWN, ^ref, :process, _pid, reason} ->
+          {:error, {:task_crashed, reason}}
       after
         @stream_timeout -> {:error, :timeout_waiting_for_status}
       end
     end
 
-    @spec build_chunk_stream() :: Enumerable.t()
-    defp build_chunk_stream do
+    @spec build_chunk_stream(reference()) :: Enumerable.t()
+    defp build_chunk_stream(ref) do
       Stream.resource(
         fn -> :ok end,
         fn state ->
           receive do
             {:bedrock_stream, {:data, chunk}} -> {[chunk], state}
             {:bedrock_stream, :done} -> {:halt, state}
+            {:bedrock_stream, {:error, _reason}} -> {:halt, state}
+            {:DOWN, ^ref, :process, _pid, _reason} -> {:halt, state}
           after
             @stream_timeout -> {:halt, state}
           end
