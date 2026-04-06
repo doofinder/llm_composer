@@ -91,7 +91,7 @@ if Code.ensure_loaded?(ExAws) do
 
     @spec send_request(map(), String.t(), boolean()) :: {:ok, term()} | {:error, term()}
     defp send_request(payload, model, true) do
-      opts = Keyword.put(ex_aws_opts(), :http_opts, [stream: true])
+      opts = Keyword.put(ex_aws_opts(), :http_opts, stream: true)
 
       payload
       |> StreamOperation.new(model)
