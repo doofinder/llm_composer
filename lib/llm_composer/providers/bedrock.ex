@@ -41,13 +41,24 @@ if Code.ensure_loaded?(ExAws) do
 
     @spec build_request(list(Message.t()), Message.t(), keyword()) :: map()
     defp build_request(messages, system_message, opts) do
-      base_request = %{
-        "messages" =>
-          messages
-          |> Enum.map(&format_message/1)
-          |> merge_consecutive_tool_results(),
-        "system" => [format_message(system_message)]
-      }
+      tools =
+        opts
+        |> Keyword.get(:functions)
+        |> Utils.get_tools(name())
+
+      tool_config = if tools, do: %{"toolConfig" => %{"tools" => tools}}, else: %{}
+
+      base_request =
+        Map.merge(
+          %{
+            "messages" =>
+              messages
+              |> Enum.map(&format_message/1)
+              |> merge_consecutive_tool_results(),
+            "system" => [format_message(system_message)]
+          },
+          tool_config
+        )
 
       req_params = Keyword.get(opts, :request_params, %{})
 

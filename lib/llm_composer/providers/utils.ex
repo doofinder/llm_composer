@@ -274,6 +274,16 @@ defmodule LlmComposer.Providers.Utils do
     }
   end
 
+  defp transform_fn_to_tool(%LlmComposer.Function{} = function, :bedrock) do
+    %{
+      "toolSpec" => %{
+        "name" => function.name,
+        "description" => function.description,
+        "inputSchema" => %{"json" => function.schema}
+      }
+    }
+  end
+
   @spec maybe_put(map(), String.t(), any()) :: map()
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
