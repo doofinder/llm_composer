@@ -64,7 +64,29 @@ if Code.ensure_loaded?(ExAws) do
 
       base_request
       |> Utils.merge_request_params(req_params)
+      |> maybe_structured_output(opts)
       |> Utils.cleanup_body()
+    end
+
+    @spec maybe_structured_output(map(), keyword()) :: map()
+    defp maybe_structured_output(base_request, opts) do
+      response_schema = Keyword.get(opts, :response_schema)
+
+      if is_map(response_schema) do
+        Map.put(base_request, "outputConfig", %{
+          "textFormat" => %{
+            "type" => "json_schema",
+            "structure" => %{
+              "jsonSchema" => %{
+                "name" => "response",
+                "schema" => Helpers.json_engine().encode!(response_schema)
+              }
+            }
+          }
+        })
+      else
+        base_request
+      end
     end
 
     @spec send_request(map(), String.t(), boolean()) :: {:ok, term()} | {:error, term()}
