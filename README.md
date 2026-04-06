@@ -83,7 +83,7 @@ The following table shows which features are supported by each provider:
 | Basic Chat | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Function Calls | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
-| Structured Outputs | ✅ | ✅ | ⚠️¹ | ❌ | ✅ |
+| Structured Outputs | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
 | Cost Tracking | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ |

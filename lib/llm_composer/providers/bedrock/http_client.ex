@@ -226,11 +226,11 @@ if Code.ensure_loaded?(ExAws) do
             {:ok, conn, responses} ->
               acc =
                 Enum.reduce(responses, acc, fn
-                  {:status, ^ref, status}, a -> %{a | status: status}
-                  {:headers, ^ref, hs}, a -> %{a | headers: a.headers ++ hs}
-                  {:data, ^ref, chunk}, a -> %{a | body: a.body <> chunk}
-                  {:done, ^ref}, a -> Map.put(a, :done, true)
-                  _other, a -> a
+                  {:status, ^ref, status}, acc -> %{acc | status: status}
+                  {:headers, ^ref, hs}, acc -> %{acc | headers: acc.headers ++ hs}
+                  {:data, ^ref, chunk}, acc -> %{acc | body: acc.body <> chunk}
+                  {:done, ^ref}, acc -> Map.put(acc, :done, true)
+                  _other, acc -> acc
                 end)
 
               if Map.get(acc, :done) do
