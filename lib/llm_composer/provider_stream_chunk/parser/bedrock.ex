@@ -15,6 +15,32 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Bedrock do
      }}
   end
 
+  def parse(
+        %{"start" => %{"toolUse" => %{"toolUseId" => id, "name" => name}}} = raw,
+        :bedrock,
+        _opts
+      ) do
+    {:ok,
+     %StreamChunk{
+       provider: :bedrock,
+       type: :tool_call_delta,
+       tool_calls: [%{"toolUseId" => id, "name" => name, "inputJson" => ""}],
+       metadata: %{},
+       raw: raw
+     }}
+  end
+
+  def parse(%{"delta" => %{"toolUse" => %{"input" => input}}} = raw, :bedrock, _opts) do
+    {:ok,
+     %StreamChunk{
+       provider: :bedrock,
+       type: :tool_call_delta,
+       tool_calls: [%{"inputJson" => input}],
+       metadata: %{},
+       raw: raw
+     }}
+  end
+
   def parse(%{"stopReason" => reason} = raw, :bedrock, _opts) do
     {:ok,
      %StreamChunk{
