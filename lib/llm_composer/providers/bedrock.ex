@@ -91,9 +91,11 @@ if Code.ensure_loaded?(ExAws) do
 
     @spec send_request(map(), String.t(), boolean()) :: {:ok, term()} | {:error, term()}
     defp send_request(payload, model, true) do
+      opts = Keyword.put(ex_aws_opts(), :http_opts, [stream: true])
+
       payload
       |> StreamOperation.new(model)
-      |> ExAws.request(service_override: :bedrock, http_opts: [stream: true])
+      |> ExAws.request(opts)
     end
 
     defp send_request(payload, model, false) do
@@ -110,13 +112,7 @@ if Code.ensure_loaded?(ExAws) do
 
     @spec ex_aws_opts() :: keyword()
     defp ex_aws_opts do
-      base = [service_override: :bedrock]
-
-      if Application.get_env(:ex_aws, :http_client) do
-        base
-      else
-        Keyword.put(base, :http_client, LlmComposer.Providers.Bedrock.HttpClient)
-      end
+      [service_override: :bedrock, http_client: LlmComposer.Providers.Bedrock.HttpClient]
     end
 
     @spec format_message(Message.t()) :: map()
