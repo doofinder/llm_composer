@@ -81,8 +81,8 @@ The following table shows which features are supported by each provider:
 | Feature | OpenAI | OpenRouter | Ollama | Bedrock | Google |
 |---------|--------|------------|--------|---------|--------|
 | Basic Chat | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Streaming | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Function Calls | ✅ | ✅ | ⚠️¹ | ❌ | ✅ |
+| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Function Calls | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
 | Structured Outputs | ✅ | ✅ | ⚠️¹ | ❌ | ✅ |
 | Cost Tracking | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
@@ -92,7 +92,7 @@ The following table shows which features are supported by each provider:
 - **OpenRouter** offers the most comprehensive feature set, including unique capabilities like fallback models and provider routing
 - **Google** provides full feature support including function calls, structured outputs, and streaming with Gemini models
 - **OpenAI Responses API** is available via `LlmComposer.Providers.OpenAIResponses` with manual function calls, structured outputs, and streaming support (see dedicated section below)
-- **Bedrock** support is provided via AWS ExAws integration and requires proper AWS configuration
+- **Bedrock** support is provided via AWS ExAws integration and requires proper AWS configuration; streaming uses Mint by default (no extra dependencies required)
 - **Ollama** requires an ollama server instance to be running
 - **Function Calls** - LlmComposer exposes function call handling via `FunctionExecutor.execute/2` for explicit execution; supported by OpenAI, OpenRouter, and Google
 - **Streaming** is **not** compatible with Tesla **retries**.
