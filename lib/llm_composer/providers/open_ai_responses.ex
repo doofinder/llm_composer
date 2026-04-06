@@ -305,7 +305,7 @@ defmodule LlmComposer.Providers.OpenAIResponses do
 
   @spec normalize_arguments(any()) :: String.t()
   defp normalize_arguments(args) when is_binary(args), do: args
-  defp normalize_arguments(args) when is_map(args), do: Jason.encode!(args)
+  defp normalize_arguments(args) when is_map(args), do: Helpers.json_engine().encode!(args)
   defp normalize_arguments(_), do: "{}"
 
   @spec normalize_message_content(String.t(), [map()] | nil) :: String.t() | nil

@@ -2,6 +2,7 @@ defmodule LlmComposer.FunctionCallExtractors do
   @moduledoc false
 
   alias LlmComposer.FunctionCall
+  alias LlmComposer.Helpers
 
   @spec from_tool_calls(map()) :: [FunctionCall.t()] | nil
   def from_tool_calls(%{"tool_calls" => tool_calls}) when is_list(tool_calls) do
@@ -34,7 +35,7 @@ defmodule LlmComposer.FunctionCallExtractors do
         %FunctionCall{
           id: function_call["name"],
           name: function_call["name"],
-          arguments: Jason.encode!(function_call["args"] || %{}),
+          arguments: Helpers.json_engine().encode!(function_call["args"] || %{}),
           type: "function",
           metadata: %{},
           result: nil
