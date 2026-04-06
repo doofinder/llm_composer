@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added tool calls (function calling) support for Bedrock: request serialization with `toolConfig`, `toolUse` extraction from responses, `toolResult` formatting, and automatic merging of consecutive tool-result user turns as required by the Bedrock API.
 - Added `LlmComposer.Providers.Bedrock.HttpClient` — a custom ExAws HTTP client that uses Mint by default for both streaming and regular requests, with optional Finch support when `config :llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch}` is set.
 - Added `ProviderStreamChunk.Parser.Bedrock` to normalize Bedrock stream events (`text_delta`, `done`, `usage`) into the shared `StreamChunk` format.
+- Added `response_schema` structured output support for Bedrock: pass a JSON schema map and it is automatically mapped to the Bedrock Converse API `outputConfig` format (schema is JSON-encoded as required by the API).
 
 ### Changed
 - Bedrock now auto-injects `LlmComposer.Providers.Bedrock.HttpClient` as the ExAws HTTP client when `config :ex_aws, :http_client` is not explicitly set, removing the previous requirement to configure Hackney or Finch manually.
