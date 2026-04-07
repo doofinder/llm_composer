@@ -32,6 +32,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @models_dev_url "https://models.dev/"
   @cache_key "models_dev_api"
   @default_cache_ttl_in_hours 24
+  @region_prefix_regex ~r/^(?:eu|us|ap|global)\./
 
   @spec fetch_pricing(atom(), String.t()) :: map() | nil
   def fetch_pricing(provider, model)
@@ -172,8 +173,6 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
         get_in(data, [provider_key, "models", fallback_model, "cost"])
     end
   end
-
-  @region_prefix_regex ~r/^(?:eu|us|ap|global)\./
 
   defp strip_region_prefix(model) when is_binary(model) do
     Regex.replace(@region_prefix_regex, model, "")
