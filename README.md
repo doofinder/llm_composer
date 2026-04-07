@@ -81,10 +81,10 @@ The following table shows which features are supported by each provider:
 | Feature | OpenAI | OpenRouter | Ollama | Bedrock | Google |
 |---------|--------|------------|--------|---------|--------|
 | Basic Chat | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Streaming | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Function Calls | ✅ | ✅ | ⚠️¹ | ❌ | ✅ |
-| Structured Outputs | ✅ | ✅ | ⚠️¹ | ❌ | ✅ |
-| Cost Tracking | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Function Calls | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
+| Structured Outputs | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
+| Cost Tracking | ✅ | ✅ | ❌ | ✅ | ✅ |
 | Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ |
 
@@ -92,7 +92,7 @@ The following table shows which features are supported by each provider:
 - **OpenRouter** offers the most comprehensive feature set, including unique capabilities like fallback models and provider routing
 - **Google** provides full feature support including function calls, structured outputs, and streaming with Gemini models
 - **OpenAI Responses API** is available via `LlmComposer.Providers.OpenAIResponses` with manual function calls, structured outputs, and streaming support (see dedicated section below)
-- **Bedrock** support is provided via AWS ExAws integration and requires proper AWS configuration
+- **Bedrock** support is provided via AWS ExAws integration and requires proper AWS configuration; streaming uses Mint by default (no extra dependencies required)
 - **Ollama** requires an ollama server instance to be running
 - **Function Calls** - LlmComposer exposes function call handling via `FunctionExecutor.execute/2` for explicit execution; supported by OpenAI, OpenRouter, and Google
 - **Streaming** is **not** compatible with Tesla **retries**.
@@ -398,8 +398,6 @@ end)
 ### Using AWS Bedrock
 
 LlmComposer also integrates with [Bedrock](https://aws.amazon.com/es/bedrock/) via its Converse API. This allows you to use Bedrock as a provider with any of its supported models.
-
-Currently, function execution is **not supported** with Bedrock.
 
 To integrate with Bedrock, LlmComposer uses the [`ex_aws`](https://hexdocs.pm/ex_aws/readme.html#aws-key-configuration) to perform its requests. So, if you plan to use Bedrock, make sure that you have configured `ex_aws` as per the official documentation of the library.
 
@@ -993,7 +991,7 @@ To use cost tracking, you need:
 
 #### Automatic Cost Tracking
 
-**OpenAI** and **Google** support automatic cost tracking via the models.dev dataset. When you enable `track_costs: true` and do not supply explicit prices, LlmComposer will fetch pricing from models.dev and cache it (ETS). Start the cache before using automatic pricing.
+**OpenAI**, **Google**, and **Bedrock** support automatic cost tracking via the models.dev dataset. When you enable `track_costs: true` and do not supply explicit prices, LlmComposer will fetch pricing from models.dev and cache it (ETS). Start the cache before using automatic pricing.
 
 ```elixir
 # OpenAI automatic pricing example

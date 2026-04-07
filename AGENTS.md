@@ -45,46 +45,72 @@ lib
 │   │   └── pricing.ex
 │   ├── cost_info.ex
 │   ├── errors.ex
-│   ├── function.ex
 │   ├── function_call.ex
+│   ├── function_call_extractors.ex
+│   ├── function_call_helpers.ex
+│   ├── function.ex
+│   ├── function_executor.ex
 │   ├── helpers.ex
 │   ├── http_client.ex
 │   ├── llm_response.ex
 │   ├── message.ex
 │   ├── provider.ex
-│   ├── provider_router
-│   │   └── simple.ex
-│   ├── provider_router.ex
-│   ├── providers
+│   ├── provider_response
 │   │   ├── bedrock.ex
 │   │   ├── google.ex
 │   │   ├── ollama.ex
 │   │   ├── open_ai.ex
+│   │   ├── open_ai_responses.ex
+│   │   ├── open_router.ex
+│   │   ├── parser
+│   │   │   ├── bedrock.ex
+│   │   │   ├── google.ex
+│   │   │   ├── ollama.ex
+│   │   │   └── open_ai.ex
+│   │   └── struct.ex
+│   ├── provider_response.ex
+│   ├── provider_router
+│   │   └── simple.ex
+│   ├── provider_router.ex
+│   ├── providers
+│   │   ├── bedrock
+│   │   │   ├── http_client.ex
+│   │   │   └── stream_operation.ex
+│   │   ├── bedrock.ex
+│   │   ├── google.ex
+│   │   ├── ollama.ex
+│   │   ├── open_ai.ex
+│   │   ├── open_ai_responses
+│   │   │   └── reasoning.ex
+│   │   ├── open_ai_responses.ex
 │   │   ├── open_router.ex
 │   │   └── utils.ex
 │   ├── providers_runner.ex
-│   └── settings.ex
+│   ├── provider_stream_chunk
+│   │   ├── bedrock.ex
+│   │   ├── google.ex
+│   │   ├── ollama.ex
+│   │   ├── open_ai.ex
+│   │   ├── open_ai_responses.ex
+│   │   ├── open_router.ex
+│   │   ├── parser
+│   │   │   ├── bedrock.ex
+│   │   │   ├── google.ex
+│   │   │   ├── ollama.ex
+│   │   │   ├── open_ai.ex
+│   │   │   └── open_ai_responses.ex
+│   │   └── struct.ex
+│   ├── provider_stream_chunk.ex
+│   ├── settings.ex
+│   └── stream_chunk.ex
 └── llm_composer.ex
 test
 ├── llm_composer
-│   ├── cost
-│   │   ├── cost_assembler_test.exs
-│   │   ├── cost_info_test.exs
-│   │   ├── pricing_test.exs
-│   │   └── providers
-│   │       ├── google_test.exs
-│   │       ├── ollama_test.exs
-│   │       ├── open_ai_test.exs
-│   │       ├── open_router_test.exs
-│   │       └── utils_test.exs
-│   ├── function_calls_auto_execution_test.exs
+│   ├── cost/                  # cost_assembler, cost_info, pricing tests
+│   ├── providers/             # per-provider tests (bedrock, google, ollama, open_ai, open_router, utils)
+│   ├── http_client_test.exs
 │   ├── provider_router_simple_test.exs
-│   └── providers
-│       ├── google_test.exs
-│       ├── ollama_test.exs
-│       ├── open_ai_test.exs
-│       ├── open_router_test.exs
-│       └── utils_test.exs
+│   └── stream_chunk_test.exs
 ├── llm_composer_test.exs
 └── test_helper.exs
 ```

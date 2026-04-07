@@ -80,6 +80,13 @@ defmodule LlmComposer.Cost.CostAssembler do
     {input, output, nil}
   end
 
+  def extract_tokens(:bedrock, raw_response) do
+    usage = Map.get(raw_response, "usage", %{})
+    input = Map.get(usage, "inputTokens", 0)
+    output = Map.get(usage, "outputTokens", 0)
+    {input, output, nil}
+  end
+
   def extract_tokens(_provider, _raw_response) do
     {0, 0, nil}
   end
@@ -91,6 +98,10 @@ defmodule LlmComposer.Cost.CostAssembler do
   end
 
   defp get_model(:google, _raw_response, opts) do
+    Keyword.get(opts, :model)
+  end
+
+  defp get_model(:bedrock, _raw_response, opts) do
     Keyword.get(opts, :model)
   end
 

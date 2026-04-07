@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-04-07
+
+### Added
+- Added automatic cost tracking for the Bedrock provider: token usage and costs are now populated in `LlmResponse.cost_info` when `track_costs: true` is set. Pricing is fetched automatically from models.dev (`amazon-bedrock` dataset) with a three-step lookup: exact model name, region prefix stripped (`eu.`, `us.`, `ap.`, `global.`), then date suffix stripped. Explicit `input_price_per_million` / `output_price_per_million` opts are also supported.
+- Added streaming support for Amazon Bedrock via the `ConverseStream` API, with AWS Event Stream binary frame parsing.
+- Added tool calls (function calling) support for Bedrock: request serialization with `toolConfig`, `toolUse` extraction from responses, `toolResult` formatting, and automatic merging of consecutive tool-result user turns as required by the Bedrock API.
+- Added `LlmComposer.Providers.Bedrock.HttpClient` — a custom ExAws HTTP client that uses Mint by default for both streaming and regular requests, with optional Finch support when `config :llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch}` is set.
+- Added `ProviderStreamChunk.Parser.Bedrock` to normalize Bedrock stream events (`text_delta`, `done`, `usage`) into the shared `StreamChunk` format.
+- Added `response_schema` structured output support for Bedrock: pass a JSON schema map and it is automatically mapped to the Bedrock Converse API `outputConfig` format (schema is JSON-encoded as required by the API).
+
+### Changed
+- Bedrock now auto-injects `LlmComposer.Providers.Bedrock.HttpClient` as the ExAws HTTP client when `config :ex_aws, :http_client` is not explicitly set, removing the previous requirement to configure Hackney or Finch manually.
+
 ## [0.18.2] - 2026-04-01
 
 ### Changed
@@ -270,7 +283,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.18.2...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.19.0...HEAD
+[0.19.0]: https://github.com/doofinder/llm_composer/compare/0.18.2...0.19.0
 [0.18.2]: https://github.com/doofinder/llm_composer/compare/0.18.1...0.18.2
 [0.18.1]: https://github.com/doofinder/llm_composer/compare/0.18.0...0.18.1
 [0.18.0]: https://github.com/doofinder/llm_composer/compare/0.17.1...0.18.0

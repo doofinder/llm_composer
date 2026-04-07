@@ -67,6 +67,78 @@ defmodule LlmComposer.PricingTest do
     end
   end
 
+  describe "models_dev_fetcher/2 for bedrock" do
+    test "returns pricing for bedrock provider" do
+      data = %{
+        "amazon-bedrock" => %{
+          "models" => %{
+            "amazon.nova-lite-v1:0" => %{
+              "cost" => %{"input" => 0.06, "output" => 0.24, "cache_read" => 0.015}
+            }
+          }
+        }
+      }
+
+      Ets.put("models_dev_api", data, 3600)
+
+      result = Pricing.fetch_pricing(:bedrock, model: "amazon.nova-lite-v1:0")
+
+      assert result == [
+               cache_read_price_per_million: Decimal.new("0.015"),
+               input_price_per_million: Decimal.new("0.06"),
+               output_price_per_million: Decimal.new("0.24"),
+               currency: "USD"
+             ]
+    end
+
+    test "strips region prefix when exact match not found" do
+      data = %{
+        "amazon-bedrock" => %{
+          "models" => %{
+            "amazon.nova-lite-v1:0" => %{
+              "cost" => %{"input" => 0.06, "output" => 0.24}
+            }
+          }
+        }
+      }
+
+      Ets.put("models_dev_api", data, 3600)
+
+      result = Pricing.fetch_pricing(:bedrock, model: "eu.amazon.nova-lite-v1:0")
+
+      assert result == [
+               input_price_per_million: Decimal.new("0.06"),
+               output_price_per_million: Decimal.new("0.24"),
+               currency: "USD"
+             ]
+    end
+
+    test "uses region-prefixed entry when available" do
+      data = %{
+        "amazon-bedrock" => %{
+          "models" => %{
+            "eu.anthropic.claude-sonnet-4-6" => %{
+              "cost" => %{"input" => 0.4, "output" => 2.0}
+            },
+            "anthropic.claude-sonnet-4-6" => %{
+              "cost" => %{"input" => 0.3, "output" => 1.5}
+            }
+          }
+        }
+      }
+
+      Ets.put("models_dev_api", data, 3600)
+
+      result = Pricing.fetch_pricing(:bedrock, model: "eu.anthropic.claude-sonnet-4-6")
+
+      assert result == [
+               input_price_per_million: Decimal.new("0.4"),
+               output_price_per_million: Decimal.new("2.0"),
+               currency: "USD"
+             ]
+    end
+  end
+
   describe "models_dev_fetcher/2" do
     test "returns nil for unsupported providers" do
       result = ModelsDev.fetch_pricing(:ollama, "llama3.1")

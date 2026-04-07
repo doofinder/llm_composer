@@ -26,7 +26,7 @@ defmodule LlmComposer.Cost.Pricing do
         :open_router ->
           fetch_openrouter_pricing(opts)
 
-        provider when provider in [:open_ai, :open_ai_responses, :google] ->
+        provider when provider in [:open_ai, :open_ai_responses, :google, :bedrock] ->
           fetch_models_dev_pricing(provider, opts)
 
         _ ->
@@ -65,7 +65,7 @@ defmodule LlmComposer.Cost.Pricing do
   end
 
   defp fetch_models_dev_pricing(provider, opts)
-       when provider in [:open_ai, :open_ai_responses, :google] do
+       when provider in [:open_ai, :open_ai_responses, :google, :bedrock] do
     model = Keyword.get(opts, :model)
 
     if is_nil(model) do

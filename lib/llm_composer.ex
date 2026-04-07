@@ -196,6 +196,9 @@ defmodule LlmComposer do
   defp provider_stream_struct(:ollama, payload, opts),
     do: ProviderStreamChunk.Ollama.new(payload, opts)
 
+  defp provider_stream_struct(:bedrock, payload, opts),
+    do: ProviderStreamChunk.Bedrock.new(payload, opts)
+
   defp provider_stream_struct(provider, _payload, _opts) do
     {:error, %{reason: :unsupported_stream_provider, provider: provider}}
   end
