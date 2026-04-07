@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-04-07
+
 ### Added
 - Added automatic cost tracking for the Bedrock provider: token usage and costs are now populated in `LlmResponse.cost_info` when `track_costs: true` is set. Pricing is fetched automatically from models.dev (`amazon-bedrock` dataset) with a three-step lookup: exact model name, region prefix stripped (`eu.`, `us.`, `ap.`, `global.`), then date suffix stripped. Explicit `input_price_per_million` / `output_price_per_million` opts are also supported.
 - Added streaming support for Amazon Bedrock via the `ConverseStream` API, with AWS Event Stream binary frame parsing.
@@ -281,7 +283,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.18.2...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.19.0...HEAD
+[0.19.0]: https://github.com/doofinder/llm_composer/compare/0.18.2...0.19.0
 [0.18.2]: https://github.com/doofinder/llm_composer/compare/0.18.1...0.18.2
 [0.18.1]: https://github.com/doofinder/llm_composer/compare/0.18.0...0.18.1
 [0.18.0]: https://github.com/doofinder/llm_composer/compare/0.17.1...0.18.0
