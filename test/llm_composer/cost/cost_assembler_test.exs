@@ -320,6 +320,83 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
     end
   end
 
+  describe "get_cost_info/3 for Bedrock" do
+    test "extracts tokens from Bedrock response format" do
+      response = %{
+        "usage" => %{"inputTokens" => 16, "outputTokens" => 52}
+      }
+
+      {input, output, cached} = CostAssembler.extract_tokens(:bedrock, response)
+
+      assert input == 16
+      assert output == 52
+      assert cached == nil
+    end
+
+    test "assembles cost info for Bedrock with model from opts" do
+      response = %{
+        "usage" => %{"inputTokens" => 16, "outputTokens" => 52}
+      }
+
+      opts = [track_costs: true, model: "amazon.nova-lite-v1:0"]
+
+      result = CostAssembler.get_cost_info(:bedrock, response, opts)
+
+      assert is_struct(result, CostInfo)
+      assert result.provider_name == :bedrock
+      assert result.provider_model == "amazon.nova-lite-v1:0"
+      assert result.input_tokens == 16
+      assert result.output_tokens == 52
+      assert result.total_tokens == 68
+    end
+
+    test "assembles cost info for Bedrock with explicit pricing" do
+      response = %{
+        "usage" => %{"inputTokens" => 1_000_000, "outputTokens" => 500_000}
+      }
+
+      opts = [
+        track_costs: true,
+        model: "amazon.nova-lite-v1:0",
+        input_price_per_million: "0.06",
+        output_price_per_million: "0.24"
+      ]
+
+      result = CostAssembler.get_cost_info(:bedrock, response, opts)
+
+      assert Decimal.equal?(result.input_cost, Decimal.new("0.06"))
+      assert Decimal.equal?(result.output_cost, Decimal.new("0.12"))
+      assert Decimal.equal?(result.total_cost, Decimal.new("0.18"))
+    end
+
+    test "assembles cost info for Bedrock with models.dev pricing (region prefix stripped)" do
+      data = %{
+        "amazon-bedrock" => %{
+          "models" => %{
+            "amazon.nova-lite-v1:0" => %{
+              "cost" => %{"input" => 0.06, "output" => 0.24}
+            }
+          }
+        }
+      }
+
+      Ets.put("models_dev_api", data, 3600)
+
+      response = %{
+        "usage" => %{"inputTokens" => 1_000_000, "outputTokens" => 500_000}
+      }
+
+      opts = [track_costs: true, model: "eu.amazon.nova-lite-v1:0"]
+
+      result = CostAssembler.get_cost_info(:bedrock, response, opts)
+
+      assert result.provider_model == "eu.amazon.nova-lite-v1:0"
+      assert Decimal.equal?(result.input_cost, Decimal.new("0.06"))
+      assert Decimal.equal?(result.output_cost, Decimal.new("0.12"))
+      assert Decimal.equal?(result.total_cost, Decimal.new("0.18"))
+    end
+  end
+
   describe "get_cost_info/3 without track_costs option" do
     test "returns nil when track_costs is not set (defaults to false)" do
       response = %{
