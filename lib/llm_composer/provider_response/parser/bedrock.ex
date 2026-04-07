@@ -1,6 +1,7 @@
 defmodule LlmComposer.ProviderResponse.Parser.Bedrock do
   @moduledoc false
 
+  alias LlmComposer.Cost.CostAssembler
   alias LlmComposer.FunctionCallExtractors
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
@@ -19,7 +20,7 @@ defmodule LlmComposer.ProviderResponse.Parser.Bedrock do
      })}
   end
 
-  def parse({:ok, %{response: response} = provider_response}, :bedrock, _opts) do
+  def parse({:ok, %{response: response}}, :bedrock, opts) do
     content = response["output"]["message"]["content"]
     role = String.to_existing_atom(response["output"]["message"]["role"])
 
@@ -31,6 +32,8 @@ defmodule LlmComposer.ProviderResponse.Parser.Bedrock do
       | function_calls: function_calls
     }
 
+    cost_info = CostAssembler.get_cost_info(:bedrock, response, opts)
+
     {:ok,
      LlmResponse.new(%{
        provider: :bedrock,
@@ -38,7 +41,7 @@ defmodule LlmComposer.ProviderResponse.Parser.Bedrock do
        main_response: message,
        input_tokens: response["usage"]["inputTokens"],
        output_tokens: response["usage"]["outputTokens"],
-       cost_info: Map.get(provider_response, :cost_info),
+       cost_info: cost_info,
        raw: response
      })}
   end
