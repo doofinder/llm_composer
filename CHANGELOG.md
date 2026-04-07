@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- Added automatic cost tracking for the Bedrock provider: token usage and costs are now populated in `LlmResponse.cost_info` when `track_costs: true` is set. Pricing is fetched automatically from models.dev (`amazon-bedrock` dataset) with a three-step lookup: exact model name, region prefix stripped (`eu.`, `us.`, `ap.`, `global.`), then date suffix stripped. Explicit `input_price_per_million` / `output_price_per_million` opts are also supported.
 - Added streaming support for Amazon Bedrock via the `ConverseStream` API, with AWS Event Stream binary frame parsing.
 - Added tool calls (function calling) support for Bedrock: request serialization with `toolConfig`, `toolUse` extraction from responses, `toolResult` formatting, and automatic merging of consecutive tool-result user turns as required by the Bedrock API.
 - Added `LlmComposer.Providers.Bedrock.HttpClient` — a custom ExAws HTTP client that uses Mint by default for both streaming and regular requests, with optional Finch support when `config :llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch}` is set.
