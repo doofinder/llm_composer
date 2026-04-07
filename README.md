@@ -84,7 +84,7 @@ The following table shows which features are supported by each provider:
 | Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Function Calls | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
 | Structured Outputs | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
-| Cost Tracking | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Cost Tracking | ✅ | ✅ | ❌ | ✅ | ✅ |
 | Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ |
 
@@ -398,8 +398,6 @@ end)
 ### Using AWS Bedrock
 
 LlmComposer also integrates with [Bedrock](https://aws.amazon.com/es/bedrock/) via its Converse API. This allows you to use Bedrock as a provider with any of its supported models.
-
-Currently, function execution is **not supported** with Bedrock.
 
 To integrate with Bedrock, LlmComposer uses the [`ex_aws`](https://hexdocs.pm/ex_aws/readme.html#aws-key-configuration) to perform its requests. So, if you plan to use Bedrock, make sure that you have configured `ex_aws` as per the official documentation of the library.
 
@@ -993,7 +991,7 @@ To use cost tracking, you need:
 
 #### Automatic Cost Tracking
 
-**OpenAI** and **Google** support automatic cost tracking via the models.dev dataset. When you enable `track_costs: true` and do not supply explicit prices, LlmComposer will fetch pricing from models.dev and cache it (ETS). Start the cache before using automatic pricing.
+**OpenAI**, **Google**, and **Bedrock** support automatic cost tracking via the models.dev dataset. When you enable `track_costs: true` and do not supply explicit prices, LlmComposer will fetch pricing from models.dev and cache it (ETS). Start the cache before using automatic pricing.
 
 ```elixir
 # OpenAI automatic pricing example
