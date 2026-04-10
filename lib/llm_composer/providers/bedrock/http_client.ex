@@ -253,8 +253,11 @@ if Code.ensure_loaded?(ExAws) do
         |> to_string()
         |> String.upcase()
 
-      with {:ok, conn} <- Mint.HTTP.connect(scheme, uri.host, port) do
-        Mint.HTTP.request(conn, method_str, path, headers, body)
+      with {:ok, conn} <- Mint.HTTP.connect(scheme, uri.host, port, protocols: [:http1]) do
+        case Mint.HTTP.request(conn, method_str, path, headers, body) do
+          {:ok, conn, ref} -> {:ok, conn, ref}
+          {:error, _conn, error} -> {:error, error}
+        end
       end
     end
 

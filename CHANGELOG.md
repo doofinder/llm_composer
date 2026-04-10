@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-04-10
+
+### Fixed
+- Fixed Bedrock HTTP client non-streaming requests to use HTTP/1.1 (`protocols: [:http1]`) instead of HTTP/2 — Mint does not automatically manage HTTP/2 flow control (context window), which requires manual handling that is unnecessary for simple one-shot requests. Also corrected the `Mint.HTTP.request/5` error tuple to unwrap the connection from `{:error, _conn, error}` before returning.
+
 ## [0.19.0] - 2026-04-07
 
 ### Added
@@ -283,7 +288,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.19.0...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.19.1...HEAD
+[0.19.1]: https://github.com/doofinder/llm_composer/compare/0.19.0...0.19.1
 [0.19.0]: https://github.com/doofinder/llm_composer/compare/0.18.2...0.19.0
 [0.18.2]: https://github.com/doofinder/llm_composer/compare/0.18.1...0.18.2
 [0.18.1]: https://github.com/doofinder/llm_composer/compare/0.18.0...0.18.1
