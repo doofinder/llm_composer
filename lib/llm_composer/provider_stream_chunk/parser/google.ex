@@ -9,7 +9,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
   def parse(%{"candidates" => [candidate | _]} = raw, _provider, opts) do
     content = candidate["content"] || %{}
     parts = content["parts"] || []
-    text = extract_text(parts)
+    {text, reasoning} = extract_text_and_reasoning(parts)
     tool_calls = FunctionCallExtractors.from_google_parts(content)
     finish_reason = candidate["finishReason"] || candidate["finish_reason"]
     usage = format_usage(raw["usageMetadata"])
@@ -21,6 +21,9 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
 
         text not in [nil, ""] ->
           :text_delta
+
+        reasoning not in [nil, ""] ->
+          :reasoning_delta
 
         is_list(tool_calls) ->
           :tool_call_delta
@@ -34,6 +37,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
        provider: :google,
        type: type,
        text: text,
+       reasoning: reasoning,
        tool_calls: tool_calls,
        usage: usage,
        cost_info: build_cost_info(raw, usage, opts),
@@ -44,9 +48,11 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
 
   def parse(_, _, _), do: :skip
 
-  defp extract_text(parts) do
-    text = Enum.map_join(parts, "", &Map.get(&1, "text", ""))
-    if text == "", do: nil, else: text
+  defp extract_text_and_reasoning(parts) do
+    {thought_parts, text_parts} = Enum.split_with(parts, &Map.get(&1, "thought"))
+    text = Enum.map_join(text_parts, "", &Map.get(&1, "text", ""))
+    reasoning = Enum.map_join(thought_parts, "", &Map.get(&1, "text", ""))
+    {if(text == "", do: nil, else: text), if(reasoning == "", do: nil, else: reasoning)}
   end
 
   defp format_usage(

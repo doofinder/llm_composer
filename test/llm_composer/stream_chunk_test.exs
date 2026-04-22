@@ -183,6 +183,40 @@ defmodule LlmComposer.StreamChunkTest do
              } = chunk
     end
 
+    test "Google chunk with thought part becomes :reasoning_delta" do
+      data =
+        ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"text":"I should think about this","thought":true}]}}]})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:google)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :google,
+               type: :reasoning_delta,
+               text: nil,
+               reasoning: "I should think about this"
+             } = chunk
+    end
+
+    test "Google chunk with mixed thought and text parts splits correctly" do
+      data =
+        ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"text":"thinking...","thought":true},{"text":"the answer"}]}}]})
+
+      [chunk] =
+        [data]
+        |> LlmComposer.parse_stream_response(:google)
+        |> Enum.to_list()
+
+      assert %StreamChunk{
+               provider: :google,
+               type: :text_delta,
+               text: "the answer",
+               reasoning: "thinking..."
+             } = chunk
+    end
+
     test "Google done chunk with functionCall still becomes :done" do
       data =
         ~s(data: {"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"name":"http_client","args":{}}}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"totalTokenCount":15}})
