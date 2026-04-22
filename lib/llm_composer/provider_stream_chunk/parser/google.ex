@@ -50,10 +50,10 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
 
   defp extract_text_and_reasoning(parts) do
     {thought_parts, text_parts} = Enum.split_with(parts, &Map.get(&1, "thought"))
-    text = Enum.map_join(text_parts, "", &Map.get(&1, "text", ""))
-    reasoning = Enum.map_join(thought_parts, "", &Map.get(&1, "text", ""))
-    text = if text == "", do: nil, else: text
-    reasoning = if reasoning == "", do: nil, else: reasoning
+    raw_text = Enum.map_join(text_parts, "", &Map.get(&1, "text", ""))
+    raw_reasoning = Enum.map_join(thought_parts, "", &Map.get(&1, "text", ""))
+    text = if raw_text == "", do: nil, else: raw_text
+    reasoning = if raw_reasoning == "", do: nil, else: raw_reasoning
 
     {text, reasoning}
   end
