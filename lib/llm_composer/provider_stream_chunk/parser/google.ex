@@ -52,7 +52,10 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
     {thought_parts, text_parts} = Enum.split_with(parts, &Map.get(&1, "thought"))
     text = Enum.map_join(text_parts, "", &Map.get(&1, "text", ""))
     reasoning = Enum.map_join(thought_parts, "", &Map.get(&1, "text", ""))
-    {if(text == "", do: nil, else: text), if(reasoning == "", do: nil, else: reasoning)}
+    text = if text == "", do: nil, else: text
+    reasoning = if reasoning == "", do: nil, else: reasoning
+
+    {text, reasoning}
   end
 
   defp format_usage(
