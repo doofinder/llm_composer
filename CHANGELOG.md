@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- Added `child_spec/1` to `LlmComposer.ProviderRouter.Simple` so it can be added to a supervision tree as a bare module (`children = [LlmComposer.ProviderRouter.Simple]`) without needing an explicit child spec map.
+- Added HexDocs guides: Providers, Streaming, Cost Tracking, Function Calls, Provider Router, Custom Providers, Configuration Reference — splitting the previous monolithic README into focused, navigable documentation pages.
+- Added `@doc` to `LlmComposer.Provider` behaviour callbacks and `@typedoc` to `Message`, `LlmResponse`, and `Settings` struct types for better in-editor and HexDocs documentation.
+
+### Changed
+- Slimmed `README.md` — it now serves as a discovery and getting-started document, with links to the full HexDocs guides for reference material.
+
 ## [0.19.1] - 2026-04-10
 
 ### Fixed
