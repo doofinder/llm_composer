@@ -15,11 +15,11 @@ defmodule LlmComposer.MixProject do
         extras: [
           "README.md",
           "guides/providers.md",
-          "guides/custom_provider.md",
           "guides/streaming.md",
           "guides/cost_tracking.md",
           "guides/function_calls.md",
           "guides/provider_router.md",
+          "guides/custom_provider.md",
           "guides/configuration.md",
           "LICENSE"
         ],
@@ -94,7 +94,7 @@ defmodule LlmComposer.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_aws, "~> 2.6", optional: true},
       {:hackney, "~> 1.21", optional: true},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false, warn_if_outdated: true},
       {:excoveralls, "~> 0.18", only: :test},
       {:finch, "~> 0.18", optional: true},
       {:goth, "~> 1.4", optional: true},
