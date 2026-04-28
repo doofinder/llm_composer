@@ -11,8 +11,53 @@ defmodule LlmComposer.MixProject do
       package: package(),
       docs: [
         main: "readme",
-        extras: ["README.md", "LICENSE"],
-        source_ref: "master"
+        source_ref: "master",
+        extras: [
+          "README.md",
+          "guides/providers.md",
+          "guides/custom_provider.md",
+          "guides/streaming.md",
+          "guides/cost_tracking.md",
+          "guides/function_calls.md",
+          "guides/provider_router.md",
+          "guides/configuration.md",
+          "LICENSE"
+        ],
+        groups_for_extras: [
+          Guides: ~r/guides\//
+        ],
+        groups_for_modules: [
+          Core: [
+            LlmComposer,
+            LlmComposer.Provider,
+            LlmComposer.Settings,
+            LlmComposer.Message,
+            LlmComposer.LlmResponse,
+            LlmComposer.StreamChunk,
+            LlmComposer.Function
+          ],
+          Providers: ~r/LlmComposer\.Providers\./,
+          "Response Parsing": ~r/LlmComposer\.ProviderResponse/,
+          Streaming: ~r/LlmComposer\.ProviderStreamChunk/,
+          "Function Calling": [
+            LlmComposer.FunctionCall,
+            LlmComposer.FunctionCallExtractors,
+            LlmComposer.FunctionCallHelpers,
+            LlmComposer.FunctionExecutor
+          ],
+          "Cost Tracking": ~r/LlmComposer\.Cost/,
+          Routing: [
+            LlmComposer.ProvidersRunner,
+            LlmComposer.ProviderRouter,
+            LlmComposer.ProviderRouter.Simple
+          ],
+          Cache: ~r/LlmComposer\.Cache/,
+          Internals: [
+            LlmComposer.Helpers,
+            LlmComposer.Errors,
+            LlmComposer.HttpClient
+          ]
+        ]
       ],
       source_url: "https://github.com/doofinder/llm_composer",
       test_coverage: [tool: ExCoveralls],

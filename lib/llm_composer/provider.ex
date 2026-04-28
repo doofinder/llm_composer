@@ -51,8 +51,20 @@ defmodule LlmComposer.Provider do
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
 
+  @doc """
+  Executes a single completion request.
+
+  Receives normalized messages and returns a normalized response or an error.
+
+  - `messages` — list of `LlmComposer.Message` structs (user/assistant/tool turns).
+  - `system_message` — system prompt as a `LlmComposer.Message`, or `nil`.
+  - `opts` — keyword list of provider options (`:model`, credentials, `:stream_response`, etc.).
+  """
   @callback run([Message.t()], Message.t() | nil, keyword()) ::
               {:ok, LlmResponse.t()} | {:error, term()}
 
+  @doc """
+  Returns the atom that uniquely identifies this provider (e.g. `:open_ai`, `:google`).
+  """
   @callback name() :: atom
 end
