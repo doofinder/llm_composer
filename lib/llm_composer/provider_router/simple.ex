@@ -58,6 +58,15 @@ defmodule LlmComposer.ProviderRouter.Simple do
 
   @long_ttl_seconds 24 * 3600 * 10
 
+  @doc false
+  @spec child_spec(keyword()) :: Supervisor.child_spec()
+  def child_spec(opts) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [opts]}
+    }
+  end
+
   @doc """
   Initialize the ETS table for storing provider blocking state.
   """
