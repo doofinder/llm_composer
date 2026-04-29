@@ -24,6 +24,16 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
      })}
   end
 
+  def parse({:ok, %{response: %Stream{} = stream}} = raw_result, provider, _opts) do
+    {:ok,
+     LlmResponse.new(%{
+       provider: provider,
+       status: :ok,
+       stream: stream,
+       raw: raw_result
+     })}
+  end
+
   def parse({:ok, %{response: response} = provider_response}, provider, opts) do
     if streamed_chunks?(response) do
       {:ok,
