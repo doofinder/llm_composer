@@ -18,6 +18,16 @@ defmodule LlmComposer.ProviderResponse.Parser.Ollama do
      })}
   end
 
+  def parse({:ok, %{response: %Stream{} = stream}} = raw_result, :ollama, _opts) do
+    {:ok,
+     LlmResponse.new(%{
+       provider: :ollama,
+       status: :ok,
+       stream: stream,
+       raw: raw_result
+     })}
+  end
+
   def parse({:ok, %{response: response}} = raw_result, :ollama, _opts) when is_list(response) do
     if Enum.all?(response, &is_binary/1) do
       {:ok,

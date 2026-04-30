@@ -72,8 +72,36 @@ defmodule LlmComposer.Providers.UtilsTest do
     end
   end
 
-  test "get_req_opts returns stream adapter when stream_response true" do
+  test "get_req_opts returns finch stream adapter when configured adapter is finch" do
+    original = Application.get_env(:llm_composer, :tesla_adapter)
+
+    Application.put_env(:llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyFinch})
+
+    on_exit(fn ->
+      if is_nil(original) do
+        Application.delete_env(:llm_composer, :tesla_adapter)
+      else
+        Application.put_env(:llm_composer, :tesla_adapter, original)
+      end
+    end)
+
     assert Utils.get_req_opts(stream_response: true) == [adapter: [response: :stream]]
+  end
+
+  test "get_req_opts returns mint stream adapter when configured adapter is mint" do
+    original = Application.get_env(:llm_composer, :tesla_adapter)
+
+    Application.put_env(:llm_composer, :tesla_adapter, Tesla.Adapter.Mint)
+
+    on_exit(fn ->
+      if is_nil(original) do
+        Application.delete_env(:llm_composer, :tesla_adapter)
+      else
+        Application.put_env(:llm_composer, :tesla_adapter, original)
+      end
+    end)
+
+    assert Utils.get_req_opts(stream_response: true) == [adapter: [body_as: :stream]]
   end
 
   test "get_req_opts returns empty list when stream_response not set" do
