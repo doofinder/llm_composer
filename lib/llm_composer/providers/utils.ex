@@ -209,9 +209,19 @@ defmodule LlmComposer.Providers.Utils do
   @spec get_req_opts(keyword()) :: keyword()
   def get_req_opts(opts) do
     if Keyword.get(opts, :stream_response) do
-      [adapter: [response: :stream]]
+      [adapter: stream_adapter_opts()]
     else
       []
+    end
+  end
+
+  defp stream_adapter_opts do
+    case Application.get_env(:llm_composer, :tesla_adapter, Tesla.Adapter.Mint) do
+      {Tesla.Adapter.Finch, _opts} -> [response: :stream]
+      Tesla.Adapter.Finch -> [response: :stream]
+      {Tesla.Adapter.Mint, _opts} -> [body_as: :stream]
+      Tesla.Adapter.Mint -> [body_as: :stream]
+      _other -> [response: :stream]
     end
   end
 

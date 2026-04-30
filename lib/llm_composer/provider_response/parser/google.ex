@@ -22,6 +22,16 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
      })}
   end
 
+  def parse({:ok, %{response: %Stream{} = stream}} = raw_result, :google, _opts) do
+    {:ok,
+     LlmResponse.new(%{
+       provider: :google,
+       status: :ok,
+       stream: stream,
+       raw: raw_result
+     })}
+  end
+
   def parse({:ok, %{response: response}}, :google, opts) do
     [first_candidate | _] = response["candidates"]
     content = first_candidate["content"]
