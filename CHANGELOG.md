@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Fixed SSE streaming with `Tesla.Adapter.Mint`: the adapter now receives `body_as: :stream` instead of `response: :stream`, which is the correct option for Mint. Finch continues to use `response: :stream`. This means streaming no longer requires Finch — Mint (the default adapter) works out of the box.
+
 ## [0.19.2] - 2026-04-22
 
 ### Fixed

@@ -1,23 +1,22 @@
 # Streaming
 
-> Streaming requires [Finch](https://hex.pm/packages/finch) as the HTTP client. The default
-> adapter (`Tesla.Adapter.Mint`) does not work with Tesla's SSE middleware, so Finch is needed
-> for streaming. Follow these steps to set it up:
->
-> **1. Add the dependency** (`mix.exs`):
-> ```elixir
-> {:finch, "~> 0.18"}
-> ```
->
-> **2. Start Finch** in your application supervisor (`application.ex`):
-> ```elixir
-> {Finch, name: MyApp.Finch}
-> ```
->
-> **3. Configure LlmComposer** to use the Finch adapter (`config/config.exs`):
-> ```elixir
-> config :llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyApp.Finch}
-> ```
+Streaming works with both built-in adapters:
+
+- **Mint** (default) — works out of the box, no extra dependencies needed. Note that Mint opens a new connection per request and does not pool connections.
+- **Finch** — also supported; use it if you need connection pooling or already have Finch in your stack.
+
+To use Finch for streaming, add the dependency, start it in your supervision tree, and configure the adapter:
+
+```elixir
+# mix.exs
+{:finch, "~> 0.18"}
+
+# application.ex
+{Finch, name: MyApp.Finch}
+
+# config/config.exs
+config :llm_composer, :tesla_adapter, {Tesla.Adapter.Finch, name: MyApp.Finch}
+```
 
 Enable streaming by setting `stream_response: true` in your provider options. The response
 `LlmResponse.t()` will have its `:stream` field populated with an `Enumerable` of

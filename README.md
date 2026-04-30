@@ -27,8 +27,8 @@ end
 
 ## Tesla Configuration
 
-LlmComposer uses Tesla for HTTP. The default adapter is `Tesla.Adapter.Mint`. For streaming
-responses, configure Finch instead:
+LlmComposer uses Tesla for HTTP. The default adapter is `Tesla.Adapter.Mint`, which supports
+streaming out of the box. Finch is also supported if you prefer its connection pooling:
 
 ```elixir
 # config/config.exs

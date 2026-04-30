@@ -6,7 +6,7 @@ All configuration is set via `Application.put_env/3` or `config/config.exs`.
 
 | Key | Default | Description |
 |---|---|---|
-| `:tesla_adapter` | `Tesla.Adapter.Mint` | HTTP client adapter. Use `{Tesla.Adapter.Finch, name: MyFinch}` for streaming. |
+| `:tesla_adapter` | `Tesla.Adapter.Mint` | HTTP client adapter. Both Mint (default) and Finch support streaming. |
 | `:json_engine` | `JSON` (or `Jason` on Elixir < 1.18) | JSON encoder/decoder module. |
 | `:timeout` | `50_000` ms | Default request timeout. |
 | `:skip_retries` | `false` | Disable retries globally. |
@@ -112,7 +112,9 @@ Maps directly to `Tesla.Middleware.Retry` options. See the
 
 ## Tesla Adapter
 
-The default adapter is `Tesla.Adapter.Mint`. Switch to Finch for streaming support:
+The default adapter is `Tesla.Adapter.Mint`, which supports streaming out of the box.
+Note that Mint opens a new connection per request and does not pool connections — use Finch
+if connection pooling matters for your workload:
 
 ```elixir
 # config/config.exs
