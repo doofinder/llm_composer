@@ -47,7 +47,7 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
         other -> String.to_existing_atom(other)
       end
 
-    {input_tokens, output_tokens, _cached_tokens} =
+    {input_tokens, output_tokens, cached_tokens} =
       CostAssembler.extract_tokens(:google, response)
 
     reasoning_tokens = get_in(response, ["usageMetadata", "thoughtsTokenCount"])
@@ -66,6 +66,7 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
        main_response: main_response,
        input_tokens: input_tokens,
        output_tokens: output_tokens,
+       cached_tokens: cached_tokens,
        cost_info: cost_info,
        raw: response,
        reasoning_tokens: reasoning_tokens
