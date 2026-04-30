@@ -4,15 +4,60 @@ defmodule LlmComposer.MixProject do
   def project do
     [
       app: :llm_composer,
-      version: "0.19.2",
+      version: "0.19.3",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       package: package(),
       docs: [
         main: "readme",
-        extras: ["README.md", "LICENSE"],
-        source_ref: "master"
+        source_ref: "master",
+        extras: [
+          "README.md",
+          "guides/providers.md",
+          "guides/streaming.md",
+          "guides/cost_tracking.md",
+          "guides/function_calls.md",
+          "guides/provider_router.md",
+          "guides/custom_provider.md",
+          "guides/configuration.md",
+          "LICENSE"
+        ],
+        groups_for_extras: [
+          Guides: ~r/guides\//
+        ],
+        groups_for_modules: [
+          Core: [
+            LlmComposer,
+            LlmComposer.Provider,
+            LlmComposer.Settings,
+            LlmComposer.Message,
+            LlmComposer.LlmResponse,
+            LlmComposer.StreamChunk,
+            LlmComposer.Function
+          ],
+          Providers: ~r/LlmComposer\.Providers\./,
+          "Response Parsing": ~r/LlmComposer\.ProviderResponse/,
+          Streaming: ~r/LlmComposer\.ProviderStreamChunk/,
+          "Function Calling": [
+            LlmComposer.FunctionCall,
+            LlmComposer.FunctionCallExtractors,
+            LlmComposer.FunctionCallHelpers,
+            LlmComposer.FunctionExecutor
+          ],
+          "Cost Tracking": ~r/LlmComposer\.Cost/,
+          Routing: [
+            LlmComposer.ProvidersRunner,
+            LlmComposer.ProviderRouter,
+            LlmComposer.ProviderRouter.Simple
+          ],
+          Cache: ~r/LlmComposer\.Cache/,
+          Internals: [
+            LlmComposer.Helpers,
+            LlmComposer.Errors,
+            LlmComposer.HttpClient
+          ]
+        ]
       ],
       source_url: "https://github.com/doofinder/llm_composer",
       test_coverage: [tool: ExCoveralls],
@@ -49,7 +94,7 @@ defmodule LlmComposer.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_aws, "~> 2.6", optional: true},
       {:hackney, "~> 1.21", optional: true},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false, warn_if_outdated: true},
       {:excoveralls, "~> 0.18", only: :test},
       {:finch, "~> 0.18", optional: true},
       {:goth, "~> 1.4", optional: true},

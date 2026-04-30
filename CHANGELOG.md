@@ -4,10 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.19.3] - 2026-04-30
+
+### Fixed
+- Fixed SSE streaming with `Tesla.Adapter.Mint`: the adapter now receives `body_as: :stream` instead of `response: :stream`, which is the correct option for Mint. Finch continues to use `response: :stream`. This means streaming no longer requires Finch — Mint (the default adapter) works out of the box.
+
 ## [0.19.2] - 2026-04-22
 
 ### Fixed
 - Fixed reasoning (thinking) support to the Google stream chunk parser: chunks with `"thought": true` parts are now correctly split from text parts, populate the `StreamChunk.reasoning` field, and are emitted as `:reasoning_delta` instead of being mixed into `:text_delta`.
+
+### Added
+- Added `child_spec/1` to `LlmComposer.ProviderRouter.Simple` so it can be added to a supervision tree as a bare module (`children = [LlmComposer.ProviderRouter.Simple]`) without needing an explicit child spec map.
+- Added HexDocs guides: Providers, Streaming, Cost Tracking, Function Calls, Provider Router, Custom Providers, Configuration Reference — splitting the previous monolithic README into focused, navigable documentation pages.
+- Added `@doc` to `LlmComposer.Provider` behaviour callbacks and `@typedoc` to `Message`, `LlmResponse`, and `Settings` struct types for better in-editor and HexDocs documentation.
+
+### Changed
+- Slimmed `README.md` — it now serves as a discovery and getting-started document, with links to the full HexDocs guides for reference material.
 
 ## [0.19.1] - 2026-04-10
 
@@ -291,7 +306,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.19.1...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.19.3...HEAD
+[0.19.3]: https://github.com/doofinder/llm_composer/compare/0.19.2...0.19.3
+[0.19.2]: https://github.com/doofinder/llm_composer/compare/0.19.1...0.19.2
 [0.19.1]: https://github.com/doofinder/llm_composer/compare/0.19.0...0.19.1
 [0.19.0]: https://github.com/doofinder/llm_composer/compare/0.18.2...0.19.0
 [0.18.2]: https://github.com/doofinder/llm_composer/compare/0.18.1...0.18.2

@@ -18,6 +18,16 @@ defmodule LlmComposer.Message do
   - `:metadata` — arbitrary map for provider-specific data (e.g. original raw response).
   """
 
+  @typedoc """
+  A normalized message exchanged with any LLM provider.
+
+  - `:type` — role of the sender (e.g. `:user`, `:assistant`, `:system`, `:tool_result`).
+  - `:content` — text or structured content of the message.
+  - `:reasoning` — optional plain-text reasoning string returned by reasoning models.
+  - `:reasoning_details` — optional list of structured reasoning block maps.
+  - `:function_calls` — optional list of `LlmComposer.FunctionCall` structs requested by the model.
+  - `:metadata` — arbitrary map for provider-specific data.
+  """
   @type t :: %__MODULE__{
           type: binary() | atom(),
           content: binary() | list() | nil,
