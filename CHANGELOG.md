@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.19.4] - 2026-05-05
+
+### Fixed
+- Fixed Google cached token tracking: `cachedContentTokenCount` from `usageMetadata` is now extracted and populated in both `LlmResponse.cached_tokens` (non-streaming) and `StreamChunk.usage.cached_tokens` (streaming) instead of always being `nil`.
+
 ## [0.19.3] - 2026-04-30
 
 ### Fixed
