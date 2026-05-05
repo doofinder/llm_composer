@@ -69,7 +69,7 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.Google do
       input_tokens: prompt,
       output_tokens: candidate,
       total_tokens: total,
-      cached_tokens: nil,
+      cached_tokens: usage["cachedContentTokenCount"],
       reasoning_tokens: usage["thoughtsTokenCount"]
     }
   end

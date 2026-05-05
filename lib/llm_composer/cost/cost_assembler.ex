@@ -77,7 +77,8 @@ defmodule LlmComposer.Cost.CostAssembler do
     usage = Map.get(raw_response, "usageMetadata", %{})
     input = Map.get(usage, "promptTokenCount", 0)
     output = Map.get(usage, "candidatesTokenCount", 0)
-    {input, output, nil}
+    cached = Map.get(usage, "cachedContentTokenCount")
+    {input, output, cached}
   end
 
   def extract_tokens(:bedrock, raw_response) do
