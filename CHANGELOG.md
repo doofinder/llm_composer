@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.19.5] - 2026-06-01
+
+### Added
+- Bedrock HTTP receive timeout is now configurable via `config :llm_composer, :bedrock, receive_timeout: <ms>`. Falls back to the global `config :llm_composer, :timeout` and then to the previous hardcoded default of 30 000 ms. Applies to all Mint-based paths (streaming and non-streaming) as well as the shared `handle_stream_response` helpers used by Finch streaming.
+
 ## [0.19.4] - 2026-05-05
 
 ### Fixed
@@ -311,7 +316,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.19.4...HEAD
+[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.19.5...HEAD
+[0.19.5]: https://github.com/doofinder/llm_composer/compare/0.19.4...0.19.5
 [0.19.4]: https://github.com/doofinder/llm_composer/compare/0.19.3...0.19.4
 [0.19.3]: https://github.com/doofinder/llm_composer/compare/0.19.2...0.19.3
 [0.19.2]: https://github.com/doofinder/llm_composer/compare/0.19.1...0.19.2
