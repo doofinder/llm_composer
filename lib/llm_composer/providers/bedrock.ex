@@ -7,6 +7,22 @@ if Code.ensure_loaded?(ExAws) do
     Bedrock compatible model can be used. To specify any model-specific options for
     the request, you can pass them in the `request_params` option and they will
     be merged into the base request that is prepared.
+
+    ## Timeout configuration
+
+    The HTTP receive timeout (how long to wait for data from Bedrock before giving
+    up) can be tuned via application config. The lookup order is:
+
+    1. `config :llm_composer, :bedrock, receive_timeout: <ms>` — Bedrock-specific override
+    2. `config :llm_composer, :timeout, <ms>` — global llm_composer timeout
+    3. Default: `30_000` ms (30 s)
+
+    Example:
+
+        config :llm_composer, :bedrock, receive_timeout: 60_000
+
+    The timeout applies to all Mint-based requests (streaming and non-streaming).
+    Finch regular (non-streaming) requests use Finch's own timeout configuration.
     """
     @behaviour LlmComposer.Provider
 

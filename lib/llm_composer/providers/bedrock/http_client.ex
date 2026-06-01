@@ -31,7 +31,7 @@ if Code.ensure_loaded?(ExAws) do
 
     require Logger
 
-    @stream_timeout 30_000
+    @default_receive_timeout 30_000
 
     @impl ExAws.Request.HttpClient
     @spec request(
@@ -159,7 +159,7 @@ if Code.ensure_loaded?(ExAws) do
               stream_mint_loop(conn, ref, caller)
           end
       after
-        @stream_timeout ->
+        receive_timeout() ->
           send(caller, {:bedrock_stream, :done})
       end
     end
@@ -232,7 +232,7 @@ if Code.ensure_loaded?(ExAws) do
               collect_mint_response(conn, ref, acc)
           end
       after
-        @stream_timeout -> {:error, %{reason: :timeout}}
+        receive_timeout() -> {:error, %{reason: :timeout}}
       end
     end
 
@@ -290,7 +290,7 @@ if Code.ensure_loaded?(ExAws) do
             {:DOWN, ^ref, :process, _pid, reason} ->
               {:error, {:task_crashed, reason}}
           after
-            @stream_timeout -> {:error, :timeout_waiting_for_headers}
+            receive_timeout() -> {:error, :timeout_waiting_for_headers}
           end
 
         {:bedrock_stream, {:error, reason}} ->
@@ -299,7 +299,7 @@ if Code.ensure_loaded?(ExAws) do
         {:DOWN, ^ref, :process, _pid, reason} ->
           {:error, {:task_crashed, reason}}
       after
-        @stream_timeout -> {:error, :timeout_waiting_for_status}
+        receive_timeout() -> {:error, :timeout_waiting_for_status}
       end
     end
 
@@ -311,7 +311,7 @@ if Code.ensure_loaded?(ExAws) do
         {:bedrock_stream, {:error, _reason}} -> acc
         {:DOWN, ^ref, :process, _pid, _reason} -> acc
       after
-        @stream_timeout -> acc
+        receive_timeout() -> acc
       end
     end
 
@@ -326,11 +326,21 @@ if Code.ensure_loaded?(ExAws) do
             {:bedrock_stream, {:error, _reason}} -> {:halt, state}
             {:DOWN, ^ref, :process, _pid, _reason} -> {:halt, state}
           after
-            @stream_timeout -> {:halt, state}
+            receive_timeout() -> {:halt, state}
           end
         end,
         fn _state -> :ok end
       )
+    end
+
+    @spec receive_timeout() :: non_neg_integer()
+    defp receive_timeout do
+      bedrock_timeout =
+        :llm_composer
+        |> Application.get_env(:bedrock, [])
+        |> Keyword.get(:receive_timeout)
+
+      bedrock_timeout || Application.get_env(:llm_composer, :timeout, @default_receive_timeout)
     end
 
     @spec finch_name() :: {:ok, atom()} | :error
