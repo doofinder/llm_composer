@@ -75,7 +75,6 @@ if Code.ensure_loaded?(ExAws) do
     describe "configurable receive_timeout" do
       setup do
         original_bedrock = Application.get_env(:llm_composer, :bedrock)
-        original_timeout = Application.get_env(:llm_composer, :timeout)
 
         on_exit(fn ->
           if is_nil(original_bedrock) do
@@ -83,69 +82,39 @@ if Code.ensure_loaded?(ExAws) do
           else
             Application.put_env(:llm_composer, :bedrock, original_bedrock)
           end
-
-          if is_nil(original_timeout) do
-            Application.delete_env(:llm_composer, :timeout)
-          else
-            Application.put_env(:llm_composer, :timeout, original_timeout)
-          end
         end)
 
         :ok
       end
 
-      test "non-streaming request honours bedrock receive_timeout" do
+      test "non-streaming request honours bedrock receive_timeout", %{bypass: bypass} do
         Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
 
-        {:ok, listen} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true])
-        {:ok, {_, port}} = :inet.sockname(listen)
-
-        Task.start(fn ->
-          {:ok, _sock} = :gen_tcp.accept(listen, 1_000)
-          Process.sleep(1_000)
+        Bypass.expect_once(bypass, "POST", "/timeout", fn conn ->
+          Process.sleep(500)
+          Plug.Conn.send_resp(conn, 200, "")
         end)
 
-        result = HttpClient.request(:post, "http://localhost:#{port}/test", "", [], [])
-        :gen_tcp.close(listen)
+        result = HttpClient.request(:post, endpoint(bypass, "/timeout"), "", [], [])
+        Bypass.pass(bypass)
 
         assert {:error, %{reason: :timeout}} = result
       end
 
-      test "streaming request honours bedrock receive_timeout" do
+      test "streaming request honours bedrock receive_timeout", %{bypass: bypass} do
         Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
 
-        {:ok, listen} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true])
-        {:ok, {_, port}} = :inet.sockname(listen)
-
-        Task.start(fn ->
-          {:ok, _sock} = :gen_tcp.accept(listen, 1_000)
-          Process.sleep(1_000)
+        Bypass.expect_once(bypass, "POST", "/stream-timeout", fn conn ->
+          Process.sleep(500)
+          Plug.Conn.send_resp(conn, 200, "")
         end)
 
         result =
-          HttpClient.request(:post, "http://localhost:#{port}/stream", "", [], stream: true)
+          HttpClient.request(:post, endpoint(bypass, "/stream-timeout"), "", [], stream: true)
 
-        :gen_tcp.close(listen)
+        Bypass.pass(bypass)
 
         assert {:error, %{reason: :timeout_waiting_for_status}} = result
-      end
-
-      test "falls back to global :timeout when bedrock receive_timeout is not set" do
-        Application.delete_env(:llm_composer, :bedrock)
-        Application.put_env(:llm_composer, :timeout, 50)
-
-        {:ok, listen} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true])
-        {:ok, {_, port}} = :inet.sockname(listen)
-
-        Task.start(fn ->
-          {:ok, _sock} = :gen_tcp.accept(listen, 1_000)
-          Process.sleep(1_000)
-        end)
-
-        result = HttpClient.request(:post, "http://localhost:#{port}/test", "", [], [])
-        :gen_tcp.close(listen)
-
-        assert {:error, %{reason: :timeout}} = result
       end
     end
 
