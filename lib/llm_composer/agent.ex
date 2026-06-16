@@ -266,11 +266,15 @@ defmodule LlmComposer.Agent do
     %FunctionCall{call | result: "Error: #{format_tool_error(reason)}"}
   end
 
-  @spec format_tool_error(term()) :: String.t()
+  @spec format_tool_error(
+          :function_not_found
+          | {:execution_failed, String.t()}
+          | {:invalid_arguments, String.t()}
+        ) ::
+          String.t()
   defp format_tool_error({:invalid_arguments, reason}), do: "invalid arguments (#{reason})"
   defp format_tool_error({:execution_failed, reason}), do: "execution failed (#{reason})"
   defp format_tool_error(:function_not_found), do: "unknown tool"
-  defp format_tool_error(reason), do: inspect(reason)
 
   # --- Telemetry helpers ---
 
