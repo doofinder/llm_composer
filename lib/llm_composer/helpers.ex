@@ -28,14 +28,6 @@ defmodule LlmComposer.Helpers do
 
   def normalize_json(data), do: data
 
-  defp ordered_object?(data) do
-    data != [] and
-      Enum.all?(data, fn
-        {key, _value} when is_binary(key) or is_atom(key) -> true
-        _other -> false
-      end)
-  end
-
   @doc """
   Returns the configured JSON engine module.
 
@@ -48,6 +40,14 @@ defmodule LlmComposer.Helpers do
       nil -> if Code.ensure_loaded?(JSON), do: JSON, else: Jason
       engine -> engine
     end
+  end
+
+  defp ordered_object?(data) do
+    data != [] and
+      Enum.all?(data, fn
+        {key, _value} when is_binary(key) or is_atom(key) -> true
+        _other -> false
+      end)
   end
 
   defp normalize_key(key) when is_binary(key), do: key

@@ -14,6 +14,7 @@ defmodule LlmComposer.MixProject do
         source_ref: "master",
         extras: [
           "README.md",
+          "guides/agent.md",
           "guides/providers.md",
           "guides/streaming.md",
           "guides/cost_tracking.md",
@@ -35,6 +36,10 @@ defmodule LlmComposer.MixProject do
             LlmComposer.LlmResponse,
             LlmComposer.StreamChunk,
             LlmComposer.Function
+          ],
+          Agent: [
+            LlmComposer.Agent,
+            LlmComposer.Agent.Result
           ],
           Providers: ~r/LlmComposer\.Providers\./,
           "Response Parsing": ~r/LlmComposer\.ProviderResponse/,
@@ -100,6 +105,7 @@ defmodule LlmComposer.MixProject do
       {:goth, "~> 1.4", optional: true},
       {:jason, "~> 1.4", optional: is_json_present?},
       {:mint, "~> 1.7"},
+      {:telemetry, "~> 1.0"},
       {:tesla, "~> 1.16"}
     ]
   end

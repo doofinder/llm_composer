@@ -108,6 +108,85 @@ defmodule LlmComposer.Providers.Utils do
     |> merge_consecutive_function_responses()
   end
 
+  @spec cleanup_body(map()) :: map()
+  def cleanup_body(body) do
+    body
+    |> Enum.reject(fn
+      {_param, nil} -> true
+      {_param, []} -> true
+      _other -> false
+    end)
+    |> Map.new()
+  end
+
+  @spec merge_request_params(map(), map()) :: map()
+  def merge_request_params(base_req, req_params) do
+    Enum.reduce(req_params, base_req, fn {key, value}, acc ->
+      existing = Map.get(acc, key)
+
+      if is_map(existing) and is_map(value) do
+        Map.put(acc, key, Map.merge(existing, value))
+      else
+        Map.put(acc, key, value)
+      end
+    end)
+  end
+
+  @spec get_tools([LlmComposer.Function.t()] | nil, atom) :: nil | [map()]
+  def get_tools(nil, _provider), do: nil
+
+  def get_tools(functions, provider) when is_list(functions) do
+    Enum.map(functions, &transform_fn_to_tool(&1, provider))
+  end
+
+  @spec get_req_opts(keyword()) :: keyword()
+  def get_req_opts(opts) do
+    if Keyword.get(opts, :stream_response) do
+      [adapter: stream_adapter_opts()]
+    else
+      []
+    end
+  end
+
+  @doc """
+  Reads a configuration value for the given provider key.
+
+  Priority order:
+  1. Get from `opts` keyword list.
+  2. Get from application config `:llm_composer`, provider_key.
+  3. Use provided `default` value.
+  """
+  @spec get_open_ai_key(keyword()) :: String.t()
+  def get_open_ai_key(opts) do
+    case get_config(:open_ai, :api_key, opts) do
+      nil -> raise LlmComposer.Errors.MissingKeyError
+      key -> key
+    end
+  end
+
+  @spec get_open_ai_request_opts(keyword()) :: keyword()
+  def get_open_ai_request_opts(opts) do
+    timeout = Keyword.get(opts, :timeout, Application.get_env(:llm_composer, :timeout, 50_000))
+    adapter_opts = [receive_timeout: timeout]
+
+    opts
+    |> get_req_opts()
+    |> Keyword.update(:adapter, adapter_opts, &Keyword.merge(&1, adapter_opts))
+  end
+
+  @spec get_config(atom, atom, keyword, any) :: any
+  def get_config(provider_key, key, opts, default \\ nil) do
+    case Keyword.get(opts, key) do
+      nil ->
+        :llm_composer
+        |> Application.get_env(provider_key, [])
+        |> Keyword.get(key, default)
+
+      value ->
+        value
+    end
+  end
+
   @spec build_google_assistant_message(
           String.t() | nil,
           [LlmComposer.FunctionCall.t()] | nil,
@@ -175,46 +254,6 @@ defmodule LlmComposer.Providers.Utils do
     |> Enum.reverse()
   end
 
-  @spec cleanup_body(map()) :: map()
-  def cleanup_body(body) do
-    body
-    |> Enum.reject(fn
-      {_param, nil} -> true
-      {_param, []} -> true
-      _other -> false
-    end)
-    |> Map.new()
-  end
-
-  @spec merge_request_params(map(), map()) :: map()
-  def merge_request_params(base_req, req_params) do
-    Enum.reduce(req_params, base_req, fn {key, value}, acc ->
-      existing = Map.get(acc, key)
-
-      if is_map(existing) and is_map(value) do
-        Map.put(acc, key, Map.merge(existing, value))
-      else
-        Map.put(acc, key, value)
-      end
-    end)
-  end
-
-  @spec get_tools([LlmComposer.Function.t()] | nil, atom) :: nil | [map()]
-  def get_tools(nil, _provider), do: nil
-
-  def get_tools(functions, provider) when is_list(functions) do
-    Enum.map(functions, &transform_fn_to_tool(&1, provider))
-  end
-
-  @spec get_req_opts(keyword()) :: keyword()
-  def get_req_opts(opts) do
-    if Keyword.get(opts, :stream_response) do
-      [adapter: stream_adapter_opts()]
-    else
-      []
-    end
-  end
-
   defp stream_adapter_opts do
     case Application.get_env(:llm_composer, :tesla_adapter, Tesla.Adapter.Mint) do
       {Tesla.Adapter.Finch, _opts} -> [response: :stream]
@@ -222,45 +261,6 @@ defmodule LlmComposer.Providers.Utils do
       {Tesla.Adapter.Mint, _opts} -> [body_as: :stream]
       Tesla.Adapter.Mint -> [body_as: :stream]
       _other -> [response: :stream]
-    end
-  end
-
-  @doc """
-  Reads a configuration value for the given provider key.
-
-  Priority order:
-  1. Get from `opts` keyword list.
-  2. Get from application config `:llm_composer`, provider_key.
-  3. Use provided `default` value.
-  """
-  @spec get_open_ai_key(keyword()) :: String.t()
-  def get_open_ai_key(opts) do
-    case get_config(:open_ai, :api_key, opts) do
-      nil -> raise LlmComposer.Errors.MissingKeyError
-      key -> key
-    end
-  end
-
-  @spec get_open_ai_request_opts(keyword()) :: keyword()
-  def get_open_ai_request_opts(opts) do
-    timeout = Keyword.get(opts, :timeout, Application.get_env(:llm_composer, :timeout, 50_000))
-    adapter_opts = [receive_timeout: timeout]
-
-    opts
-    |> get_req_opts()
-    |> Keyword.update(:adapter, adapter_opts, &Keyword.merge(&1, adapter_opts))
-  end
-
-  @spec get_config(atom, atom, keyword, any) :: any
-  def get_config(provider_key, key, opts, default \\ nil) do
-    case Keyword.get(opts, key) do
-      nil ->
-        :llm_composer
-        |> Application.get_env(provider_key, [])
-        |> Keyword.get(key, default)
-
-      value ->
-        value
     end
   end
 
