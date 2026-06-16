@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- Relaxed the declared `decimal` dependency constraint to support both 2.3.x and 3.x. `llm_composer`'s cost/pricing code was already compatible with Decimal 3.x, but downstream applications previously needed `override: true` to adopt the patched Decimal 3 line.
+
 ## [0.19.5] - 2026-06-01
 
 ### Added
