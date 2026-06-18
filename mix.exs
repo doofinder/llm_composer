@@ -61,6 +61,7 @@ defmodule LlmComposer.MixProject do
       ],
       source_url: "https://github.com/doofinder/llm_composer",
       test_coverage: [tool: ExCoveralls],
+      dialyzer: [plt_add_apps: [:credo]],
       aliases: aliases()
     ]
   end
