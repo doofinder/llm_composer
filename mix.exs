@@ -4,7 +4,7 @@ defmodule LlmComposer.MixProject do
   def project do
     [
       app: :llm_composer,
-      version: "0.19.6",
+      version: "0.19.5",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -14,6 +14,7 @@ defmodule LlmComposer.MixProject do
         source_ref: "master",
         extras: [
           "README.md",
+          "guides/agent.md",
           "guides/providers.md",
           "guides/streaming.md",
           "guides/cost_tracking.md",
@@ -35,6 +36,10 @@ defmodule LlmComposer.MixProject do
             LlmComposer.LlmResponse,
             LlmComposer.StreamChunk,
             LlmComposer.Function
+          ],
+          Agent: [
+            LlmComposer.Agent,
+            LlmComposer.Agent.Result
           ],
           Providers: ~r/LlmComposer\.Providers\./,
           "Response Parsing": ~r/LlmComposer\.ProviderResponse/,
@@ -61,6 +66,7 @@ defmodule LlmComposer.MixProject do
       ],
       source_url: "https://github.com/doofinder/llm_composer",
       test_coverage: [tool: ExCoveralls],
+      dialyzer: [plt_add_apps: [:credo]],
       aliases: aliases()
     ]
   end
@@ -90,7 +96,7 @@ defmodule LlmComposer.MixProject do
     [
       {:bypass, "~> 2.1", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:decimal, "~> 3.0 or ~> 2.3"},
+      {:decimal, "~> 2.3"},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_aws, "~> 2.6", optional: true},
       {:hackney, "~> 1.21", optional: true},
@@ -100,6 +106,7 @@ defmodule LlmComposer.MixProject do
       {:goth, "~> 1.4", optional: true},
       {:jason, "~> 1.4", optional: is_json_present?},
       {:mint, "~> 1.7"},
+      {:telemetry, "~> 1.0"},
       {:tesla, "~> 1.16"}
     ]
   end
