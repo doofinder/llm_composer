@@ -14,6 +14,7 @@ defmodule LlmComposer.MixProject do
         source_ref: "master",
         extras: [
           "README.md",
+          "guides/agent.md",
           "guides/providers.md",
           "guides/streaming.md",
           "guides/cost_tracking.md",
