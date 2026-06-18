@@ -11,6 +11,10 @@ automatic execution — useful when you need to:
 
 Supported providers: **OpenAI**, **OpenRouter**, **Google**.
 
+> **Looking for automatic looping?** If you just want the model to call tools, get their results,
+> and continue until it produces a final answer, use `LlmComposer.Agent` — it automates the
+> manual workflow below. See the [Agent guide](agent.md).
+
 ## The 3-Step Workflow
 
 ```elixir

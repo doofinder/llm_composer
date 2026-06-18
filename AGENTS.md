@@ -34,6 +34,9 @@ The project follows a modular organization separating core functionality, provid
 ```
 lib
 ├── llm_composer
+│   ├── agent
+│   │   └── result.ex
+│   ├── agent.ex
 │   ├── cache
 │   │   ├── behaviour.ex
 │   │   └── ets.ex
@@ -106,6 +109,7 @@ lib
 └── llm_composer.ex
 test
 ├── llm_composer
+│   ├── agent_test.exs         # LlmComposer.Agent tool-calling loop tests
 │   ├── cost/                  # cost_assembler, cost_info, pricing tests
 │   ├── providers/             # per-provider tests (bedrock, google, ollama, open_ai, open_router, utils)
 │   ├── http_client_test.exs
