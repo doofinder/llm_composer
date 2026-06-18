@@ -105,6 +105,7 @@ defmodule LlmComposer.MixProject do
       {:goth, "~> 1.4", optional: true},
       {:jason, "~> 1.4", optional: is_json_present?},
       {:mint, "~> 1.7"},
+      {:telemetry, "~> 1.0"},
       {:tesla, "~> 1.16"}
     ]
   end

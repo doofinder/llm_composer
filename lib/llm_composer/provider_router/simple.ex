@@ -96,6 +96,13 @@ defmodule LlmComposer.ProviderRouter.Simple do
         # Provider was blocked, so unblock it and log
         cache_mod().delete(provider, name)
         Logger.info("[#{provider.name()}] unblocked after success")
+
+        :telemetry.execute(
+          [:llm_composer, :provider_router, :unblocked],
+          %{},
+          %{provider: provider.name()}
+        )
+
         :ok
     end
   end
@@ -129,6 +136,12 @@ defmodule LlmComposer.ProviderRouter.Simple do
 
     Logger.info(
       "[#{provider.name()}] blocked for #{backoff_ms} ms due to error #{inspect(error)}"
+    )
+
+    :telemetry.execute(
+      [:llm_composer, :provider_router, :blocked],
+      %{backoff_ms: backoff_ms, failure_count: failure_count},
+      %{provider: provider.name()}
     )
 
     :block
