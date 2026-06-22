@@ -11,19 +11,6 @@ defmodule LlmComposer.FunctionCallExtractors do
 
   def from_tool_calls(_), do: nil
 
-  defp build_tool_call(tool_call) do
-    function_info = tool_call["function"]
-
-    %FunctionCall{
-      id: tool_call["id"],
-      name: function_info["name"],
-      arguments: function_info["arguments"],
-      type: tool_call["type"],
-      metadata: %{},
-      result: nil
-    }
-  end
-
   @spec from_google_parts(map()) :: [FunctionCall.t()] | nil
   def from_google_parts(%{"parts" => parts}) when is_list(parts) do
     function_calls =
@@ -73,4 +60,17 @@ defmodule LlmComposer.FunctionCallExtractors do
   end
 
   def from_bedrock_content(_), do: nil
+
+  defp build_tool_call(tool_call) do
+    function_info = tool_call["function"]
+
+    %FunctionCall{
+      id: tool_call["id"],
+      name: function_info["name"],
+      arguments: function_info["arguments"],
+      type: tool_call["type"],
+      metadata: %{},
+      result: nil
+    }
+  end
 end
