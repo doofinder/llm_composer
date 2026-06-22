@@ -36,6 +36,10 @@ defmodule LlmComposer.MixProject do
             LlmComposer.StreamChunk,
             LlmComposer.Function
           ],
+          Agent: [
+            LlmComposer.Agent,
+            LlmComposer.Agent.Result
+          ],
           Providers: ~r/LlmComposer\.Providers\./,
           "Response Parsing": ~r/LlmComposer\.ProviderResponse/,
           Streaming: ~r/LlmComposer\.ProviderStreamChunk/,
