@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- Added `LlmComposer.Agent` — an agentic tool-calling loop on top of `LlmComposer.run_completion/3` that automates the full `ask → tool calls → execute → feed results back → repeat` cycle until the model returns a final, tool-free answer. Supports `:sequential` (default) and `:parallel` tool execution (`:tool_timeout`), a configurable `:max_iterations` (default `10`), and per-tool error recovery (tool failures are fed back to the model instead of aborting the run). Returns a `LlmComposer.Agent.Result` struct bundling the final response, the full conversation, executed tool calls, and accumulated cost info. Emits its own `[:llm_composer, :agent, :run | :iteration | :tool]` telemetry events.
+- Added `:telemetry` spans for observability: `[:llm_composer, :run_completion]` (with `input_tokens`/`output_tokens` measurements and a `status` of `:ok`/`:error`) and `[:llm_composer, :providers_runner, :call]` (with `provider`, `model`, and `status` metadata). The provider call span is emitted for both the single-provider and the multi-provider (fallback) paths. The existing `%{latency_ms, status, provider, model}` metrics map passed to `LlmComposer.ProviderRouter` callbacks is preserved, so custom routers keep working unchanged.
+- Added a custom `LlmComposer.CredoChecks.GroupedFunctions` Credo check that enforces grouping of all public functions before private ones within a module, and enabled it across the codebase.
+
 ## [0.19.6] - 2026-06-16
 
 ### Changed
