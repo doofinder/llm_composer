@@ -128,3 +128,43 @@ full_text =
 Streaming is **not** compatible with Tesla's retry middleware. When `stream_response: true`
 is set, the retry middleware is removed automatically. See the
 [Configuration guide](configuration.html) for retry options.
+
+## Streaming with `LlmComposer.Agent`
+
+`LlmComposer.Agent.run/3` also supports streaming. With `stream_response: true` it returns
+`{:ok, stream}` where the stream carries **only the final, tool-free answer** (token-by-token
+`:text_delta` chunks) followed by a terminal `:done` chunk. The terminal chunk's `:usage` and
+`:cost_info` hold the run totals, and `metadata.agent_result` holds the full
+`LlmComposer.Agent.Result`. Intermediate tool-calling turns run internally (streamed tool-call
+deltas are reassembled automatically); they are not placed on the answer stream.
+
+```elixir
+{:ok, stream} = LlmComposer.Agent.run(settings, "What's the weather in Paris?")
+
+stream
+|> Enum.reduce(nil, fn
+  %LlmComposer.StreamChunk{type: :text_delta, text: t}, acc -> IO.write(t); acc
+  %LlmComposer.StreamChunk{type: :done, metadata: %{agent_result: result}}, _ -> result
+  _other, acc -> acc
+end)
+```
+
+Supported for the `:open_ai` and `:google` providers (others yield a terminal `:error` chunk).
+
+### Progress events for UIs
+
+Tool calls and intermediate reasoning are exposed via `:telemetry` rather than the answer stream,
+so a UI can subscribe without parsing the answer. Pass `telemetry_metadata:` to scope a handler to
+a single run and broadcast progress (e.g. via `Phoenix.PubSub`):
+
+```elixir
+{:ok, stream} = LlmComposer.Agent.run(settings, prompt, telemetry_metadata: %{conversation_id: cid})
+
+:telemetry.attach("agent-ui", [:llm_composer, :agent, :tool, :start], fn
+  _event, _meas, %{conversation_id: ^cid, name: name, arguments: args}, _cfg ->
+    Phoenix.PubSub.broadcast(MyApp.PubSub, "conv:#{cid}", {:tool_call, name, args})
+end, nil)
+```
+
+See the [`LlmComposer.Agent`](LlmComposer.Agent.html) docs for the full list of telemetry events
+(`:run`, `:iteration`, `:tool`, `:reasoning`).
