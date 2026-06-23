@@ -4,7 +4,6 @@ defmodule LlmComposer.ProvidersRunner do
   and error handling for multiple provider configurations.
   """
 
-  alias LlmComposer.LlmResponse
   alias LlmComposer.Message
   alias LlmComposer.Settings
 
@@ -17,9 +16,10 @@ defmodule LlmComposer.ProvidersRunner do
   """
   @spec run(messages(), Settings.t(), Message.t()) :: {:ok, any()} | {:error, term()}
   def run(messages, %Settings{providers: [{provider, provider_opts}]} = settings, system_msg) do
-    # only one provider, directly run it.
+    # only one provider, run it directly (still emitting telemetry).
     provider_opts = get_provider_opts(provider_opts, settings)
-    provider.run(messages, system_msg, provider_opts)
+    {result, _metrics} = run_provider(provider, messages, system_msg, provider_opts)
+    result
   end
 
   def run(messages, %Settings{providers: providers} = settings, system_msg)
@@ -44,14 +44,7 @@ defmodule LlmComposer.ProvidersRunner do
     case router.select_provider(all_providers) do
       {:ok, {selected_provider, provider_opts}} ->
         provider_opts = get_provider_opts(provider_opts, settings)
-
-        {exec_time_us, result} =
-          :timer.tc(fn ->
-            selected_provider.run(messages, system_msg, provider_opts)
-          end)
-
-        metrics = build_metrics(result, exec_time_us, selected_provider, provider_opts)
-        Logger.debug("#{selected_provider.name()} metrics: #{inspect(metrics)}")
+        {result, metrics} = run_provider(selected_provider, messages, system_msg, provider_opts)
 
         case handle_provider_result(result, selected_provider, router, metrics) do
           {:halt, ok_res} ->
@@ -83,8 +76,36 @@ defmodule LlmComposer.ProvidersRunner do
     )
 
     router.on_provider_failure(provider, err_res, metrics)
-    # if failure, we continue with next provider if any
     {:cont, err_res}
+  end
+
+  @spec run_provider(module(), messages(), Message.t(), keyword()) ::
+          {{:ok, any()} | {:error, term()}, map()}
+  defp run_provider(provider, messages, system_msg, provider_opts) do
+    provider_name = provider.name()
+    model = Keyword.get(provider_opts, :model)
+
+    :telemetry.span(
+      [:llm_composer, :providers_runner, :call],
+      %{provider: provider_name, model: model},
+      fn ->
+        {exec_time_us, result} =
+          :timer.tc(fn -> provider.run(messages, system_msg, provider_opts) end)
+
+        status = if match?({:ok, _}, result), do: :ok, else: :error
+
+        # metrics are still passed to the router callbacks to preserve the
+        # behaviour relied on by custom routers; the span also exposes them.
+        metrics = %{
+          latency_ms: exec_time_us / 1000,
+          status: status,
+          provider: provider_name,
+          model: model
+        }
+
+        {{result, metrics}, %{}, %{provider: provider_name, model: model, status: status}}
+      end
+    )
   end
 
   @spec get_provider_opts(keyword(), Settings.t()) :: keyword()
@@ -99,24 +120,5 @@ defmodule LlmComposer.ProvidersRunner do
     :llm_composer
     |> Application.get_env(:provider_router, [])
     |> Keyword.get(:name, LlmComposer.ProviderRouter.Simple)
-  end
-
-  @spec build_metrics({:ok, LlmResponse.t()} | {:error, term()}, number(), module(), keyword()) ::
-          map()
-  defp build_metrics(result, exec_time_us, provider, provider_opts) do
-    latency_ms = exec_time_us / 1000
-
-    status =
-      case result do
-        {:ok, _} -> :ok
-        {:error, _error} -> :error
-      end
-
-    %{
-      latency_ms: latency_ms,
-      status: status,
-      provider: provider.name(),
-      model: Keyword.fetch!(provider_opts, :model)
-    }
   end
 end

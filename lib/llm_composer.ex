@@ -85,19 +85,18 @@ defmodule LlmComposer do
   def run_completion(settings, messages, previous_response \\ nil) do
     system_msg = Message.new(:system, settings.system_prompt)
 
-    messages
-    |> ProvidersRunner.run(settings, system_msg)
-    |> then(fn
-      {:ok, %LlmResponse{} = res} ->
-        # set previous response all the time
-        res = %LlmResponse{res | previous_response: previous_response}
+    :telemetry.span([:llm_composer, :run_completion], %{}, fn ->
+      case ProvidersRunner.run(messages, settings, system_msg) do
+        {:ok, %LlmResponse{} = res} ->
+          res = %LlmResponse{res | previous_response: previous_response}
+          Logger.debug("input_tokens=#{res.input_tokens}, output_tokens=#{res.output_tokens}")
 
-        Logger.debug("input_tokens=#{res.input_tokens}, output_tokens=#{res.output_tokens}")
+          {{:ok, res}, %{input_tokens: res.input_tokens, output_tokens: res.output_tokens},
+           %{status: :ok}}
 
-        {:ok, res}
-
-      {:error, _data} = resp ->
-        resp
+        {:error, _} = err ->
+          {err, %{input_tokens: 0, output_tokens: 0}, %{status: :error}}
+      end
     end)
   end
 
