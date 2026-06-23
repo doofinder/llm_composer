@@ -627,11 +627,9 @@ defmodule LlmComposer.Agent do
   defp normalize_input(_settings, messages) when is_list(messages), do: messages
 
   @spec user_prompt(Settings.t(), String.t()) :: String.t()
-  defp user_prompt(%Settings{user_prompt_prefix: prefix}, message) when is_binary(prefix) do
+  defp user_prompt(%Settings{user_prompt_prefix: prefix}, message) do
     prefix <> message
   end
-
-  defp user_prompt(_settings, message), do: message
 
   @spec functions_from_settings(Settings.t()) :: [Function.t()]
   defp functions_from_settings(%Settings{providers: [{_mod, opts} | _]}) when is_list(opts) do
