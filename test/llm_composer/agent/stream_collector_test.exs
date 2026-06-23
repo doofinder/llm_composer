@@ -127,8 +127,145 @@ defmodule LlmComposer.Agent.StreamCollectorTest do
     end
   end
 
+  describe "OpenRouter tool-call reassembly" do
+    test "merges fragmented arguments by index (same format as OpenAI)" do
+      chunks = [
+        %StreamChunk{
+          provider: :open_router,
+          type: :tool_call_delta,
+          tool_calls: [
+            %{
+              "index" => 0,
+              "id" => "call_or_1",
+              "type" => "function",
+              "function" => %{"name" => "get_weather", "arguments" => ""}
+            }
+          ]
+        },
+        %StreamChunk{
+          provider: :open_router,
+          type: :tool_call_delta,
+          tool_calls: [%{"index" => 0, "function" => %{"arguments" => "{\"city\":"}}]
+        },
+        %StreamChunk{
+          provider: :open_router,
+          type: :tool_call_delta,
+          tool_calls: [%{"index" => 0, "function" => %{"arguments" => "\"Paris\"}"}}]
+        }
+      ]
+
+      collector = collect(:open_router, chunks)
+
+      assert StreamCollector.tool_turn?(collector)
+
+      assert [
+               %FunctionCall{
+                 id: "call_or_1",
+                 name: "get_weather",
+                 arguments: "{\"city\":\"Paris\"}",
+                 type: "function"
+               }
+             ] = StreamCollector.to_function_calls(collector)
+    end
+  end
+
+  describe "Bedrock tool-call reassembly" do
+    test "merges a start chunk and inputJson deltas into a FunctionCall" do
+      chunks = [
+        %StreamChunk{
+          provider: :bedrock,
+          type: :tool_call_delta,
+          tool_calls: [%{"toolUseId" => "bedrock_1", "name" => "calculator", "inputJson" => ""}]
+        },
+        %StreamChunk{
+          provider: :bedrock,
+          type: :tool_call_delta,
+          tool_calls: [%{"inputJson" => "{\"expression\":"}]
+        },
+        %StreamChunk{
+          provider: :bedrock,
+          type: :tool_call_delta,
+          tool_calls: [%{"inputJson" => "\"2 + 3\"}"}]
+        }
+      ]
+
+      collector = collect(:bedrock, chunks)
+
+      assert StreamCollector.tool_turn?(collector)
+
+      assert [
+               %FunctionCall{
+                 id: "bedrock_1",
+                 name: "calculator",
+                 arguments: "{\"expression\":\"2 + 3\"}",
+                 type: "function"
+               }
+             ] = StreamCollector.to_function_calls(collector)
+    end
+
+    test "preserves insertion order for multiple sequential tool calls" do
+      chunks = [
+        %StreamChunk{
+          provider: :bedrock,
+          type: :tool_call_delta,
+          tool_calls: [%{"toolUseId" => "id_a", "name" => "tool_a", "inputJson" => ""}]
+        },
+        %StreamChunk{
+          provider: :bedrock,
+          type: :tool_call_delta,
+          tool_calls: [%{"inputJson" => "{\"x\":1}"}]
+        },
+        %StreamChunk{
+          provider: :bedrock,
+          type: :tool_call_delta,
+          tool_calls: [%{"toolUseId" => "id_b", "name" => "tool_b", "inputJson" => ""}]
+        },
+        %StreamChunk{
+          provider: :bedrock,
+          type: :tool_call_delta,
+          tool_calls: [%{"inputJson" => "{\"y\":2}"}]
+        }
+      ]
+
+      collector = collect(:bedrock, chunks)
+
+      assert [
+               %FunctionCall{id: "id_a", name: "tool_a", arguments: "{\"x\":1}"},
+               %FunctionCall{id: "id_b", name: "tool_b", arguments: "{\"y\":2}"}
+             ] = StreamCollector.to_function_calls(collector)
+    end
+
+    test "to_llm_response/1 exposes assembled Bedrock tool calls" do
+      chunks = [
+        %StreamChunk{
+          provider: :bedrock,
+          type: :tool_call_delta,
+          tool_calls: [%{"toolUseId" => "bid_1", "name" => "lookup", "inputJson" => "{}"}]
+        },
+        %StreamChunk{
+          provider: :bedrock,
+          type: :usage,
+          usage: %{input_tokens: 8, output_tokens: 3}
+        }
+      ]
+
+      collector = collect(:bedrock, chunks)
+
+      assert %LlmResponse{
+               provider: :bedrock,
+               status: :ok,
+               input_tokens: 8,
+               output_tokens: 3,
+               main_response: %{
+                 type: :assistant,
+                 function_calls: [%FunctionCall{id: "bid_1", name: "lookup", arguments: "{}"}]
+               }
+             } = StreamCollector.to_llm_response(collector)
+    end
+  end
+
   test "new/1 raises for unsupported providers" do
-    assert_raise ArgumentError, fn -> StreamCollector.new(:bedrock) end
+    assert_raise ArgumentError, fn -> StreamCollector.new(:ollama) end
   end
 
   # --- Helpers ---

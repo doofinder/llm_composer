@@ -29,7 +29,14 @@ defmodule LlmComposer.StreamChunk do
   @type t() :: %__MODULE__{
           provider: atom(),
           type:
-            :text_delta | :reasoning_delta | :tool_call_delta | :usage | :done | :error | :unknown,
+            :text_delta
+            | :reasoning_delta
+            | :tool_call_delta
+            | :tool_call
+            | :usage
+            | :done
+            | :error
+            | :unknown,
           text: String.t() | nil,
           reasoning: String.t() | nil,
           reasoning_details: list() | nil,

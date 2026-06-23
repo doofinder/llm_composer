@@ -431,7 +431,17 @@ defmodule LlmComposer.Agent do
 
         acc = %{acc | cost_infos: cost_infos, function_calls: acc.function_calls ++ executed}
 
-        {[],
+        tool_chunks =
+          Enum.map(executed, fn call ->
+            %StreamChunk{
+              provider: response.provider,
+              type: :tool_call,
+              tool_calls: [call],
+              metadata: %{iteration: next_iteration}
+            }
+          end)
+
+        {tool_chunks,
          %{
            state
            | phase: :start_turn,

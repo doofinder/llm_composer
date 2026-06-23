@@ -5,17 +5,18 @@ defmodule LlmComposer.Agent.StreamCollector do
 
   Streaming providers emit tool calls incrementally and in provider-specific shapes:
 
-  - **OpenAI** sends `:tool_call_delta` chunks whose `tool_calls` are raw maps keyed by `"index"`,
-    with the `function.arguments` JSON split across several chunks. They must be grouped by index
-    and concatenated.
+  - **OpenAI / OpenRouter** send `:tool_call_delta` chunks whose `tool_calls` are raw maps keyed by
+    `"index"`, with the `function.arguments` JSON split across several chunks. They must be grouped
+    by index and concatenated.
   - **Google** sends already-complete `LlmComposer.FunctionCall` structs (one per chunk).
+  - **Bedrock** sends two event types per tool call: a start event with `"toolUseId"` and `"name"`,
+    followed by one or more delta events that carry only `"inputJson"` fragments. Fragments are
+    grouped by `"toolUseId"` and concatenated in arrival order.
 
   This collector hides those differences. Feed every chunk of a turn through `add/2`, then call
-  `tool_turn?/1` to know whether the model requested tools, and `to_llm_response/2` to obtain a
+  `tool_turn?/1` to know whether the model requested tools, and `to_llm_response/1` to obtain a
   response shaped exactly like a non-streaming one (so the rest of `LlmComposer.Agent` can reuse the
   synchronous loop unchanged).
-
-  Only `:open_ai` and `:google` are supported; other providers raise `ArgumentError`.
   """
 
   alias LlmComposer.CostInfo
@@ -25,13 +26,15 @@ defmodule LlmComposer.Agent.StreamCollector do
   alias LlmComposer.Message
   alias LlmComposer.StreamChunk
 
-  @supported_providers [:open_ai, :google]
+  @supported_providers [:open_ai, :open_router, :google, :bedrock]
 
   @type t() :: %__MODULE__{
           provider: atom(),
           text: iodata(),
           reasoning: iodata(),
-          tool_fragments: %{optional(non_neg_integer()) => map()},
+          tool_fragments: %{optional(non_neg_integer() | String.t()) => map()},
+          tool_id_sequence: [String.t()],
+          current_tool_id: String.t() | nil,
           function_calls: [FunctionCall.t()],
           saw_tool_call: boolean(),
           usage: StreamChunk.usage() | nil,
@@ -42,6 +45,8 @@ defmodule LlmComposer.Agent.StreamCollector do
             text: [],
             reasoning: [],
             tool_fragments: %{},
+            tool_id_sequence: [],
+            current_tool_id: nil,
             function_calls: [],
             saw_tool_call: false,
             usage: nil,
@@ -108,12 +113,24 @@ defmodule LlmComposer.Agent.StreamCollector do
   @spec to_function_calls(t()) :: [FunctionCall.t()]
   def to_function_calls(%__MODULE__{provider: :google, function_calls: calls}), do: calls
 
-  def to_function_calls(%__MODULE__{provider: :open_ai, tool_fragments: fragments}) do
+  def to_function_calls(%__MODULE__{provider: p, tool_fragments: fragments})
+      when p in [:open_ai, :open_router] do
     fragments
     |> Enum.sort_by(fn {index, _fragment} -> index end)
     |> Enum.map(fn {_index, fragment} -> fragment end)
     |> then(&FunctionCallExtractors.from_tool_calls(%{"tool_calls" => &1}))
     |> List.wrap()
+  end
+
+  def to_function_calls(%__MODULE__{
+        provider: :bedrock,
+        tool_fragments: fragments,
+        tool_id_sequence: order
+      }) do
+    Enum.map(order, fn tool_id ->
+      %{"toolUseId" => id, "name" => name, "inputJson" => args} = Map.fetch!(fragments, tool_id)
+      %FunctionCall{id: id, name: name, arguments: args, type: "function"}
+    end)
   end
 
   @doc """
@@ -193,7 +210,8 @@ defmodule LlmComposer.Agent.StreamCollector do
     %{collector | function_calls: collector.function_calls ++ new_calls}
   end
 
-  defp merge_tool_calls(%__MODULE__{provider: :open_ai} = collector, tool_calls) do
+  defp merge_tool_calls(%__MODULE__{provider: p} = collector, tool_calls)
+       when p in [:open_ai, :open_router] do
     fragments =
       Enum.reduce(tool_calls, collector.tool_fragments, fn raw, acc ->
         index = Map.get(raw, "index", map_size(acc))
@@ -201,6 +219,34 @@ defmodule LlmComposer.Agent.StreamCollector do
       end)
 
     %{collector | tool_fragments: fragments}
+  end
+
+  defp merge_tool_calls(%__MODULE__{provider: :bedrock} = collector, tool_calls) do
+    Enum.reduce(tool_calls, collector, fn
+      %{"toolUseId" => tool_id, "name" => name} = raw, acc ->
+        fragment = %{
+          "toolUseId" => tool_id,
+          "name" => name,
+          "inputJson" => Map.get(raw, "inputJson", "")
+        }
+
+        %{
+          acc
+          | tool_fragments: Map.put(acc.tool_fragments, tool_id, fragment),
+            tool_id_sequence: acc.tool_id_sequence ++ [tool_id],
+            current_tool_id: tool_id
+        }
+
+      %{"inputJson" => input}, acc when is_binary(input) ->
+        tool_id = acc.current_tool_id
+
+        fragments =
+          Map.update!(acc.tool_fragments, tool_id, fn f ->
+            Map.update(f, "inputJson", input, &(&1 <> input))
+          end)
+
+        %{acc | tool_fragments: fragments}
+    end)
   end
 
   @spec merge_fragment(map(), map()) :: map()

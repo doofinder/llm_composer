@@ -4,6 +4,7 @@ defmodule LlmComposer.AgentTest do
   alias LlmComposer.Agent
   alias LlmComposer.Agent.Result
   alias LlmComposer.Function
+  alias LlmComposer.FunctionCall
   alias LlmComposer.Message
   alias LlmComposer.Providers.OpenAI
   alias LlmComposer.Settings
@@ -164,8 +165,10 @@ defmodule LlmComposer.AgentTest do
     {:ok, stream} = Agent.run(settings, "How much is 2 + 3?")
     outcome = consume(stream)
 
-    # only text + a terminal done reach the caller; no tool_call_delta chunks
+    # raw deltas are still suppressed; assembled :tool_call chunks appear instead
     assert :tool_call_delta not in outcome.types
+    assert :tool_call in outcome.types
+    assert [%FunctionCall{name: "calculator", id: "call_1", result: 5}] = outcome.tool_calls
     assert outcome.text == "The result is 5."
 
     assert %StreamChunk{type: :done, metadata: %{agent_result: %Result{} = result}} = outcome.done
@@ -222,6 +225,9 @@ defmodule LlmComposer.AgentTest do
     assert outcome.text == "Both done."
     assert %StreamChunk{type: :done, metadata: %{agent_result: result}} = outcome.done
     assert [%{id: "call_a", result: 5}, %{id: "call_b", result: 20}] = result.function_calls
+    assert length(outcome.tool_calls) == 2
+    assert Enum.find(outcome.tool_calls, &(&1.id == "call_a"))
+    assert Enum.find(outcome.tool_calls, &(&1.id == "call_b"))
   end
 
   test "emits a terminal error chunk when max_iterations is exceeded", %{bypass: bypass} do
@@ -502,13 +508,21 @@ defmodule LlmComposer.AgentTest do
   end
 
   defp consume(stream) do
-    Enum.reduce(stream, %{text: "", types: [], done: nil}, fn chunk, acc ->
+    Enum.reduce(stream, %{text: "", types: [], done: nil, tool_calls: []}, fn chunk, acc ->
       acc = %{acc | types: acc.types ++ [chunk.type]}
 
       case chunk do
-        %StreamChunk{type: :text_delta, text: text} -> %{acc | text: acc.text <> text}
-        %StreamChunk{type: type} = chunk when type in [:done, :error] -> %{acc | done: chunk}
-        _other -> acc
+        %StreamChunk{type: :text_delta, text: text} ->
+          %{acc | text: acc.text <> text}
+
+        %StreamChunk{type: :tool_call, tool_calls: calls} ->
+          %{acc | tool_calls: acc.tool_calls ++ calls}
+
+        %StreamChunk{type: type} = chunk when type in [:done, :error] ->
+          %{acc | done: chunk}
+
+        _other ->
+          acc
       end
     end)
   end
