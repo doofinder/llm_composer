@@ -4,9 +4,11 @@ defmodule LlmComposer.AgentTest do
   alias LlmComposer.Agent
   alias LlmComposer.Agent.Result
   alias LlmComposer.Function
+  alias LlmComposer.FunctionCall
   alias LlmComposer.Message
   alias LlmComposer.Providers.OpenAI
   alias LlmComposer.Settings
+  alias LlmComposer.StreamChunk
 
   setup do
     bypass = Bypass.open()
@@ -142,14 +144,161 @@ defmodule LlmComposer.AgentTest do
     assert [%{id: "call_a", result: 5}, %{id: "call_b", result: 20}] = result.function_calls
   end
 
-  test "rejects streaming settings without making a request" do
-    settings = %Settings{
-      providers: [{OpenAI, [model: "gpt-4.1-mini", api_key: "k", url: "http://localhost:0/"]}],
-      system_prompt: "You are a helpful assistant",
-      stream_response: true
-    }
+  test "streams the final answer after a tool round (answer stream is text-only)", %{
+    bypass: bypass
+  } do
+    Bypass.expect(bypass, "POST", "/chat/completions", fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      request = Jason.decode!(body)
 
-    assert {:error, :streaming_not_supported} = Agent.run(settings, "hi")
+      if has_tool_message?(request) do
+        send_sse(conn, text_stream(["The result ", "is 5."], {12, 6}))
+      else
+        send_sse(
+          conn,
+          tool_call_stream([{0, "call_1", "calculator", ~s({"expression":"2 + 3"})}], {10, 5})
+        )
+      end
+    end)
+
+    settings = stream_settings(bypass)
+    {:ok, stream} = Agent.run(settings, "How much is 2 + 3?")
+    outcome = consume(stream)
+
+    # raw deltas are still suppressed; assembled :tool_call chunks appear instead
+    assert :tool_call_delta not in outcome.types
+    assert :tool_call in outcome.types
+    assert [%FunctionCall{name: "calculator", id: "call_1", result: 5}] = outcome.tool_calls
+    assert outcome.text == "The result is 5."
+
+    assert %StreamChunk{type: :done, metadata: %{agent_result: %Result{} = result}} = outcome.done
+    assert result.iterations == 2
+    assert result.response.main_response.content == "The result is 5."
+    assert [%{name: "calculator", id: "call_1", result: 5}] = result.function_calls
+
+    # cumulative usage + cost on the terminal chunk
+    assert outcome.done.usage.input_tokens == 22
+    assert outcome.done.usage.output_tokens == 11
+    assert length(result.cost_infos) == 2
+  end
+
+  test "streams immediately when the model needs no tools", %{bypass: bypass} do
+    Bypass.expect_once(bypass, "POST", "/chat/completions", fn conn ->
+      send_sse(conn, text_stream(["Hello ", "there!"], {7, 3}))
+    end)
+
+    settings = stream_settings(bypass)
+    {:ok, stream} = Agent.run(settings, "hi")
+    outcome = consume(stream)
+
+    assert outcome.text == "Hello there!"
+    assert %StreamChunk{type: :done, metadata: %{agent_result: result}} = outcome.done
+    assert result.iterations == 1
+    assert result.function_calls == []
+  end
+
+  test "reassembles multiple parallel tool calls while streaming", %{bypass: bypass} do
+    Bypass.expect(bypass, "POST", "/chat/completions", fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      request = Jason.decode!(body)
+
+      if has_tool_message?(request) do
+        send_sse(conn, text_stream(["Both done."], {15, 5}))
+      else
+        send_sse(
+          conn,
+          tool_call_stream(
+            [
+              {0, "call_a", "calculator", ~s({"expression":"2 + 3"})},
+              {1, "call_b", "calculator", ~s({"expression":"10 * 2"})}
+            ],
+            {12, 8}
+          )
+        )
+      end
+    end)
+
+    settings = stream_settings(bypass)
+    {:ok, stream} = Agent.run(settings, "do two calcs", tool_execution: :parallel)
+    outcome = consume(stream)
+
+    assert outcome.text == "Both done."
+    assert %StreamChunk{type: :done, metadata: %{agent_result: result}} = outcome.done
+    assert [%{id: "call_a", result: 5}, %{id: "call_b", result: 20}] = result.function_calls
+    assert length(outcome.tool_calls) == 2
+    assert Enum.find(outcome.tool_calls, &(&1.id == "call_a"))
+    assert Enum.find(outcome.tool_calls, &(&1.id == "call_b"))
+  end
+
+  test "emits a terminal error chunk when max_iterations is exceeded", %{bypass: bypass} do
+    Bypass.expect(bypass, "POST", "/chat/completions", fn conn ->
+      send_sse(
+        conn,
+        tool_call_stream([{0, "call_x", "calculator", ~s({"expression":"1 + 1"})}], {5, 5})
+      )
+    end)
+
+    settings = stream_settings(bypass)
+    {:ok, stream} = Agent.run(settings, "loop forever", max_iterations: 1)
+    outcome = consume(stream)
+
+    assert %StreamChunk{type: :error, metadata: %{reason: :max_iterations_reached}} = outcome.done
+  end
+
+  test "exposes tool, reasoning and run telemetry scoped by telemetry_metadata", %{bypass: bypass} do
+    Bypass.expect(bypass, "POST", "/chat/completions", fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      request = Jason.decode!(body)
+
+      if has_tool_message?(request) do
+        send_sse(conn, text_stream(["ok"], {12, 6}))
+      else
+        send_sse(
+          conn,
+          tool_call_stream([{0, "call_1", "calculator", ~s({"expression":"2 + 3"})}], {10, 5},
+            reasoning: "let me compute"
+          )
+        )
+      end
+    end)
+
+    cid = System.unique_integer([:positive])
+    test_pid = self()
+    handler_id = "agent-stream-telemetry-#{cid}"
+
+    :telemetry.attach_many(
+      handler_id,
+      [
+        [:llm_composer, :agent, :run, :stop],
+        [:llm_composer, :agent, :tool, :start],
+        [:llm_composer, :agent, :reasoning, :delta]
+      ],
+      fn event, measurements, metadata, _config ->
+        send(test_pid, {:telemetry, event, measurements, metadata})
+      end,
+      nil
+    )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    settings = stream_settings(bypass)
+    {:ok, stream} = Agent.run(settings, "compute", telemetry_metadata: %{conversation_id: cid})
+
+    _outcome = consume(stream)
+
+    assert_receive {:telemetry, [:llm_composer, :agent, :tool, :start], _meas, tool_meta}
+    assert tool_meta.name == "calculator"
+    assert tool_meta.arguments == ~s({"expression":"2 + 3"})
+    assert tool_meta.id == "call_1"
+    assert is_map(tool_meta.metadata)
+    assert tool_meta.conversation_id == cid
+    assert is_integer(tool_meta.run_id)
+
+    assert_receive {:telemetry, [:llm_composer, :agent, :reasoning, :delta], _m,
+                    %{reasoning: "let me compute", conversation_id: ^cid}}
+
+    assert_receive {:telemetry, [:llm_composer, :agent, :run, :stop], %{iterations: 2},
+                    %{status: :ok, conversation_id: ^cid}}
   end
 
   test "emits run telemetry with iteration count", %{bypass: bypass} do
@@ -280,4 +429,101 @@ defmodule LlmComposer.AgentTest do
   end
 
   defp endpoint_url(port), do: "http://localhost:#{port}/"
+
+  # --- Streaming helpers ---
+
+  defp stream_settings(bypass), do: %{settings(bypass) | stream_response: true}
+
+  defp send_sse(conn, events) do
+    conn = Plug.Conn.send_chunked(conn, 200)
+
+    Enum.reduce(events, conn, fn data, conn ->
+      {:ok, conn} = Plug.Conn.chunk(conn, data)
+      conn
+    end)
+  end
+
+  defp sse(payload), do: "data: " <> Jason.encode!(payload) <> "\n\n"
+
+  defp stream_event(delta, finish_reason \\ nil) do
+    sse(%{
+      "model" => "gpt-4.1-mini",
+      "choices" => [%{"index" => 0, "delta" => delta, "finish_reason" => finish_reason}]
+    })
+  end
+
+  defp usage_event({prompt, completion}) do
+    sse(%{
+      "model" => "gpt-4.1-mini",
+      "choices" => [],
+      "usage" => %{
+        "prompt_tokens" => prompt,
+        "completion_tokens" => completion,
+        "total_tokens" => prompt + completion
+      }
+    })
+  end
+
+  # calls: list of {index, id, name, arguments_json}. arguments are split into two SSE fragments
+  # so the test exercises the reassembler's concatenation-by-index logic.
+  defp tool_call_stream(calls, usage, opts \\ []) do
+    reasoning_events =
+      case Keyword.get(opts, :reasoning) do
+        nil -> []
+        text -> [stream_event(%{"reasoning" => text})]
+      end
+
+    call_events =
+      Enum.flat_map(calls, fn {index, id, name, arguments} ->
+        {head, tail} = String.split_at(arguments, div(String.length(arguments), 2))
+
+        [
+          stream_event(%{
+            "tool_calls" => [
+              %{
+                "index" => index,
+                "id" => id,
+                "type" => "function",
+                "function" => %{"name" => name, "arguments" => ""}
+              }
+            ]
+          }),
+          stream_event(%{
+            "tool_calls" => [%{"index" => index, "function" => %{"arguments" => head}}]
+          }),
+          stream_event(%{
+            "tool_calls" => [%{"index" => index, "function" => %{"arguments" => tail}}]
+          })
+        ]
+      end)
+
+    reasoning_events ++
+      call_events ++ [stream_event(%{}, "tool_calls"), usage_event(usage), "data: [DONE]\n\n"]
+  end
+
+  defp text_stream(fragments, usage) do
+    text_events = Enum.map(fragments, fn text -> stream_event(%{"content" => text}) end)
+
+    text_events ++ [stream_event(%{}, "stop"), usage_event(usage), "data: [DONE]\n\n"]
+  end
+
+  defp consume(stream) do
+    Enum.reduce(stream, %{text: "", types: [], done: nil, tool_calls: []}, fn chunk, acc ->
+      acc = %{acc | types: acc.types ++ [chunk.type]}
+
+      case chunk do
+        %StreamChunk{type: :text_delta, text: text} ->
+          %{acc | text: acc.text <> text}
+
+        %StreamChunk{type: :tool_call, tool_calls: calls} ->
+          %{acc | tool_calls: acc.tool_calls ++ calls}
+
+        %StreamChunk{type: type} = chunk when type in [:done, :error] ->
+          %{acc | done: chunk}
+
+        _other ->
+          acc
+      end
+    end)
+  end
 end
