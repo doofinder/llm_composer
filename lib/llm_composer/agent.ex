@@ -34,8 +34,9 @@ defmodule LlmComposer.Agent do
         _other, acc -> acc
       end)
 
-  Only the `:open_ai` and `:google` providers support the streaming agent today; others yield a
-  terminal `:error` chunk with `{:streaming_agent_unsupported_provider, provider}`.
+  All providers support the streaming agent. Note that the native `:ollama` provider does not emit
+  tool-call deltas; for tool-call streaming with Ollama use the `:open_ai` provider pointed at
+  Ollama's OpenAI-compatible endpoint.
 
   ## Example
 
@@ -228,8 +229,8 @@ defmodule LlmComposer.Agent do
 
   @spec loop(config(), [Message.t()], non_neg_integer(), acc()) ::
           {:ok, Result.t()} | {:error, term()}
-  defp loop(%{max_iterations: max}, _messages, iteration, _acc) when iteration >= max do
-    {:error, :max_iterations_reached}
+  defp loop(%{max_iterations: max}, messages, iteration, acc) when iteration >= max do
+    {:error, {:max_iterations_reached, partial_result(messages, iteration, acc)}}
   end
 
   defp loop(config, messages, iteration, acc) do
@@ -293,6 +294,16 @@ defmodule LlmComposer.Agent do
     tool_msgs = FunctionCallHelpers.build_tool_result_messages(executed)
 
     messages ++ [assistant_msg | tool_msgs]
+  end
+
+  @spec partial_result([Message.t()], non_neg_integer(), acc()) :: map()
+  defp partial_result(messages, iterations, acc) do
+    %{
+      cost_infos: acc.cost_infos,
+      function_calls: acc.function_calls,
+      messages: messages,
+      iterations: iterations
+    }
   end
 
   @spec finalize(LlmResponse.t(), [Message.t()], non_neg_integer(), acc()) :: {:ok, Result.t()}
@@ -472,6 +483,20 @@ defmodule LlmComposer.Agent do
   end
 
   @spec terminate_error(map(), term()) :: {[StreamChunk.t()], map()}
+  defp terminate_error(
+         %{messages: messages, iteration: iteration, acc: acc} = state,
+         :max_iterations_reached
+       ) do
+    partial = partial_result(messages, iteration, acc)
+
+    chunk = %StreamChunk{
+      type: :error,
+      metadata: %{reason: :max_iterations_reached, partial: partial, status: :error}
+    }
+
+    {[chunk], %{state | phase: :done, status: :error}}
+  end
+
   defp terminate_error(state, reason) do
     chunk = %StreamChunk{type: :error, metadata: %{reason: reason, status: :error}}
     {[chunk], %{state | phase: :done, status: :error}}
@@ -535,8 +560,14 @@ defmodule LlmComposer.Agent do
 
   @spec execute_tool_calls(config(), [FunctionCall.t()]) :: [FunctionCall.t()]
   defp execute_tool_calls(%{tool_execution: :parallel} = config, calls) do
+    parent_metadata = Logger.metadata()
+
     calls
-    |> Task.async_stream(&execute_one(config, &1),
+    |> Task.async_stream(
+      fn call ->
+        Logger.metadata(parent_metadata)
+        execute_one(config, call)
+      end,
       ordered: true,
       timeout: config.tool_timeout,
       on_timeout: :kill_task
@@ -618,6 +649,10 @@ defmodule LlmComposer.Agent do
 
   @spec run_measurements({:ok, Result.t()} | {:error, term()}) :: map()
   defp run_measurements({:ok, %Result{iterations: iterations}}), do: %{iterations: iterations}
+
+  defp run_measurements({:error, {:max_iterations_reached, %{iterations: n}}}),
+    do: %{iterations: n}
+
   defp run_measurements({:error, _reason}), do: %{iterations: 0}
 
   @spec run_stop_metadata(map(), {:ok, Result.t()} | {:error, term()}) :: map()
@@ -642,8 +677,10 @@ defmodule LlmComposer.Agent do
   end
 
   @spec functions_from_settings(Settings.t()) :: [Function.t()]
-  defp functions_from_settings(%Settings{providers: [{_mod, opts} | _]}) when is_list(opts) do
-    Keyword.get(opts, :functions, [])
+  defp functions_from_settings(%Settings{providers: providers}) when is_list(providers) do
+    providers
+    |> Enum.flat_map(fn {_mod, opts} -> Keyword.get(opts || [], :functions, []) end)
+    |> Enum.uniq_by(& &1.name)
   end
 
   defp functions_from_settings(%Settings{provider_opts: opts}) when is_list(opts) do

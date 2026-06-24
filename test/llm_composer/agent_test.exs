@@ -86,8 +86,11 @@ defmodule LlmComposer.AgentTest do
 
     settings = settings(bypass)
 
-    assert {:error, :max_iterations_reached} =
+    assert {:error, {:max_iterations_reached, partial}} =
              Agent.run(settings, "loop forever", max_iterations: 2)
+
+    assert partial.iterations == 2
+    assert partial.function_calls != []
   end
 
   test "feeds tool execution errors back to the model instead of aborting", %{bypass: bypass} do
