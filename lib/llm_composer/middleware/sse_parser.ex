@@ -92,7 +92,7 @@ defmodule LlmComposer.Middleware.SSEParser do
   defp normalize(" " <> v), do: v
   defp normalize(v), do: v
 
-  defp handle_field("data", value, acc), do: Map.update!(acc, :data_lines, &(&1 ++ [value]))
+  defp handle_field("data", value, acc), do: Map.update!(acc, :data_lines, &[value | &1])
   defp handle_field("event", v, acc), do: Map.put(acc, :event, v)
   defp handle_field("id", v, acc), do: Map.put(acc, :id, v)
   defp handle_field("retry", v, acc), do: Map.put(acc, :retry, v)
@@ -102,7 +102,7 @@ defmodule LlmComposer.Middleware.SSEParser do
   defp build_event(fields, nil), do: build_event(fields, :data)
 
   defp build_event(%{data_lines: lines} = fields, only) do
-    data = Enum.join(lines, "\n")
+    data = lines |> Enum.reverse() |> Enum.join("\n")
 
     fields
     |> Map.delete(:data_lines)
