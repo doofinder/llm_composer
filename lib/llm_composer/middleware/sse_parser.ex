@@ -8,6 +8,8 @@ defmodule LlmComposer.Middleware.SSEParser do
 
   @type t :: %__MODULE__{buffer: String.t(), only: atom() | nil}
 
+  @event_separator ~r/((\r\n)|((?<!\r)\n)|(\r(?!\n))){2}/
+
   @spec new(keyword()) :: t()
   def new(opts \\ []) do
     %__MODULE__{only: Keyword.get(opts, :only, nil)}
@@ -38,7 +40,7 @@ defmodule LlmComposer.Middleware.SSEParser do
   # Source: https://github.com/nshkrdotcom/gemini_ex/blob/main/lib/gemini/sse/parser.ex
   # License: MIT
   defp extract_events(data) do
-    parts = String.split(data, ~r/((\r\n)|((?<!\r)\n)|(\r(?!\n))){2}/)
+    parts = String.split(data, @event_separator)
 
     case parts do
       [single] ->
