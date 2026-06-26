@@ -7,7 +7,7 @@ defmodule LlmComposer.Middleware.SSEParserTest do
     test "returns parser with empty buffer" do
       parser = SSEParser.new()
 
-      assert %SSEParser{buffer: "", events: []} = parser
+      assert %SSEParser{buffer: ""} = parser
     end
   end
 

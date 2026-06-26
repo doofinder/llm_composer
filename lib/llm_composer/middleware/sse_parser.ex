@@ -4,7 +4,7 @@ defmodule LlmComposer.Middleware.SSEParser do
   Handles partial chunks across HTTP frames.
   """
 
-  defstruct buffer: "", events: [], only: nil
+  defstruct buffer: "", only: nil
 
   @type t :: %__MODULE__{buffer: String.t(), only: atom() | nil}
 
