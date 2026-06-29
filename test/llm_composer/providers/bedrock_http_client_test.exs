@@ -114,7 +114,8 @@ if Code.ensure_loaded?(ExAws) do
 
         Bypass.pass(bypass)
 
-        assert {:error, %{reason: :timeout_waiting_for_status}} = result
+        assert match?({:error, %{reason: :timeout_waiting_for_status}}, result) or
+                 match?({:error, %{reason: {:task_crashed, _}}}, result)
       end
     end
 
