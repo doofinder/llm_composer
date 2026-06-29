@@ -139,8 +139,11 @@ settings = %LlmComposer.Settings{
   end)
 ```
 
-Supported providers: `:open_ai`, `:open_router`, `:google`, `:bedrock`. Other providers yield a
-terminal `:error` chunk with `{:streaming_agent_unsupported_provider, provider}`.
+Supported providers: `:open_ai`, `:open_router`, `:open_ai_responses`, `:google`, `:bedrock`,
+`:ollama`. Note that `:ollama`'s native streaming format does not include tool-call deltas — text
+streaming works, but for tool calls use the `:open_ai` provider pointed at Ollama's
+OpenAI-compatible endpoint. Other providers yield a terminal `:error` chunk with
+`{:streaming_agent_unsupported_provider, provider}`.
 
 See the [Streaming guide](streaming.md#streaming-with-llmcomposeragent) for more details.
 

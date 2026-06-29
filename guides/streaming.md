@@ -138,7 +138,10 @@ chunk. The terminal chunk's `:usage` and `:cost_info` hold the run totals, and
 `metadata.agent_result` holds the full `LlmComposer.Agent.Result`. Intermediate tool-calling turns
 run internally (streamed tool-call deltas are reassembled automatically).
 
-Supported providers: `:open_ai`, `:open_router`, `:google`, `:bedrock`.
+Supported providers: `:open_ai`, `:open_router`, `:open_ai_responses`, `:google`, `:bedrock`,
+`:ollama`. Note that `:ollama`'s native streaming format does not carry tool-call deltas — text
+streaming works, but for tool-call streaming point the `:open_ai` provider at Ollama's
+OpenAI-compatible endpoint instead.
 
 ```elixir
 {:ok, stream} = LlmComposer.Agent.run(settings, "What's the weather in Paris?")
