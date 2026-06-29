@@ -95,7 +95,12 @@ defmodule LlmComposer.Middleware.SSEParser do
   defp handle_field("data", value, acc), do: Map.update!(acc, :data_lines, &[value | &1])
   defp handle_field("event", v, acc), do: Map.put(acc, :event, v)
   defp handle_field("id", v, acc), do: Map.put(acc, :id, v)
-  defp handle_field("retry", v, acc), do: Map.put(acc, :retry, v)
+  defp handle_field("retry", v, acc) do
+    case Integer.parse(v) do
+      {ms, ""} -> Map.put(acc, :retry, ms)
+      _ -> acc
+    end
+  end
   defp handle_field(_, _, acc), do: acc
 
   defp build_event(%{data_lines: []}, _), do: nil
