@@ -10,7 +10,33 @@ defmodule LlmComposer.Agent do
 
   The loop is pure orchestration over existing building blocks
   (`LlmComposer.FunctionExecutor`, `LlmComposer.FunctionCallHelpers`) and does not change any
-  provider behaviour. It is **synchronous** — streaming is not supported in this version.
+  provider behaviour.
+
+  ## Streaming
+
+  When `settings.stream_response` is `true`, `run/3` returns `{:ok, stream}` where `stream` is a
+  lazy `Enumerable` of `LlmComposer.StreamChunk`. The stream carries **only the final, tool-free
+  answer** (token-by-token `:text_delta` chunks) followed by a terminal `:done` chunk whose `:usage`
+  and `:cost_info` hold the run totals and whose `metadata.agent_result` holds the full
+  `LlmComposer.Agent.Result`. A hard failure (e.g. `:max_iterations_reached`) is delivered as a
+  terminal `:error` chunk instead.
+
+  Intermediate progress — tool calls, per-iteration data and reasoning — is **not** placed on the
+  answer stream. It is exposed via `:telemetry` (see below) so a UI can subscribe without having to
+  filter the answer.
+
+      {:ok, stream} = LlmComposer.Agent.run(settings, "Weather in Paris?")
+
+      stream
+      |> Enum.reduce(nil, fn
+        %LlmComposer.StreamChunk{type: :text_delta, text: t}, acc -> IO.write(t); acc
+        %LlmComposer.StreamChunk{type: :done, metadata: %{agent_result: r}}, _ -> r
+        _other, acc -> acc
+      end)
+
+  All providers support the streaming agent. Note that the native `:ollama` provider does not emit
+  tool-call deltas; for tool-call streaming with Ollama use the `:open_ai` provider pointed at
+  Ollama's OpenAI-compatible endpoint.
 
   ## Example
 
@@ -69,17 +95,32 @@ defmodule LlmComposer.Agent do
 
   ## Telemetry
 
-  The loop emits the following `:telemetry` events:
+  The loop emits the following `:telemetry` events (in both synchronous and streaming modes):
 
   - `[:llm_composer, :agent, :run, :start | :stop | :exception]` — the whole run. The `:stop`
-    event includes an `:iterations` measurement and a `:status` (`:ok`/`:error`) metadata key.
+    event includes an `:iterations` measurement and a `:status` (`:ok`/`:error`/`:halted`) metadata
+    key.
   - `[:llm_composer, :agent, :iteration, :stop]` — one per model turn. Measurement
     `:tool_call_count`; metadata `:iteration`, `:cost_info`, `:final`.
   - `[:llm_composer, :agent, :tool, :start | :stop | :exception]` — one per tool execution.
-    Metadata `:name` and (on stop) `:status` (`:ok`/`:error`).
+    Metadata `:name`, `:arguments`, `:metadata`, `:id` and (on stop) `:status` (`:ok`/`:error`).
+  - `[:llm_composer, :agent, :reasoning, :delta]` — streaming only: one per intermediate reasoning
+    fragment. Metadata `:iteration` and `:reasoning`.
+
+  Pass `telemetry_metadata: map()` to `run/3` and the map is merged into the metadata of every event
+  above, alongside an auto-generated `:run_id`. This lets a handler scope itself to a single run and,
+  for example, broadcast to `Phoenix.PubSub` or `send/2` a pid:
+
+      {:ok, _} = LlmComposer.Agent.run(settings, prompt, telemetry_metadata: %{conversation_id: cid})
+
+      :telemetry.attach("agent-ui", [:llm_composer, :agent, :tool, :start], fn
+        _event, _meas, %{conversation_id: ^cid, name: name, arguments: args}, _cfg ->
+          Phoenix.PubSub.broadcast(MyApp.PubSub, "conv:\#{cid}", {:tool_call, name, args})
+      end, nil)
   """
 
   alias LlmComposer.Agent.Result
+  alias LlmComposer.Agent.StreamCollector
   alias LlmComposer.CostInfo
   alias LlmComposer.Function
   alias LlmComposer.FunctionCall
@@ -88,6 +129,7 @@ defmodule LlmComposer.Agent do
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
   alias LlmComposer.Settings
+  alias LlmComposer.StreamChunk
 
   require Logger
 
@@ -99,7 +141,8 @@ defmodule LlmComposer.Agent do
           max_iterations: pos_integer(),
           functions: [Function.t()],
           tool_execution: :sequential | :parallel,
-          tool_timeout: timeout()
+          tool_timeout: timeout(),
+          telemetry_metadata: map()
         ]
 
   @typep config() :: %{
@@ -107,7 +150,8 @@ defmodule LlmComposer.Agent do
            functions: [Function.t()],
            max_iterations: pos_integer(),
            tool_execution: :sequential | :parallel,
-           tool_timeout: timeout()
+           tool_timeout: timeout(),
+           telemetry_ctx: map()
          }
 
   @typep acc() :: %{cost_infos: [CostInfo.t()], function_calls: [FunctionCall.t()]}
@@ -118,31 +162,54 @@ defmodule LlmComposer.Agent do
   Accepts either a user prompt string (wrapped into a `:user` message, honouring the settings'
   `:user_prompt_prefix`) or an explicit list of `LlmComposer.Message.t()`.
 
-  Returns `{:ok, %LlmComposer.Agent.Result{}}` on success, or `{:error, reason}` where `reason`
-  may be `:max_iterations_reached`, `:streaming_not_supported`, or any error returned by the
-  underlying provider.
+  When `settings.stream_response` is `false`, returns `{:ok, %LlmComposer.Agent.Result{}}` on success
+  or `{:error, reason}` (where `reason` may be `:max_iterations_reached` or any error returned by the
+  underlying provider). When `settings.stream_response` is `true`, returns `{:ok, stream}` — see the
+  "Streaming" section of the module documentation.
 
   See the module documentation for the available options.
   """
-  @spec run(Settings.t(), input(), run_opts()) :: {:ok, Result.t()} | {:error, term()}
+  @spec run(Settings.t(), input(), run_opts()) ::
+          {:ok, Result.t()} | {:ok, Enumerable.t()} | {:error, term()}
   def run(settings, input, opts \\ [])
 
-  def run(%Settings{stream_response: true}, _input, _opts), do: {:error, :streaming_not_supported}
-
   def run(%Settings{} = settings, input, opts) do
-    functions = Keyword.get(opts, :functions) || functions_from_settings(settings)
-    max_iterations = Keyword.get(opts, :max_iterations, @default_max_iterations)
+    config = build_config(settings, opts)
+    messages = normalize_input(settings, input)
 
-    config = %{
+    if settings.stream_response do
+      {:ok, build_agent_stream(config, messages)}
+    else
+      run_sync(config, messages)
+    end
+  end
+
+  # --- Configuration ---
+
+  @spec build_config(Settings.t(), run_opts()) :: config()
+  defp build_config(settings, opts) do
+    functions = Keyword.get(opts, :functions) || functions_from_settings(settings)
+
+    telemetry_ctx =
+      opts
+      |> Keyword.get(:telemetry_metadata, %{})
+      |> Map.put(:run_id, System.unique_integer([:positive]))
+
+    %{
       settings: settings,
       functions: functions,
-      max_iterations: max_iterations,
+      max_iterations: Keyword.get(opts, :max_iterations, @default_max_iterations),
       tool_execution: Keyword.get(opts, :tool_execution, :sequential),
-      tool_timeout: Keyword.get(opts, :tool_timeout, :infinity)
+      tool_timeout: Keyword.get(opts, :tool_timeout, :infinity),
+      telemetry_ctx: telemetry_ctx
     }
+  end
 
-    messages = normalize_input(settings, input)
-    start_metadata = %{max_iterations: max_iterations, tool_count: length(functions)}
+  # --- Synchronous loop ---
+
+  @spec run_sync(config(), [Message.t()]) :: {:ok, Result.t()} | {:error, term()}
+  defp run_sync(config, messages) do
+    start_metadata = run_start_metadata(config)
 
     :telemetry.span([:llm_composer, :agent, :run], start_metadata, fn ->
       result = loop(config, messages, 0, new_acc())
@@ -150,12 +217,20 @@ defmodule LlmComposer.Agent do
     end)
   end
 
+  @spec run_start_metadata(config()) :: map()
+  defp run_start_metadata(config) do
+    Map.merge(config.telemetry_ctx, %{
+      max_iterations: config.max_iterations,
+      tool_count: length(config.functions)
+    })
+  end
+
   # --- Loop ---
 
   @spec loop(config(), [Message.t()], non_neg_integer(), acc()) ::
           {:ok, Result.t()} | {:error, term()}
-  defp loop(%{max_iterations: max}, _messages, iteration, _acc) when iteration >= max do
-    {:error, :max_iterations_reached}
+  defp loop(%{max_iterations: max}, messages, iteration, acc) when iteration >= max do
+    {:error, {:max_iterations_reached, partial_result(messages, iteration, acc)}}
   end
 
   defp loop(config, messages, iteration, acc) do
@@ -179,33 +254,56 @@ defmodule LlmComposer.Agent do
 
     case LlmResponse.function_calls(response) do
       calls when calls in [nil, []] ->
-        emit_iteration(next_iteration, response.cost_info, 0, true)
+        emit_iteration(config.telemetry_ctx, next_iteration, response.cost_info, 0, true)
         finalize(response, messages, next_iteration, %{acc | cost_infos: cost_infos})
 
       calls ->
         executed = execute_tool_calls(config, calls)
-        emit_iteration(next_iteration, response.cost_info, length(calls), false)
 
-        provider_mod = resolve_provider_module(config.settings, response.provider)
-        provider_opts = provider_opts_for(config.settings, provider_mod)
-
-        assistant_msg =
-          FunctionCallHelpers.build_assistant_with_tools(
-            provider_mod,
-            response,
-            last_user_message(messages),
-            provider_opts
-          )
-
-        tool_msgs = FunctionCallHelpers.build_tool_result_messages(executed)
+        emit_iteration(
+          config.telemetry_ctx,
+          next_iteration,
+          response.cost_info,
+          length(calls),
+          false
+        )
 
         loop(
           config,
-          messages ++ [assistant_msg | tool_msgs],
+          apply_tool_turn(config, messages, response, executed),
           next_iteration,
           %{acc | cost_infos: cost_infos, function_calls: acc.function_calls ++ executed}
         )
     end
+  end
+
+  @spec apply_tool_turn(config(), [Message.t()], LlmResponse.t(), [FunctionCall.t()]) ::
+          [Message.t()]
+  defp apply_tool_turn(config, messages, response, executed) do
+    provider_mod = resolve_provider_module(config.settings, response.provider)
+    provider_opts = provider_opts_for(config.settings, provider_mod)
+
+    assistant_msg =
+      FunctionCallHelpers.build_assistant_with_tools(
+        provider_mod,
+        response,
+        last_user_message(messages),
+        provider_opts
+      )
+
+    tool_msgs = FunctionCallHelpers.build_tool_result_messages(executed)
+
+    messages ++ [assistant_msg | tool_msgs]
+  end
+
+  @spec partial_result([Message.t()], non_neg_integer(), acc()) :: map()
+  defp partial_result(messages, iterations, acc) do
+    %{
+      cost_infos: acc.cost_infos,
+      function_calls: acc.function_calls,
+      messages: messages,
+      iterations: iterations
+    }
   end
 
   @spec finalize(LlmResponse.t(), [Message.t()], non_neg_integer(), acc()) :: {:ok, Result.t()}
@@ -220,12 +318,256 @@ defmodule LlmComposer.Agent do
      }}
   end
 
+  # --- Streaming loop ---
+
+  @spec build_agent_stream(config(), [Message.t()]) :: Enumerable.t()
+  defp build_agent_stream(config, messages) do
+    Stream.resource(
+      fn -> start_stream(config, messages) end,
+      &step/1,
+      &finish_stream/1
+    )
+  end
+
+  @spec start_stream(config(), [Message.t()]) :: map()
+  defp start_stream(config, messages) do
+    :telemetry.execute([:llm_composer, :agent, :run, :start], %{}, run_start_metadata(config))
+
+    %{
+      config: config,
+      phase: :start_turn,
+      messages: messages,
+      iteration: 0,
+      acc: new_acc(),
+      usage: %{},
+      cont: nil,
+      collector: nil,
+      status: :running
+    }
+  end
+
+  @spec step(map()) :: {[StreamChunk.t()], map()} | {:halt, map()}
+  defp step(%{phase: :done} = state), do: {:halt, state}
+  defp step(%{phase: :start_turn} = state), do: start_turn(state)
+  defp step(%{phase: :drive} = state), do: drive_turn(state)
+
+  @spec start_turn(map()) :: {[StreamChunk.t()], map()}
+  defp start_turn(%{config: config, iteration: iteration} = state) do
+    if iteration >= config.max_iterations do
+      terminate_error(state, :max_iterations_reached)
+    else
+      begin_turn(state)
+    end
+  end
+
+  @spec begin_turn(map()) :: {[StreamChunk.t()], map()}
+  defp begin_turn(%{config: config, messages: messages} = state) do
+    case LlmComposer.run_completion(config.settings, messages) do
+      {:ok, %LlmResponse{stream: nil} = response} ->
+        # provider ignored stream_response and returned a complete response: handle it directly
+        handle_complete_response(state, response)
+
+      {:ok, %LlmResponse{stream: stream, provider: provider}} ->
+        setup_drive(state, provider, stream)
+
+      {:error, reason} ->
+        terminate_error(state, reason)
+    end
+  end
+
+  @spec setup_drive(map(), atom(), Enumerable.t()) :: {[StreamChunk.t()], map()}
+  defp setup_drive(%{config: config} = state, provider, stream) do
+    collector = StreamCollector.new(provider)
+
+    parsed =
+      LlmComposer.parse_stream_response(stream, provider, provider_pricing_opts(config, provider))
+
+    {[], %{state | phase: :drive, collector: collector, cont: init_puller(parsed)}}
+  rescue
+    ArgumentError -> terminate_error(state, {:streaming_agent_unsupported_provider, provider})
+  end
+
+  @spec drive_turn(map()) :: {[StreamChunk.t()], map()}
+  defp drive_turn(%{cont: cont, collector: collector} = state) do
+    case pull(cont) do
+      {:chunk, chunk, next_cont} ->
+        state = %{state | collector: StreamCollector.add(collector, chunk), cont: next_cont}
+        forward_chunk(state, chunk)
+
+      :done ->
+        handle_complete_response(state, StreamCollector.to_llm_response(collector))
+    end
+  end
+
+  @spec forward_chunk(map(), StreamChunk.t()) :: {[StreamChunk.t()], map()}
+  defp forward_chunk(state, %StreamChunk{type: :text_delta} = chunk), do: {[chunk], state}
+
+  defp forward_chunk(%{config: config, iteration: iteration} = state, %StreamChunk{
+         type: :reasoning_delta,
+         reasoning: reasoning
+       })
+       when is_binary(reasoning) do
+    emit_reasoning(config.telemetry_ctx, iteration + 1, reasoning)
+    {[], state}
+  end
+
+  defp forward_chunk(state, _chunk), do: {[], state}
+
+  @spec handle_complete_response(map(), LlmResponse.t()) :: {[StreamChunk.t()], map()}
+  defp handle_complete_response(%{config: config, messages: messages, acc: acc} = state, response) do
+    next_iteration = state.iteration + 1
+    cost_infos = acc.cost_infos ++ List.wrap(response.cost_info)
+    usage = add_usage(state.usage, response)
+
+    case LlmResponse.function_calls(response) do
+      calls when calls in [nil, []] ->
+        emit_iteration(config.telemetry_ctx, next_iteration, response.cost_info, 0, true)
+        acc = %{acc | cost_infos: cost_infos}
+        {:ok, result} = finalize(response, messages, next_iteration, acc)
+        done = done_chunk(response, usage, acc.cost_infos, result)
+
+        {[done],
+         %{state | phase: :done, status: :ok, iteration: next_iteration, usage: usage, acc: acc}}
+
+      calls ->
+        executed = execute_tool_calls(config, calls)
+
+        emit_iteration(
+          config.telemetry_ctx,
+          next_iteration,
+          response.cost_info,
+          length(calls),
+          false
+        )
+
+        acc = %{acc | cost_infos: cost_infos, function_calls: acc.function_calls ++ executed}
+
+        tool_chunks =
+          Enum.map(executed, fn call ->
+            %StreamChunk{
+              provider: response.provider,
+              type: :tool_call,
+              tool_calls: [call],
+              metadata: %{iteration: next_iteration}
+            }
+          end)
+
+        {tool_chunks,
+         %{
+           state
+           | phase: :start_turn,
+             messages: apply_tool_turn(config, messages, response, executed),
+             iteration: next_iteration,
+             usage: usage,
+             acc: acc,
+             collector: nil,
+             cont: nil
+         }}
+    end
+  end
+
+  @spec finish_stream(map()) :: :ok
+  defp finish_stream(%{config: config} = state) do
+    metadata =
+      config
+      |> run_start_metadata()
+      |> Map.merge(%{status: stop_status(state.status)})
+
+    :telemetry.execute(
+      [:llm_composer, :agent, :run, :stop],
+      %{iterations: state.iteration},
+      metadata
+    )
+
+    :ok
+  end
+
+  @spec terminate_error(map(), term()) :: {[StreamChunk.t()], map()}
+  defp terminate_error(
+         %{messages: messages, iteration: iteration, acc: acc} = state,
+         :max_iterations_reached
+       ) do
+    partial = partial_result(messages, iteration, acc)
+
+    chunk = %StreamChunk{
+      type: :error,
+      metadata: %{reason: :max_iterations_reached, partial: partial, status: :error}
+    }
+
+    {[chunk], %{state | phase: :done, status: :error}}
+  end
+
+  defp terminate_error(state, reason) do
+    chunk = %StreamChunk{type: :error, metadata: %{reason: reason, status: :error}}
+    {[chunk], %{state | phase: :done, status: :error}}
+  end
+
+  @spec done_chunk(LlmResponse.t(), StreamChunk.usage(), [CostInfo.t()], Result.t()) ::
+          StreamChunk.t()
+  defp done_chunk(response, usage, cost_infos, result) do
+    %StreamChunk{
+      provider: response.provider,
+      type: :done,
+      usage: usage,
+      cost_info: StreamCollector.aggregate_cost_infos(cost_infos),
+      metadata: %{agent_result: result, status: :ok}
+    }
+  end
+
+  @spec provider_pricing_opts(config(), atom()) :: keyword()
+  defp provider_pricing_opts(config, provider) do
+    provider_mod = resolve_provider_module(config.settings, provider)
+
+    config.settings
+    |> provider_opts_for(provider_mod)
+    |> Keyword.put_new(:track_costs, config.settings.track_costs)
+  end
+
+  @spec add_usage(map(), LlmResponse.t()) :: StreamChunk.usage()
+  defp add_usage(usage, response) do
+    input = (usage[:input_tokens] || 0) + (response.input_tokens || 0)
+    output = (usage[:output_tokens] || 0) + (response.output_tokens || 0)
+
+    %{
+      input_tokens: input,
+      output_tokens: output,
+      total_tokens: input + output,
+      cached_tokens: (usage[:cached_tokens] || 0) + (response.cached_tokens || 0),
+      reasoning_tokens: (usage[:reasoning_tokens] || 0) + (response.reasoning_tokens || 0)
+    }
+  end
+
+  @spec init_puller(Enumerable.t()) :: (term() -> term())
+  defp init_puller(parsed) do
+    reducer = fn chunk, _acc -> {:suspend, chunk} end
+    fn command -> Enumerable.reduce(parsed, command, reducer) end
+  end
+
+  @spec pull((term() -> term())) :: {:chunk, StreamChunk.t(), (term() -> term())} | :done
+  defp pull(cont) do
+    case cont.({:cont, nil}) do
+      {:suspended, chunk, next_cont} -> {:chunk, chunk, next_cont}
+      {:done, _acc} -> :done
+      {:halted, _acc} -> :done
+    end
+  end
+
+  @spec stop_status(:running | :ok | :error) :: :halted | :ok | :error
+  defp stop_status(:running), do: :halted
+  defp stop_status(status), do: status
+
   # --- Tool execution ---
 
   @spec execute_tool_calls(config(), [FunctionCall.t()]) :: [FunctionCall.t()]
   defp execute_tool_calls(%{tool_execution: :parallel} = config, calls) do
+    parent_metadata = Logger.metadata()
+
     calls
-    |> Task.async_stream(&execute_one(config, &1),
+    |> Task.async_stream(
+      fn call ->
+        Logger.metadata(parent_metadata)
+        execute_one(config, call)
+      end,
       ordered: true,
       timeout: config.tool_timeout,
       on_timeout: :kill_task
@@ -243,7 +585,15 @@ defmodule LlmComposer.Agent do
 
   @spec execute_one(config(), FunctionCall.t()) :: FunctionCall.t()
   defp execute_one(config, %FunctionCall{} = call) do
-    :telemetry.span([:llm_composer, :agent, :tool], %{name: call.name}, fn ->
+    start_metadata =
+      Map.merge(config.telemetry_ctx, %{
+        name: call.name,
+        arguments: call.arguments,
+        metadata: call.metadata,
+        id: call.id
+      })
+
+    :telemetry.span([:llm_composer, :agent, :tool], start_metadata, fn ->
       {executed, status} =
         case FunctionExecutor.execute(call, config.functions) do
           {:ok, executed} ->
@@ -257,7 +607,7 @@ defmodule LlmComposer.Agent do
             {error_call(call, reason), :error}
         end
 
-      {executed, %{name: call.name, status: status}}
+      {executed, Map.merge(config.telemetry_ctx, %{name: call.name, id: call.id, status: status})}
     end)
   end
 
@@ -278,17 +628,31 @@ defmodule LlmComposer.Agent do
 
   # --- Telemetry helpers ---
 
-  @spec emit_iteration(non_neg_integer(), CostInfo.t() | nil, non_neg_integer(), boolean()) :: :ok
-  defp emit_iteration(iteration, cost_info, tool_call_count, final?) do
+  @spec emit_iteration(map(), non_neg_integer(), CostInfo.t() | nil, non_neg_integer(), boolean()) ::
+          :ok
+  defp emit_iteration(ctx, iteration, cost_info, tool_call_count, final?) do
     :telemetry.execute(
       [:llm_composer, :agent, :iteration, :stop],
       %{tool_call_count: tool_call_count},
-      %{iteration: iteration, cost_info: cost_info, final: final?}
+      Map.merge(ctx, %{iteration: iteration, cost_info: cost_info, final: final?})
+    )
+  end
+
+  @spec emit_reasoning(map(), non_neg_integer(), String.t()) :: :ok
+  defp emit_reasoning(ctx, iteration, reasoning) do
+    :telemetry.execute(
+      [:llm_composer, :agent, :reasoning, :delta],
+      %{},
+      Map.merge(ctx, %{iteration: iteration, reasoning: reasoning})
     )
   end
 
   @spec run_measurements({:ok, Result.t()} | {:error, term()}) :: map()
   defp run_measurements({:ok, %Result{iterations: iterations}}), do: %{iterations: iterations}
+
+  defp run_measurements({:error, {:max_iterations_reached, %{iterations: n}}}),
+    do: %{iterations: n}
+
   defp run_measurements({:error, _reason}), do: %{iterations: 0}
 
   @spec run_stop_metadata(map(), {:ok, Result.t()} | {:error, term()}) :: map()
@@ -308,15 +672,15 @@ defmodule LlmComposer.Agent do
   defp normalize_input(_settings, messages) when is_list(messages), do: messages
 
   @spec user_prompt(Settings.t(), String.t()) :: String.t()
-  defp user_prompt(%Settings{user_prompt_prefix: prefix}, message) when is_binary(prefix) do
+  defp user_prompt(%Settings{user_prompt_prefix: prefix}, message) do
     prefix <> message
   end
 
-  defp user_prompt(_settings, message), do: message
-
   @spec functions_from_settings(Settings.t()) :: [Function.t()]
-  defp functions_from_settings(%Settings{providers: [{_mod, opts} | _]}) when is_list(opts) do
-    Keyword.get(opts, :functions, [])
+  defp functions_from_settings(%Settings{providers: providers}) when is_list(providers) do
+    providers
+    |> Enum.flat_map(fn {_mod, opts} -> Keyword.get(opts || [], :functions, []) end)
+    |> Enum.uniq_by(& &1.name)
   end
 
   defp functions_from_settings(%Settings{provider_opts: opts}) when is_list(opts) do

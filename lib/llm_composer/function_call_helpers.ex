@@ -9,6 +9,7 @@ defmodule LlmComposer.FunctionCallHelpers do
   behavior.
   """
 
+  alias LlmComposer.Helpers
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
 
@@ -51,9 +52,18 @@ defmodule LlmComposer.FunctionCallHelpers do
     Enum.map(executed_calls, fn call ->
       %Message{
         type: :tool_result,
-        content: to_string(call.result),
+        content: result_to_content(call.result),
         metadata: %{"tool_call_id" => call.id}
       }
     end)
+  end
+
+  @spec result_to_content(term()) :: String.t()
+  defp result_to_content(result) when is_binary(result), do: result
+
+  defp result_to_content(result) do
+    Helpers.json_engine().encode!(result)
+  rescue
+    _ -> inspect(result)
   end
 end

@@ -265,7 +265,7 @@ defmodule LlmComposer.Agent.StreamCollectorTest do
   end
 
   test "new/1 raises for unsupported providers" do
-    assert_raise ArgumentError, fn -> StreamCollector.new(:ollama) end
+    assert_raise ArgumentError, fn -> StreamCollector.new(:unknown_provider) end
   end
 
   # --- Helpers ---

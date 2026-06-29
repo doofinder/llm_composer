@@ -82,7 +82,7 @@ defmodule LlmComposer.Providers.OpenAIResponses do
 
   defp handle_response({:ok, resp}) do
     Logger.warning(
-      "[open_ai_responses] non-200 response (status=#{Map.get(resp, :status, :unknown)})"
+      "[open_ai_responses] non-200 response (status=#{Map.get(resp, :status, :unknown)}) body=#{inspect(Map.get(resp, :body))}"
     )
 
     {:error, resp}
@@ -273,7 +273,7 @@ defmodule LlmComposer.Providers.OpenAIResponses do
         type: "function",
         name: function.name,
         description: function.description,
-        parameters: function.schema,
+        parameters: Map.put_new(function.schema, "additionalProperties", false),
         strict: true
       }
     end)

@@ -8,10 +8,16 @@ defmodule LlmComposer.Agent.StreamCollector do
   - **OpenAI / OpenRouter** send `:tool_call_delta` chunks whose `tool_calls` are raw maps keyed by
     `"index"`, with the `function.arguments` JSON split across several chunks. They must be grouped
     by index and concatenated.
+  - **OpenAI Responses** sends a `"function_call_started"` map (carries `"call_id"` and `"name"`)
+    followed by one or more `"function_call_arguments_delta"` maps (carry `"call_id"` and
+    `"arguments_delta"`). Fragments are grouped by `"call_id"` and concatenated in arrival order.
   - **Google** sends already-complete `LlmComposer.FunctionCall` structs (one per chunk).
   - **Bedrock** sends two event types per tool call: a start event with `"toolUseId"` and `"name"`,
     followed by one or more delta events that carry only `"inputJson"` fragments. Fragments are
     grouped by `"toolUseId"` and concatenated in arrival order.
+  - **Ollama** (native provider) does not emit tool-call deltas in its streaming format; text
+    streaming works. For tool-call streaming with Ollama, use the `:open_ai` provider pointed at
+    Ollama's OpenAI-compatible endpoint.
 
   This collector hides those differences. Feed every chunk of a turn through `add/2`, then call
   `tool_turn?/1` to know whether the model requested tools, and `to_llm_response/1` to obtain a
@@ -26,7 +32,7 @@ defmodule LlmComposer.Agent.StreamCollector do
   alias LlmComposer.Message
   alias LlmComposer.StreamChunk
 
-  @supported_providers [:open_ai, :open_router, :google, :bedrock]
+  @supported_providers [:open_ai, :open_router, :open_ai_responses, :google, :bedrock, :ollama]
 
   @type t() :: %__MODULE__{
           provider: atom(),
@@ -132,6 +138,19 @@ defmodule LlmComposer.Agent.StreamCollector do
       %FunctionCall{id: id, name: name, arguments: args, type: "function"}
     end)
   end
+
+  def to_function_calls(%__MODULE__{
+        provider: :open_ai_responses,
+        tool_fragments: fragments,
+        tool_id_sequence: order
+      }) do
+    Enum.map(order, fn call_id ->
+      %{"call_id" => id, "name" => name, "arguments" => args} = Map.fetch!(fragments, call_id)
+      %FunctionCall{id: id, name: name, arguments: args, type: "function"}
+    end)
+  end
+
+  def to_function_calls(%__MODULE__{}), do: []
 
   @doc """
   Builds a synthetic `LlmComposer.LlmResponse` equivalent to a non-streaming response for the turn.
@@ -246,6 +265,40 @@ defmodule LlmComposer.Agent.StreamCollector do
           end)
 
         %{acc | tool_fragments: fragments}
+    end)
+  end
+
+  defp merge_tool_calls(%__MODULE__{provider: :open_ai_responses} = collector, tool_calls) do
+    Enum.reduce(tool_calls, collector, fn
+      %{"type" => "function_call_started", "call_id" => call_id, "name" => name}, acc ->
+        fragment = %{"call_id" => call_id, "name" => name, "arguments" => ""}
+
+        %{
+          acc
+          | tool_fragments: Map.put(acc.tool_fragments, call_id, fragment),
+            tool_id_sequence: acc.tool_id_sequence ++ [call_id],
+            current_tool_id: call_id
+        }
+
+      %{
+        "type" => "function_call_arguments_delta",
+        "call_id" => call_id,
+        "arguments_delta" => delta
+      },
+      acc
+      when is_binary(delta) ->
+        # The API delta event omits call_id; fall back to the most recently started call.
+        target_id = call_id || acc.current_tool_id
+
+        fragments =
+          Map.update!(acc.tool_fragments, target_id, fn f ->
+            Map.update(f, "arguments", delta, &(&1 <> delta))
+          end)
+
+        %{acc | tool_fragments: fragments}
+
+      _other, acc ->
+        acc
     end)
   end
 

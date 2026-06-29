@@ -83,6 +83,7 @@ defmodule LlmComposer.ProvidersRunner do
           {{:ok, any()} | {:error, term()}, map()}
   defp run_provider(provider, messages, system_msg, provider_opts) do
     provider_name = provider.name()
+    # Intentional: telemetry must not raise on misconfiguration — nil is acceptable here.
     model = Keyword.get(provider_opts, :model)
 
     :telemetry.span(
