@@ -115,7 +115,11 @@ defmodule LlmComposer.ProvidersRunner do
     |> Keyword.put_new(:stream_response, settings.stream_response)
     |> Keyword.put_new(:track_costs, settings.track_costs)
     |> Keyword.put_new(:api_key, settings.api_key)
+    |> maybe_put_sse_middleware(settings)
   end
+
+  defp maybe_put_sse_middleware(opts, %{sse_middleware: nil}), do: opts
+  defp maybe_put_sse_middleware(opts, %{sse_middleware: middleware}), do: Keyword.put_new(opts, :sse_middleware, middleware)
 
   defp get_provider_router do
     :llm_composer

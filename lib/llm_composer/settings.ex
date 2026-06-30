@@ -9,6 +9,7 @@ defmodule LlmComposer.Settings do
             provider: nil,
             provider_opts: nil,
             providers: nil,
+            sse_middleware: nil,
             stream_response: false,
             system_prompt: nil,
             track_costs: false,
