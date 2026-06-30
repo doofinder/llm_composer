@@ -128,3 +128,53 @@ full_text =
 Streaming is **not** compatible with Tesla's retry middleware. When `stream_response: true`
 is set, the retry middleware is removed automatically. See the
 [Configuration guide](configuration.html) for retry options.
+
+## Streaming with `LlmComposer.Agent`
+
+`LlmComposer.Agent.run/3` also supports streaming. With `stream_response: true` it returns
+`{:ok, stream}` where the stream carries the final answer token-by-token as `:text_delta` chunks,
+interspersed with `:tool_call` chunks for each executed tool, and ends with a terminal `:done`
+chunk. The terminal chunk's `:usage` and `:cost_info` hold the run totals, and
+`metadata.agent_result` holds the full `LlmComposer.Agent.Result`. Intermediate tool-calling turns
+run internally (streamed tool-call deltas are reassembled automatically).
+
+Supported providers: `:open_ai`, `:open_router`, `:open_ai_responses`, `:google`, `:bedrock`,
+`:ollama`. Note that `:ollama`'s native streaming format does not carry tool-call deltas — text
+streaming works, but for tool-call streaming point the `:open_ai` provider at Ollama's
+OpenAI-compatible endpoint instead.
+
+```elixir
+{:ok, stream} = LlmComposer.Agent.run(settings, "What's the weather in Paris?")
+
+stream
+|> Enum.reduce(nil, fn
+  %LlmComposer.StreamChunk{type: :text_delta, text: t}, acc ->
+    IO.write(t); acc
+
+  %LlmComposer.StreamChunk{type: :tool_call, tool_calls: [call]}, acc ->
+    IO.puts("\n[tool] #{call.name}(#{call.arguments}) → #{inspect(call.result)}"); acc
+
+  %LlmComposer.StreamChunk{type: :done, metadata: %{agent_result: result}}, _ ->
+    result
+
+  _other, acc ->
+    acc
+end)
+```
+
+### Progress events for UIs
+
+For advanced use cases (e.g. broadcasting via `Phoenix.PubSub`), tool calls and reasoning are also
+exposed via `:telemetry`. Pass `telemetry_metadata:` to scope a handler to a single run:
+
+```elixir
+{:ok, stream} = LlmComposer.Agent.run(settings, prompt, telemetry_metadata: %{conversation_id: cid})
+
+:telemetry.attach("agent-ui", [:llm_composer, :agent, :tool, :start], fn
+  _event, _meas, %{conversation_id: ^cid, name: name, arguments: args}, _cfg ->
+    Phoenix.PubSub.broadcast(MyApp.PubSub, "conv:#{cid}", {:tool_call, name, args})
+end, nil)
+```
+
+See the [Agent guide](agent.md) for the full streaming API, all chunk types, options, and the
+complete telemetry event reference.

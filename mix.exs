@@ -4,7 +4,7 @@ defmodule LlmComposer.MixProject do
   def project do
     [
       app: :llm_composer,
-      version: "0.19.6",
+      version: "0.20.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -14,8 +14,8 @@ defmodule LlmComposer.MixProject do
         source_ref: "master",
         extras: [
           "README.md",
-          "guides/agent.md",
           "guides/providers.md",
+          "guides/agent.md",
           "guides/streaming.md",
           "guides/cost_tracking.md",
           "guides/function_calls.md",

@@ -10,9 +10,8 @@ ask → model requests tool calls → execute them → feed the results back →
       → until the model returns a final, tool-free answer
 ```
 
-The loop is **synchronous** (streaming is not supported in this version) and pure orchestration
-over existing building blocks, so it works with any provider that supports function calling
-(**OpenAI**, **OpenRouter**, **Google**).
+The loop works with any provider that supports function calling (**OpenAI**, **OpenRouter**,
+**Google**, **Bedrock**). Both synchronous and [streaming](#streaming) modes are supported.
 
 ## Quick start
 
@@ -66,7 +65,7 @@ default, so you normally do not pass them again to `run/3`.
 
 ## The result
 
-A successful run returns `{:ok, %LlmComposer.Agent.Result{}}`:
+A successful synchronous run returns `{:ok, %LlmComposer.Agent.Result{}}`:
 
 | Field | Description |
 |---|---|
@@ -84,6 +83,7 @@ A successful run returns `{:ok, %LlmComposer.Agent.Result{}}`:
 | `:functions` | from settings | Tools available to the model. |
 | `:tool_execution` | `:sequential` | `:sequential` runs tool calls one by one; `:parallel` runs them concurrently (`Task.async_stream/3`) while preserving result order. |
 | `:tool_timeout` | `:infinity` | Per-task timeout (ms or `:infinity`) used in `:parallel` mode. |
+| `:telemetry_metadata` | `%{}` | Map merged into the metadata of every agent telemetry event. An auto-generated `:run_id` is always added. Useful for scoping handlers to a single run. |
 
 ## Error handling
 
@@ -92,17 +92,73 @@ A successful run returns `{:ok, %LlmComposer.Agent.Result{}}`:
   result, giving it a chance to recover or explain the failure.
 - **Model/network errors** returned by the provider abort the loop and are returned as
   `{:error, reason}`.
-- **Streaming** settings (`stream_response: true`) return `{:error, :streaming_not_supported}`.
+
+## Streaming
+
+Pass `stream_response: true` in your settings and `run/3` returns `{:ok, stream}` — a lazy
+`Enumerable` of `LlmComposer.StreamChunk` — instead of `{:ok, result}`.
+
+The stream contains:
+
+- **`:text_delta`** chunks — the final answer, token by token.
+- **`:tool_call`** chunks — one per executed tool call (with the result already filled in), emitted
+  right after execution and before the next LLM turn. Useful for showing progress in a UI without
+  needing a telemetry handler.
+- A terminal **`:done`** chunk whose `:usage` and `:cost_info` hold the run totals, and whose
+  `metadata.agent_result` holds the full `LlmComposer.Agent.Result`.
+- A terminal **`:error`** chunk on hard failures (e.g. `:max_iterations_reached`).
+
+Intermediate tool-calling turns run entirely inside the loop — only the final, tool-free answer
+reaches the caller as `:text_delta` chunks.
+
+```elixir
+settings = %LlmComposer.Settings{
+  providers: [{LlmComposer.Providers.OpenAI, [model: "gpt-4.1-mini", functions: [calculator]]}],
+  system_prompt: "You are a helpful assistant.",
+  stream_response: true,
+  track_costs: true
+}
+
+{:ok, stream} = LlmComposer.Agent.run(settings, "How much is (7 + 3) * 6?")
+
+{result, cost} =
+  Enum.reduce(stream, {nil, nil}, fn
+    %LlmComposer.StreamChunk{type: :text_delta, text: t}, acc ->
+      IO.write(t)
+      acc
+
+    %LlmComposer.StreamChunk{type: :tool_call, tool_calls: [call]}, acc ->
+      IO.puts("\n[tool] #{call.name}(#{call.arguments}) → #{inspect(call.result)}")
+      acc
+
+    %LlmComposer.StreamChunk{type: :done, metadata: %{agent_result: r}, cost_info: c}, _ ->
+      {r, c}
+
+    _other, acc ->
+      acc
+  end)
+```
+
+Supported providers: `:open_ai`, `:open_router`, `:open_ai_responses`, `:google`, `:bedrock`,
+`:ollama`. Note that `:ollama`'s native streaming format does not include tool-call deltas — text
+streaming works, but for tool calls use the `:open_ai` provider pointed at Ollama's
+OpenAI-compatible endpoint. Other providers yield a terminal `:error` chunk with
+`{:streaming_agent_unsupported_provider, provider}`.
+
+See the [Streaming guide](streaming.md#streaming-with-llmcomposeragent) for more details.
 
 ## Telemetry
 
-The loop emits `:telemetry` events you can attach handlers to:
+The loop emits `:telemetry` events you can attach handlers to. Pass `telemetry_metadata:` to
+`run/3` to include extra keys (plus an auto-generated `:run_id`) in every event's metadata,
+making it easy to scope a handler to a single run.
 
 | Event | Measurements | Metadata |
 |---|---|---|
-| `[:llm_composer, :agent, :run, :start \| :stop \| :exception]` | `:iterations` (on stop), `:duration` | `:status` (`:ok`/`:error`), `:reason`, `:max_iterations`, `:tool_count` |
+| `[:llm_composer, :agent, :run, :start \| :stop \| :exception]` | `:iterations` (on stop), `:duration` | `:status` (`:ok`/`:error`/`:halted`), `:max_iterations`, `:tool_count` |
 | `[:llm_composer, :agent, :iteration, :stop]` | `:tool_call_count` | `:iteration`, `:cost_info`, `:final` |
-| `[:llm_composer, :agent, :tool, :start \| :stop \| :exception]` | `:duration` | `:name`, `:status` (`:ok`/`:error`) |
+| `[:llm_composer, :agent, :tool, :start \| :stop \| :exception]` | `:duration` | `:name`, `:id`, `:arguments`, `:metadata`, `:status` (`:ok`/`:error` on stop) |
+| `[:llm_composer, :agent, :reasoning, :delta]` | — | `:iteration`, `:reasoning` (streaming only) |
 
 The per-iteration event carries that turn's `:cost_info`, so you can record costs incrementally as
 each completion finishes rather than only at the end of the run.
@@ -112,7 +168,6 @@ each completion finishes rather than only at the end of the run.
   "agent-costs",
   [:llm_composer, :agent, :iteration, :stop],
   fn _event, _measurements, %{cost_info: cost_info}, _config ->
-    # persist or report cost_info for this completion
     MyApp.Usage.record(cost_info)
   end,
   nil

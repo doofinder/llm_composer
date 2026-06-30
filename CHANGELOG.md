@@ -4,12 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.20.0] - 2026-06-29
 
 ### Added
-- Added `LlmComposer.Agent` — an agentic tool-calling loop on top of `LlmComposer.run_completion/3` that automates the full `ask → tool calls → execute → feed results back → repeat` cycle until the model returns a final, tool-free answer. Supports `:sequential` (default) and `:parallel` tool execution (`:tool_timeout`), a configurable `:max_iterations` (default `10`), and per-tool error recovery (tool failures are fed back to the model instead of aborting the run). Returns a `LlmComposer.Agent.Result` struct bundling the final response, the full conversation, executed tool calls, and accumulated cost info. Emits its own `[:llm_composer, :agent, :run | :iteration | :tool]` telemetry events.
-- Added `:telemetry` spans for observability: `[:llm_composer, :run_completion]` (with `input_tokens`/`output_tokens` measurements and a `status` of `:ok`/`:error`) and `[:llm_composer, :providers_runner, :call]` (with `provider`, `model`, and `status` metadata). The provider call span is emitted for both the single-provider and the multi-provider (fallback) paths. The existing `%{latency_ms, status, provider, model}` metrics map passed to `LlmComposer.ProviderRouter` callbacks is preserved, so custom routers keep working unchanged.
-- Added a custom `LlmComposer.CredoChecks.GroupedFunctions` Credo check that enforces grouping of all public functions before private ones within a module, and enabled it across the codebase.
+- Added `LlmComposer.Agent` — an automatic tool-calling loop that runs the full ask → execute → repeat cycle until the model returns a final answer. Supports sequential and parallel tool execution, configurable iteration limit, and per-tool error recovery.
+- Added streaming support to `LlmComposer.Agent` (`stream_response: true`). Returns a lazy stream of `StreamChunk`s with `:text_delta`, `:tool_call` (one per executed tool, result included), and a terminal `:done` chunk carrying cumulative usage and the full `Agent.Result`. Supported providers: `:open_ai`, `:open_router`, `:open_ai_responses`, `:google`, `:bedrock`, `:ollama`.
+- Added `:tool_call` chunk type to `LlmComposer.StreamChunk` — emitted by the streaming agent after each tool execution, making the stream self-contained without needing a telemetry handler.
+- Added telemetry spans for `run_completion` and `providers_runner` calls, and enriched agent events with per-tool arguments, reasoning deltas, and a `:telemetry_metadata` option to scope handlers to a single run.
 
 ## [0.19.6] - 2026-06-16
 
@@ -326,7 +327,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[Unreleased]: https://github.com/doofinder/llm_composer/compare/0.19.6...HEAD
+[0.20.0]: https://github.com/doofinder/llm_composer/compare/0.19.6...0.20.0
 [0.19.6]: https://github.com/doofinder/llm_composer/compare/0.19.5...0.19.6
 [0.19.5]: https://github.com/doofinder/llm_composer/compare/0.19.4...0.19.5
 [0.19.4]: https://github.com/doofinder/llm_composer/compare/0.19.3...0.19.4
