@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [0.20.0] - 2026-06-29
 
 ### Added
+- Added `:sse_middleware` option for streaming responses, allowing consumers to inject a custom SSE middleware instead of the default `Tesla.Middleware.SSE`.
 - Added `LlmComposer.Agent` — an automatic tool-calling loop that runs the full ask → execute → repeat cycle until the model returns a final answer. Supports sequential and parallel tool execution, configurable iteration limit, and per-tool error recovery.
 - Added streaming support to `LlmComposer.Agent` (`stream_response: true`). Returns a lazy stream of `StreamChunk`s with `:text_delta`, `:tool_call` (one per executed tool, result included), and a terminal `:done` chunk carrying cumulative usage and the full `Agent.Result`. Supported providers: `:open_ai`, `:open_router`, `:open_ai_responses`, `:google`, `:bedrock`, `:ollama`.
 - Added `:tool_call` chunk type to `LlmComposer.StreamChunk` — emitted by the streaming agent after each tool execution, making the stream self-contained without needing a telemetry handler.
@@ -297,10 +298,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Include Bedrock Support**: Included Bedrock support as provider only with `completion()`s support.
 
 ## [0.3.5] - 2024-12-18
-- **Fix default api_key setting value**: The default value was en empty string. Now it is nil to be evaluated as false when getting the key from the map later. 
+- **Fix default api_key setting value**: The default value was en empty string. Now it is nil to be evaluated as false when getting the key from the map later.
 
 ## [0.3.4] - 2024-12-17
-- **OpenAI API Keys**: Use an API key passed as a parameter when calling chat_completion — overriding the global API key defined in the config. The param is sent inside the settings. 
+- **OpenAI API Keys**: Use an API key passed as a parameter when calling chat_completion — overriding the global API key defined in the config. The param is sent inside the settings.
 
 ## [0.3.3] - 2024-12-04
 - **Timeouts**: Configurable OpenAI's timeout. Default set to 50 seconds.
