@@ -4,10 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-07-01
+
+### Added
+
+- Added `:sse_middleware` option for streaming responses, allowing consumers to inject a custom SSE middleware instead of the default `Tesla.Middleware.SSE`.
+
 ## [0.20.0] - 2026-06-29
 
 ### Added
-- Added `:sse_middleware` option for streaming responses, allowing consumers to inject a custom SSE middleware instead of the default `Tesla.Middleware.SSE`.
 - Added `LlmComposer.Agent` — an automatic tool-calling loop that runs the full ask → execute → repeat cycle until the model returns a final answer. Supports sequential and parallel tool execution, configurable iteration limit, and per-tool error recovery.
 - Added streaming support to `LlmComposer.Agent` (`stream_response: true`). Returns a lazy stream of `StreamChunk`s with `:text_delta`, `:tool_call` (one per executed tool, result included), and a terminal `:done` chunk carrying cumulative usage and the full `Agent.Result`. Supported providers: `:open_ai`, `:open_router`, `:open_ai_responses`, `:google`, `:bedrock`, `:ollama`.
 - Added `:tool_call` chunk type to `LlmComposer.StreamChunk` — emitted by the streaming agent after each tool execution, making the stream self-contained without needing a telemetry handler.
@@ -328,6 +333,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
+[0.20.1]: https://github.com/doofinder/llm_composer/compare/0.20.0...0.20.1
 [0.20.0]: https://github.com/doofinder/llm_composer/compare/0.19.6...0.20.0
 [0.19.6]: https://github.com/doofinder/llm_composer/compare/0.19.5...0.19.6
 [0.19.5]: https://github.com/doofinder/llm_composer/compare/0.19.4...0.19.5
