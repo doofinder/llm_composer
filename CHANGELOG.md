@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-07-01
+
+### Added
+
+- Added `:sse_middleware` option for streaming responses, allowing consumers to inject a custom SSE middleware instead of the default `Tesla.Middleware.SSE`.
+
 ## [0.20.0] - 2026-06-29
 
 ### Added
@@ -297,10 +303,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Include Bedrock Support**: Included Bedrock support as provider only with `completion()`s support.
 
 ## [0.3.5] - 2024-12-18
-- **Fix default api_key setting value**: The default value was en empty string. Now it is nil to be evaluated as false when getting the key from the map later. 
+- **Fix default api_key setting value**: The default value was en empty string. Now it is nil to be evaluated as false when getting the key from the map later.
 
 ## [0.3.4] - 2024-12-17
-- **OpenAI API Keys**: Use an API key passed as a parameter when calling chat_completion — overriding the global API key defined in the config. The param is sent inside the settings. 
+- **OpenAI API Keys**: Use an API key passed as a parameter when calling chat_completion — overriding the global API key defined in the config. The param is sent inside the settings.
 
 ## [0.3.3] - 2024-12-04
 - **Timeouts**: Configurable OpenAI's timeout. Default set to 50 seconds.
@@ -327,6 +333,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
+[0.20.1]: https://github.com/doofinder/llm_composer/compare/0.20.0...0.20.1
 [0.20.0]: https://github.com/doofinder/llm_composer/compare/0.19.6...0.20.0
 [0.19.6]: https://github.com/doofinder/llm_composer/compare/0.19.5...0.19.6
 [0.19.5]: https://github.com/doofinder/llm_composer/compare/0.19.4...0.19.5

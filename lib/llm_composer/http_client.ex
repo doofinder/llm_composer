@@ -47,7 +47,7 @@ defmodule LlmComposer.HttpClient do
 
     cond do
       stream ->
-        resp ++ [{Tesla.Middleware.SSE, only: :data}]
+        resp ++ Keyword.get(opts, :sse_middleware, [{Tesla.Middleware.SSE, only: :data}])
 
       retries_disabled?(opts) ->
         resp ++

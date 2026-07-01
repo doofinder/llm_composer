@@ -9,6 +9,7 @@ defmodule LlmComposer.Settings do
             provider: nil,
             provider_opts: nil,
             providers: nil,
+            sse_middleware: nil,
             stream_response: false,
             system_prompt: nil,
             track_costs: false,
@@ -21,6 +22,7 @@ defmodule LlmComposer.Settings do
   - `:provider` — provider module (e.g. `LlmComposer.Providers.OpenAI`). Used with `:provider_opts`.
   - `:provider_opts` — keyword list of options forwarded to the single provider.
   - `:providers` — list of `{module, opts}` tuples for multi-provider routing via `ProvidersRunner`.
+  - `:sse_middleware` — custom Tesla SSE middleware list to use instead of the default `Tesla.Middleware.SSE` when `stream_response: true`. Useful when the provider sends incomplete SSE chunks that would crash the default middleware.
   - `:stream_response` — when `true`, the provider returns a streaming enumerable.
   - `:system_prompt` — system prompt string sent to the model.
   - `:track_costs` — when `true`, token usage and cost are computed and attached to the response.
@@ -31,6 +33,7 @@ defmodule LlmComposer.Settings do
           provider: module() | nil,
           provider_opts: keyword() | nil,
           providers: [{module(), keyword()}] | nil,
+          sse_middleware: [{module(), keyword()}] | nil,
           stream_response: boolean(),
           system_prompt: String.t() | nil,
           track_costs: boolean(),
