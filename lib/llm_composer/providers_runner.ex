@@ -119,7 +119,9 @@ defmodule LlmComposer.ProvidersRunner do
   end
 
   defp maybe_put_sse_middleware(opts, %{sse_middleware: nil}), do: opts
-  defp maybe_put_sse_middleware(opts, %{sse_middleware: middleware}), do: Keyword.put_new(opts, :sse_middleware, middleware)
+
+  defp maybe_put_sse_middleware(opts, %{sse_middleware: middleware}),
+    do: Keyword.put_new(opts, :sse_middleware, middleware)
 
   defp get_provider_router do
     :llm_composer
