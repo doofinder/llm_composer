@@ -23,6 +23,21 @@ if Code.ensure_loaded?(ExAws) do
 
     The timeout applies to all Mint-based requests (streaming and non-streaming).
     Finch regular (non-streaming) requests use Finch's own timeout configuration.
+
+    ## Structured outputs
+
+    `:response_schema` requests JSON output matching a schema. `:structured_output_strategy`
+    picks how that's requested from Bedrock:
+
+    * `:native` (default) - uses `outputConfig.textFormat.json_schema`. Only supported by
+      some models (e.g. newer Anthropic Claude models on Bedrock or Nova models).
+    * `:tool_use` - forces the model to call a synthesized `structured_response` tool whose
+      input schema is `:response_schema`, then unwraps that call's arguments into the
+      response content. Works on models without native structured-output support (Nova,
+      Mistral, DeepSeek, older Qwen/Llama, etc.), since tool calling is supported far more
+      broadly than `outputConfig` across Bedrock's model vendors. Note that this forces
+      `toolChoice: {"any": {}}`, so combining it with `:functions` means the model could
+      call one of those tools instead of `structured_response`.
     """
     @behaviour LlmComposer.Provider
 
