@@ -339,6 +339,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
+[0.20.2]: https://github.com/doofinder/llm_composer/compare/0.20.1...0.20.2
 [0.20.1]: https://github.com/doofinder/llm_composer/compare/0.20.0...0.20.1
 [0.20.0]: https://github.com/doofinder/llm_composer/compare/0.19.6...0.20.0
 [0.19.6]: https://github.com/doofinder/llm_composer/compare/0.19.5...0.19.6
