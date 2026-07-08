@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.2] - 2026-07-08
+
+### Added
+
+- Added `:structured_output_strategy` option to the Bedrock provider (`:native` default, `:tool_use` opt-in). `:tool_use` requests `:response_schema` output by forcing the model to call a synthesized `structured_response` tool, working on Bedrock models without native structured-output support (Mistral, DeepSeek, older Qwen/Llama, etc.).
+
 ## [0.20.1] - 2026-07-01
 
 ### Added
