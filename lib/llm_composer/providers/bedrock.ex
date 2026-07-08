@@ -32,6 +32,8 @@ if Code.ensure_loaded?(ExAws) do
     alias LlmComposer.Providers.Bedrock.StreamOperation
     alias LlmComposer.Providers.Utils
 
+    @structured_response_tool_name "structured_response"
+
     @impl LlmComposer.Provider
     def name, do: :bedrock
 
@@ -57,52 +59,82 @@ if Code.ensure_loaded?(ExAws) do
 
     @spec build_request(list(Message.t()), Message.t(), keyword()) :: map()
     defp build_request(messages, system_message, opts) do
-      tools =
-        opts
-        |> Keyword.get(:functions)
-        |> Utils.get_tools(name())
-
-      tool_config = if tools, do: %{"toolConfig" => %{"tools" => tools}}, else: %{}
-
-      base_request =
-        Map.merge(
-          %{
-            "messages" =>
-              messages
-              |> Enum.map(&format_message/1)
-              |> merge_consecutive_tool_results(),
-            "system" => [format_message(system_message)]
-          },
-          tool_config
-        )
+      base_request = %{
+        "messages" =>
+          messages
+          |> Enum.map(&format_message/1)
+          |> merge_consecutive_tool_results(),
+        "system" => [format_message(system_message)]
+      }
 
       req_params = Keyword.get(opts, :request_params, %{})
 
       base_request
       |> Utils.merge_request_params(req_params)
-      |> maybe_structured_output(opts)
+      |> put_tool_config(opts)
       |> Utils.cleanup_body()
     end
 
-    @spec maybe_structured_output(map(), keyword()) :: map()
-    defp maybe_structured_output(base_request, opts) do
-      response_schema = Keyword.get(opts, :response_schema)
+    @spec put_tool_config(map(), keyword()) :: map()
+    defp put_tool_config(base_request, opts) do
+      tools =
+        opts
+        |> Keyword.get(:functions)
+        |> Utils.get_tools(name())
 
-      if is_map(response_schema) do
-        Map.put(base_request, "outputConfig", %{
-          "textFormat" => %{
-            "type" => "json_schema",
-            "structure" => %{
-              "jsonSchema" => %{
-                "name" => "response",
-                "schema" => Helpers.json_engine().encode!(response_schema)
-              }
+      response_schema = Keyword.get(opts, :response_schema)
+      strategy = Keyword.get(opts, :structured_output_strategy, :native)
+
+      case {is_map(response_schema), strategy} do
+        {true, :tool_use} ->
+          put_tool_use_structured_output(base_request, response_schema, tools)
+
+        {true, :native} ->
+          base_request
+          |> maybe_put_tools(tools)
+          |> put_native_structured_output(response_schema)
+
+        _ ->
+          maybe_put_tools(base_request, tools)
+      end
+    end
+
+    @spec maybe_put_tools(map(), [map()] | nil) :: map()
+    defp maybe_put_tools(base_request, nil), do: base_request
+
+    defp maybe_put_tools(base_request, tools) do
+      Map.put(base_request, "toolConfig", %{"tools" => tools})
+    end
+
+    @spec put_native_structured_output(map(), map()) :: map()
+    defp put_native_structured_output(base_request, response_schema) do
+      Map.put(base_request, "outputConfig", %{
+        "textFormat" => %{
+          "type" => "json_schema",
+          "structure" => %{
+            "jsonSchema" => %{
+              "name" => "response",
+              "schema" => Helpers.json_engine().encode!(response_schema)
             }
           }
-        })
-      else
-        base_request
-      end
+        }
+      })
+    end
+
+    @spec put_tool_use_structured_output(map(), map(), [map()] | nil) :: map()
+    defp put_tool_use_structured_output(base_request, response_schema, tools) do
+      structured_tool = %{
+        "toolSpec" => %{
+          "name" => @structured_response_tool_name,
+          "description" => "Return the structured response matching the required schema.",
+          "inputSchema" => %{"json" => response_schema}
+        }
+      }
+
+      Map.put(base_request, "toolConfig", %{
+        "tools" => [structured_tool | tools || []],
+        "toolChoice" => %{"any" => %{}}
+      })
     end
 
     @spec send_request(map(), String.t(), boolean()) :: {:ok, term()} | {:error, term()}
