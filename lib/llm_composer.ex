@@ -186,6 +186,9 @@ defmodule LlmComposer do
   defp provider_stream_struct(:open_router, payload, opts),
     do: ProviderStreamChunk.OpenRouter.new(payload, opts)
 
+  defp provider_stream_struct(:tensorx, payload, opts),
+    do: ProviderStreamChunk.TensorX.new(payload, opts)
+
   defp provider_stream_struct(:open_ai_responses, payload, opts),
     do: ProviderStreamChunk.OpenAIResponses.new(payload, opts)
 

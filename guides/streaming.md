@@ -68,7 +68,7 @@ Key fields on each chunk:
 
 | Field | Description |
 |---|---|
-| `:provider` | Source provider (`:open_ai`, `:google`, `:open_router`, etc.) |
+| `:provider` | Source provider (`:open_ai`, `:google`, `:open_router`, `:tensorx`, etc.) |
 | `:type` | Event category (see chunk types below) |
 | `:text` | Incremental text when available |
 | `:usage` | Normalized token counts when exposed by the provider |
@@ -81,7 +81,7 @@ When streaming is enabled, LlmComposer does **not** populate `LlmResponse` token
 
 1. **Calculate tokens externally** — use a library like `tiktoken` for OpenAI-compatible
    providers before sending the request.
-2. **Read from stream events** — some providers (OpenRouter, OpenAI Responses) include token
+2. **Read from stream events** — some providers (OpenRouter, TensorX, OpenAI Responses) include token
    counts in their `:usage` or `:done` chunk events. Read `chunk.usage` when `chunk.type == :usage`.
 
 ## StreamChunk Fields
@@ -138,8 +138,8 @@ chunk. The terminal chunk's `:usage` and `:cost_info` hold the run totals, and
 `metadata.agent_result` holds the full `LlmComposer.Agent.Result`. Intermediate tool-calling turns
 run internally (streamed tool-call deltas are reassembled automatically).
 
-Supported providers: `:open_ai`, `:open_router`, `:open_ai_responses`, `:google`, `:bedrock`,
-`:ollama`. Note that `:ollama`'s native streaming format does not carry tool-call deltas — text
+Supported providers: `:open_ai`, `:open_router`, `:tensorx`, `:open_ai_responses`, `:google`,
+`:bedrock`, `:ollama`. Note that `:ollama`'s native streaming format does not carry tool-call deltas — text
 streaming works, but for tool-call streaming point the `:open_ai` provider at Ollama's
 OpenAI-compatible endpoint instead.
 

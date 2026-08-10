@@ -15,7 +15,7 @@ defmodule LlmComposer.Cost.CostAssembler do
 
   ## Provider-Specific Handling
 
-  - **OpenAI/OpenRouter**: Extracts tokens from `usage` field, model from response
+  - **OpenAI/OpenRouter/TensorX**: Extracts tokens from `usage` field, model from response
   - **Google**: Extracts tokens from `usageMetadata` field, model from options
   """
 
@@ -58,7 +58,7 @@ defmodule LlmComposer.Cost.CostAssembler do
   @spec extract_tokens(atom(), map()) ::
           {non_neg_integer() | nil, non_neg_integer() | nil, non_neg_integer() | nil}
   def extract_tokens(provider, raw_response)
-      when provider in [:open_ai, :open_ai_responses, :open_router] do
+      when provider in [:open_ai, :open_ai_responses, :open_router, :tensorx] do
     usage = Map.get(raw_response, "usage", %{})
     input = Map.get(usage, "prompt_tokens", 0)
     output = Map.get(usage, "completion_tokens", 0)
@@ -94,7 +94,7 @@ defmodule LlmComposer.Cost.CostAssembler do
 
   @spec get_model(atom(), map(), keyword()) :: String.t() | nil
   defp get_model(provider, raw_response, _opts)
-       when provider in [:open_ai, :open_ai_responses, :open_router] do
+       when provider in [:open_ai, :open_ai_responses, :open_router, :tensorx] do
     Map.get(raw_response, "model")
   end
 
@@ -136,7 +136,7 @@ defmodule LlmComposer.Cost.CostAssembler do
   end
 
   defp prepare_pricing_opts(provider, raw_response, opts)
-       when provider in [:open_ai, :open_ai_responses] do
+       when provider in [:open_ai, :open_ai_responses, :tensorx] do
     case Map.get(raw_response, "model") do
       nil -> opts
       model -> Keyword.put(opts, :model, model)

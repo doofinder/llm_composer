@@ -2,7 +2,7 @@ defmodule LlmComposer.StreamChunk do
   @moduledoc """
   Normalized representation of a streaming chunk emitted by any provider.
 
-  - `:provider` identifies the upstream provider (:open_ai | :open_router | :google | :ollama | :bedrock)
+  - `:provider` identifies the upstream provider (:open_ai | :open_router | :tensorx | :google | :ollama | :bedrock)
   - `:type` categorizes the event (`:text_delta`, `:reasoning_delta`, `:tool_call_delta`, `:usage`, `:done`, `:error`, `:unknown`)
   - `:text` is the accumulated text delta (if any)
   - `:reasoning` is the accumulated reasoning delta (if any)

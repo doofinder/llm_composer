@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-08-07
+
+### Added
+
+- Added `LlmComposer.Providers.TensorX` — an EU-hosted, OpenAI-compatible provider (`https://api.tensorx.ai/v1`, configured under the `:tensorx` key). Supports chat, streaming, function calls, structured outputs (`:response_schema`), and the streaming agent. TensorX exposes no price feed, so cost tracking requires explicit `:input_price_per_million` / `:output_price_per_million` options.
+- The shared OpenAI response and stream parsers now read the thinking trace from `reasoning_content` when `reasoning` is absent, which is the field OpenAI-compatible gateways such as TensorX use.
+
 ## [0.20.2] - 2026-07-08
 
 ### Added

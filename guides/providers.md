@@ -1,6 +1,6 @@
 # Providers
 
-LlmComposer ships with five built-in providers. Each implements the `LlmComposer.Provider`
+LlmComposer ships with six built-in providers. Each implements the `LlmComposer.Provider`
 behaviour and can be used interchangeably.
 
 ## Provider Overview
@@ -9,25 +9,29 @@ behaviour and can be used interchangeably.
 |---|---|---|
 | OpenAI | `LlmComposer.Providers.OpenAI` | `:api_key` |
 | OpenRouter | `LlmComposer.Providers.OpenRouter` | `:api_key` |
+| TensorX | `LlmComposer.Providers.TensorX` | `:api_key` |
 | Ollama | `LlmComposer.Providers.Ollama` | none (local) |
 | AWS Bedrock | `LlmComposer.Providers.Bedrock` | ExAws config |
 | Google | `LlmComposer.Providers.Google` | `:api_key` or Goth/Vertex |
 
 ## Feature Compatibility
 
-| Feature | OpenAI | OpenRouter | Ollama | Bedrock | Google |
-|---|---|---|---|---|---|
-| Basic Chat | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Function Calls | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
-| Structured Outputs | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
-| Cost Tracking | ✅ | ✅ | ❌ | ✅ | ✅ |
-| Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Feature | OpenAI | OpenRouter | TensorX | Ollama | Bedrock | Google |
+|---|---|---|---|---|---|---|
+| Basic Chat | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Function Calls | ✅ | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
+| Structured Outputs | ✅ | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
+| Cost Tracking | ✅ | ✅ | ⚠️² | ❌ | ✅ | ✅ |
+| Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 ¹ Ollama via the native provider does not support function calls or structured outputs.
 Use `LlmComposer.Providers.OpenAI` pointed at your Ollama instance's OpenAI-compatible
 endpoint (`/v1/chat/completions`) to access these features on supported models.
+
+² TensorX publishes no machine-readable pricing feed, so cost tracking only works with
+explicit prices in the provider options (see [Cost Tracking](cost_tracking.html)).
 
 ## Common Options
 
@@ -156,6 +160,73 @@ provider_opts: [
   ]
 ]
 ```
+
+---
+
+## TensorX
+
+[TensorX](https://tensorx.ai) serves an OpenAI-compatible Chat Completions API from EU-only
+infrastructure, which makes it a drop-in alternative to OpenRouter when inference must stay
+in Europe.
+
+```elixir
+Application.put_env(:llm_composer, :tensorx, api_key: "<your tensorx api key>")
+
+settings = %LlmComposer.Settings{
+  providers: [
+    {LlmComposer.Providers.TensorX, [model: "z-ai/glm-5.1"]}
+  ],
+  system_prompt: "You are a helpful assistant."
+}
+```
+
+### Location
+
+There is no per-request region parameter. TensorX runs a single EU-hosted endpoint
+(`https://api.tensorx.ai/v1`), so "location: Europe" is a property of the base URL, which is
+the default. Only override `:url` for tests or proxies:
+
+```elixir
+config :llm_composer, :tensorx,
+  api_key: System.get_env("TENSORX_API_KEY"),
+  url: "https://api.tensorx.ai/v1"
+```
+
+### Reasoning
+
+Reasoning text arrives in `reasoning_content` and is exposed as `main_response.reasoning`
+(and as `:reasoning_delta` chunks when streaming). The switch that turns thinking on or off
+is per model family and goes through `request_params` — an unknown key is silently ignored,
+so it has to match the model:
+
+```elixir
+# DeepSeek V4
+request_params: %{chat_template_kwargs: %{thinking: false}}
+
+# GLM
+request_params: %{chat_template_kwargs: %{enable_thinking: false}}
+
+# MiniMax M3
+request_params: %{chat_template_kwargs: %{thinking_mode: "disabled"}}
+```
+
+### Cost Tracking
+
+TensorX has no pricing API, so pass prices explicitly (as strings or integers — floats are
+rejected by `Decimal.new/1`):
+
+```elixir
+provider_opts: [
+  model: "z-ai/glm-5.1",
+  input_price_per_million: "1.4",
+  output_price_per_million: "4.4",
+  cache_read_price_per_million: "0.35"
+]
+```
+
+There is no fallback `:models` list and no provider routing (single upstream) — use
+`LlmComposer.Settings.providers` / the [Provider Router](provider_router.html) to fail over
+to another provider.
 
 ---
 
@@ -328,7 +399,7 @@ config :my_app, :google_credentials_path, "/path/to/service-account.json"
 ## Structured Outputs
 
 Pass `response_schema` in provider options to get responses conforming to a JSON schema.
-Supported by OpenAI, OpenRouter, Google, and Bedrock.
+Supported by OpenAI, OpenRouter, TensorX, Google, and Bedrock.
 
 ```elixir
 settings = %LlmComposer.Settings{

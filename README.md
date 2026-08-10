@@ -1,6 +1,6 @@
 # LlmComposer
 
-**LlmComposer** is an Elixir library that simplifies interaction with large language models (LLMs). It provides a unified interface to OpenAI (Chat Completions and Responses API), OpenRouter, Ollama, AWS Bedrock, and Google (Gemini), with support for streaming, function calls, structured outputs, cost tracking, and multi-provider failover routing.
+**LlmComposer** is an Elixir library that simplifies interaction with large language models (LLMs). It provides a unified interface to OpenAI (Chat Completions and Responses API), OpenRouter, TensorX, Ollama, AWS Bedrock, and Google (Gemini), with support for streaming, function calls, structured outputs, cost tracking, and multi-provider failover routing.
 
 ## Table of Contents
 
@@ -46,17 +46,19 @@ config :llm_composer, :json_engine, Jason
 
 ## Provider Compatibility
 
-| Feature | OpenAI | OpenRouter | Ollama | Bedrock | Google |
-|---|---|---|---|---|---|
-| Basic Chat | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Function Calls | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
-| Structured Outputs | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
-| Cost Tracking | ✅ | ✅ | ❌ | ✅ | ✅ |
-| Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Feature | OpenAI | OpenRouter | TensorX | Ollama | Bedrock | Google |
+|---|---|---|---|---|---|---|
+| Basic Chat | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Function Calls | ✅ | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
+| Structured Outputs | ✅ | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
+| Cost Tracking | ✅ | ✅ | ⚠️² | ❌ | ✅ | ✅ |
+| Fallback Models | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Provider Routing | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 ¹ Via Ollama's OpenAI-compatible endpoint — see the [Providers guide](https://hexdocs.pm/llm_composer/providers.html).
+
+² TensorX publishes no price feed; pass explicit prices in the provider options.
 
 ## Usage
 
@@ -93,12 +95,13 @@ IO.inspect(res.main_response)
 
 ### Providers
 
-All five providers share the same interface. Quick references:
+All providers share the same interface. Quick references:
 
 | Provider | Setup |
 |---|---|
 | OpenAI | `Application.put_env(:llm_composer, :open_ai, api_key: "...")` |
 | OpenRouter | `Application.put_env(:llm_composer, :open_router, api_key: "...")` |
+| TensorX | `Application.put_env(:llm_composer, :tensorx, api_key: "...")` (EU-hosted) |
 | Ollama | No API key — start Ollama server locally |
 | AWS Bedrock | Configure via ExAws |
 | Google | `Application.put_env(:llm_composer, :google, api_key: "...")` or Goth/Vertex |

@@ -21,6 +21,10 @@ config :llm_composer,
   open_router: [
     # api_key: System.get_env("OPENROUTER_API_KEY")
   ],
+  tensorx: [
+    # EU-only endpoint; `url` defaults to https://api.tensorx.ai/v1
+    # api_key: System.get_env("TENSORX_API_KEY")
+  ],
   ollama: [
     url: "http://localhost:11434"
   ],

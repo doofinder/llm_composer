@@ -55,6 +55,12 @@ defmodule LlmComposer.ProviderStreamChunk.Parser.OpenAI do
   defp extract_text(_), do: nil
 
   defp extract_reasoning(%{"reasoning" => reasoning}) when is_binary(reasoning), do: reasoning
+
+  # OpenAI-compatible gateways such as TensorX stream the thinking trace under
+  # `reasoning_content` instead.
+  defp extract_reasoning(%{"reasoning_content" => reasoning}) when is_binary(reasoning),
+    do: reasoning
+
   defp extract_reasoning(_), do: nil
 
   defp extract_reasoning_details(%{"reasoning_details" => details}) when is_list(details),

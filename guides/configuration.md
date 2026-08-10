@@ -20,6 +20,7 @@ All configuration is set via `Application.put_env/3` or `config/config.exs`.
 |---|---|
 | `:open_ai` | `LlmComposer.Providers.OpenAI` and `OpenAIResponses` |
 | `:open_router` | `LlmComposer.Providers.OpenRouter` |
+| `:tensorx` | `LlmComposer.Providers.TensorX` (EU-hosted; `:url` defaults to `https://api.tensorx.ai/v1`) |
 | `:ollama` | `LlmComposer.Providers.Ollama` |
 | `:google` | `LlmComposer.Providers.Google` |
 | `:ex_aws` | `LlmComposer.Providers.Bedrock` (via ExAws) |

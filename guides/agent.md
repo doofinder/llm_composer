@@ -11,7 +11,7 @@ ask → model requests tool calls → execute them → feed the results back →
 ```
 
 The loop works with any provider that supports function calling (**OpenAI**, **OpenRouter**,
-**Google**, **Bedrock**). Both synchronous and [streaming](#streaming) modes are supported.
+**TensorX**, **Google**, **Bedrock**). Both synchronous and [streaming](#streaming) modes are supported.
 
 ## Quick start
 
@@ -139,8 +139,8 @@ settings = %LlmComposer.Settings{
   end)
 ```
 
-Supported providers: `:open_ai`, `:open_router`, `:open_ai_responses`, `:google`, `:bedrock`,
-`:ollama`. Note that `:ollama`'s native streaming format does not include tool-call deltas — text
+Supported providers: `:open_ai`, `:open_router`, `:tensorx`, `:open_ai_responses`, `:google`,
+`:bedrock`, `:ollama`. Note that `:ollama`'s native streaming format does not include tool-call deltas — text
 streaming works, but for tool calls use the `:open_ai` provider pointed at Ollama's
 OpenAI-compatible endpoint. Other providers yield a terminal `:error` chunk with
 `{:streaming_agent_unsupported_provider, provider}`.

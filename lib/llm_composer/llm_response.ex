@@ -10,7 +10,8 @@ defmodule LlmComposer.LlmResponse do
   alias LlmComposer.FunctionCall
   alias LlmComposer.Message
 
-  @type provider() :: :open_ai | :open_ai_responses | :ollama | :open_router | :bedrock | :google
+  @type provider() ::
+          :open_ai | :open_ai_responses | :ollama | :open_router | :tensorx | :bedrock | :google
 
   @typedoc """
   Normalized response from any LLM provider.

@@ -59,7 +59,11 @@ defmodule LlmComposer.ProviderResponse.Parser.OpenAI do
             base_msg
             | content: content,
               function_calls: FunctionCallExtractors.from_tool_calls(main_response),
-              reasoning: Map.get(main_response, "reasoning"),
+              # `reasoning_content` is what OpenAI-compatible gateways such as
+              # TensorX use for the thinking trace.
+              reasoning:
+                Map.get(main_response, "reasoning") ||
+                  Map.get(main_response, "reasoning_content"),
               reasoning_details: Map.get(main_response, "reasoning_details")
           }
 

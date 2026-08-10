@@ -9,7 +9,7 @@ automatic execution — useful when you need to:
 - Execute calls in parallel with custom error handling
 - Integrate with external systems before or after execution
 
-Supported providers: **OpenAI**, **OpenRouter**, **Google**.
+Supported providers: **OpenAI**, **OpenRouter**, **TensorX**, **Google**.
 
 > **Looking for automatic looping?** If you just want the model to call tools, get their results,
 > and continue until it produces a final answer, use `LlmComposer.Agent` — it automates the

@@ -9,6 +9,8 @@ defmodule LlmComposer.Cost.Pricing do
     - models.dev API for :open_ai, :open_ai_responses, and :google providers
   3. Fallback to nil if no pricing source available
 
+  Providers without a machine-readable price feed (e.g. `:tensorx`) only get cost
+  info when explicit pricing is passed in the provider options.
   """
 
   alias LlmComposer.Cost.Fetchers.ModelsDev

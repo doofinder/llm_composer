@@ -5,7 +5,7 @@ defmodule LlmComposer.Agent.StreamCollector do
 
   Streaming providers emit tool calls incrementally and in provider-specific shapes:
 
-  - **OpenAI / OpenRouter** send `:tool_call_delta` chunks whose `tool_calls` are raw maps keyed by
+  - **OpenAI / OpenRouter / TensorX** send `:tool_call_delta` chunks whose `tool_calls` are raw maps keyed by
     `"index"`, with the `function.arguments` JSON split across several chunks. They must be grouped
     by index and concatenated.
   - **OpenAI Responses** sends a `"function_call_started"` map (carries `"call_id"` and `"name"`)
@@ -32,7 +32,15 @@ defmodule LlmComposer.Agent.StreamCollector do
   alias LlmComposer.Message
   alias LlmComposer.StreamChunk
 
-  @supported_providers [:open_ai, :open_router, :open_ai_responses, :google, :bedrock, :ollama]
+  @supported_providers [
+    :open_ai,
+    :open_router,
+    :tensorx,
+    :open_ai_responses,
+    :google,
+    :bedrock,
+    :ollama
+  ]
 
   @type t() :: %__MODULE__{
           provider: atom(),
@@ -120,7 +128,7 @@ defmodule LlmComposer.Agent.StreamCollector do
   def to_function_calls(%__MODULE__{provider: :google, function_calls: calls}), do: calls
 
   def to_function_calls(%__MODULE__{provider: p, tool_fragments: fragments})
-      when p in [:open_ai, :open_router] do
+      when p in [:open_ai, :open_router, :tensorx] do
     fragments
     |> Enum.sort_by(fn {index, _fragment} -> index end)
     |> Enum.map(fn {_index, fragment} -> fragment end)
@@ -230,7 +238,7 @@ defmodule LlmComposer.Agent.StreamCollector do
   end
 
   defp merge_tool_calls(%__MODULE__{provider: p} = collector, tool_calls)
-       when p in [:open_ai, :open_router] do
+       when p in [:open_ai, :open_router, :tensorx] do
     fragments =
       Enum.reduce(tool_calls, collector.tool_fragments, fn raw, acc ->
         index = Map.get(raw, "index", map_size(acc))

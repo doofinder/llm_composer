@@ -1,7 +1,8 @@
 # Cost Tracking
 
 LlmComposer can automatically compute token usage and API cost for each request.
-Supported providers: **OpenAI**, **OpenRouter**, **Google**, and **Bedrock**.
+Supported providers: **OpenAI**, **OpenRouter**, **Google**, and **Bedrock**. **TensorX**
+is supported through manual pricing only (it publishes no price feed).
 
 ## Requirements
 
@@ -121,4 +122,6 @@ apply for cache hits.
 
 - **OpenRouter** — pricing fetched from OpenRouter's API, includes real-time model prices.
 - **OpenAI / Google / Bedrock** — pricing fetched from [models.dev](https://models.dev) API.
+- **TensorX** — no pricing API; pass `:input_price_per_million` / `:output_price_per_million`
+  (and optionally `:cache_read_price_per_million`) in the provider options.
 - **Ollama** — cost tracking is not supported (no token usage reported).

@@ -72,6 +72,10 @@ defmodule LlmComposer.Providers.Utils do
     |> Enum.reject(&is_nil/1)
   end
 
+  # TensorX speaks plain OpenAI chat completions; reasoning is never echoed back
+  # (its `reasoning_content` is output-only), so the OpenAI shape is enough.
+  def map_messages(messages, :tensorx), do: map_messages(messages, :open_ai)
+
   def map_messages(messages, :google) do
     messages
     |> Stream.map(fn
@@ -265,7 +269,7 @@ defmodule LlmComposer.Providers.Utils do
   end
 
   defp transform_fn_to_tool(%LlmComposer.Function{} = function, provider)
-       when provider in [:open_ai, :open_ai_responses, :ollama, :open_router] do
+       when provider in [:open_ai, :open_ai_responses, :ollama, :open_router, :tensorx] do
     %{
       type: "function",
       function: %{
