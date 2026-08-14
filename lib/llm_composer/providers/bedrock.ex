@@ -21,8 +21,12 @@ if Code.ensure_loaded?(ExAws) do
 
         config :llm_composer, :bedrock, receive_timeout: 60_000
 
-    The timeout applies to all Mint-based requests (streaming and non-streaming).
-    Finch regular (non-streaming) requests use Finch's own timeout configuration.
+    The timeout applies to all Mint-based requests (streaming and non-streaming) and, since
+    the HTTP client also honors it on the Finch path, to Finch-based requests as well —
+    switching `:tesla_adapter` between Mint and Finch doesn't change the effective timeout.
+    A Finch adapter tuple can still set its own `:receive_timeout` (or `:pool_timeout`/
+    `:request_timeout`) directly, which takes precedence over this config when present — see
+    `LlmComposer.Providers.Bedrock.HttpClient`.
 
     ## Structured outputs
 

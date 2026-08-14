@@ -25,6 +25,15 @@ if Code.ensure_loaded?(ExAws) do
     Finch must be started in your supervision tree:
 
         children = [{Finch, name: MyFinch}]
+
+    The Finch path honors the same `:bedrock, :receive_timeout` / `:timeout` config the Mint
+    path reads (see `receive_timeout/0`), so switching adapters doesn't change the effective
+    timeout. `:pool_timeout` and `:request_timeout` can also be set directly in the adapter
+    tuple's options and are forwarded to Finch as-is, taking precedence over the configured
+    receive timeout if both are present:
+
+        config :llm_composer, :tesla_adapter,
+          {Tesla.Adapter.Finch, name: MyFinch, receive_timeout: 60_000}
     """
 
     @behaviour ExAws.Request.HttpClient
@@ -74,22 +83,29 @@ if Code.ensure_loaded?(ExAws) do
     defp stream_request_finch(method, url, body, headers, finch_name) do
       req = Finch.build(method, url, headers, body)
       caller = self()
+      opts = finch_request_opts()
 
       {:ok, pid} =
         Task.start(fn ->
-          Finch.stream(req, finch_name, nil, fn
-            {:status, status}, _acc ->
-              send(caller, {:bedrock_stream, {:status, status}})
+          Finch.stream(
+            req,
+            finch_name,
+            nil,
+            fn
+              {:status, status}, _acc ->
+                send(caller, {:bedrock_stream, {:status, status}})
 
-            {:headers, resp_headers}, _acc ->
-              send(caller, {:bedrock_stream, {:headers, resp_headers}})
+              {:headers, resp_headers}, _acc ->
+                send(caller, {:bedrock_stream, {:headers, resp_headers}})
 
-            {:data, chunk}, _acc ->
-              send(caller, {:bedrock_stream, {:data, chunk}})
+              {:data, chunk}, _acc ->
+                send(caller, {:bedrock_stream, {:data, chunk}})
 
-            _, _acc ->
-              nil
-          end)
+              _, _acc ->
+                nil
+            end,
+            opts
+          )
 
           send(caller, {:bedrock_stream, :done})
         end)
@@ -107,7 +123,7 @@ if Code.ensure_loaded?(ExAws) do
     defp regular_request_finch(method, url, body, headers, finch_name) do
       req = Finch.build(method, url, headers, body)
 
-      case Finch.request(req, finch_name) do
+      case Finch.request(req, finch_name, finch_request_opts()) do
         {:ok, %Finch.Response{status: status, headers: resp_headers, body: resp_body}} ->
           {:ok, %{status_code: status, headers: resp_headers, body: resp_body}}
 
@@ -345,8 +361,36 @@ if Code.ensure_loaded?(ExAws) do
 
     @spec finch_name() :: {:ok, atom()} | :error
     defp finch_name do
+      case finch_config() do
+        {:ok, opts} -> Keyword.fetch(opts, :name)
+        :error -> :error
+      end
+    end
+
+    # Only `:name` identifies the pool; everything else in the tuple is a Finch request
+    # option, forwarded as-is if present. `:receive_timeout` falls back to `receive_timeout/0`
+    # so the Finch and Mint paths agree on the effective timeout when the tuple doesn't set
+    # one itself — otherwise a bare `{Tesla.Adapter.Finch, name: ...}` would silently run
+    # requests with none of the timeout protection the Mint path always has.
+    @finch_opt_keys [:pool_timeout, :receive_timeout, :request_timeout]
+
+    @spec finch_request_opts() :: keyword()
+    defp finch_request_opts do
+      case finch_config() do
+        {:ok, opts} ->
+          opts
+          |> Keyword.take(@finch_opt_keys)
+          |> Keyword.put_new(:receive_timeout, receive_timeout())
+
+        :error ->
+          [receive_timeout: receive_timeout()]
+      end
+    end
+
+    @spec finch_config() :: {:ok, keyword()} | :error
+    defp finch_config do
       case Application.get_env(:llm_composer, :tesla_adapter) do
-        {Tesla.Adapter.Finch, opts} when is_list(opts) -> Keyword.fetch(opts, :name)
+        {Tesla.Adapter.Finch, opts} when is_list(opts) -> {:ok, opts}
         _ -> :error
       end
     end
