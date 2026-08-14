@@ -1,6 +1,11 @@
 if Code.ensure_loaded?(ExAws) do
   defmodule LlmComposer.Providers.Bedrock.HttpClientTest do
-    use ExUnit.Case, async: true
+    # NOT async: the Finch-path tests below mutate the shared, global
+    # `:llm_composer, :tesla_adapter` config key that `LlmComposer.HttpClient.adapter/1` also
+    # reads for every non-Bedrock provider (Ollama, OpenRouter, Google, ...). Running
+    # concurrently with those providers' own async tests lets a short test-only timeout set here
+    # leak into an unrelated in-flight request and fail it — confirmed in CI, not hypothetical.
+    use ExUnit.Case, async: false
 
     alias LlmComposer.Providers.Bedrock.HttpClient
 
