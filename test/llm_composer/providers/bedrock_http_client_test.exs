@@ -4,6 +4,17 @@ if Code.ensure_loaded?(ExAws) do
 
     alias LlmComposer.Providers.Bedrock.HttpClient
 
+    # A literal atom, started once for the whole module (see setup_all) — a fresh dynamic name
+    # per test isn't needed since a Finch pool keys connections by {scheme, host, port} and
+    # every test here uses its own Bypass port, and tests within one module already run
+    # sequentially, not concurrently with each other.
+    @finch_name :llm_composer_bedrock_http_client_test_finch
+
+    setup_all do
+      start_supervised!({Finch, name: @finch_name})
+      :ok
+    end
+
     setup do
       Application.delete_env(:llm_composer, :tesla_adapter)
       bypass = Bypass.open()
@@ -12,38 +23,17 @@ if Code.ensure_loaded?(ExAws) do
 
     describe "request/5 non-streaming via Mint" do
       test "returns ok with status and body on 200", %{bypass: bypass} do
-        Bypass.expect_once(bypass, "POST", "/test", fn conn ->
-          conn
-          |> Plug.Conn.put_resp_header("content-type", "application/json")
-          |> Plug.Conn.resp(200, ~s({"result":"ok"}))
-        end)
-
-        assert {:ok, %{status_code: 200, body: ~s({"result":"ok"})}} =
-                 HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
+        assert_ok_with_status_and_body(bypass)
       end
 
       test "returns ok with non-200 status code", %{bypass: bypass} do
-        Bypass.expect_once(bypass, "POST", "/test", fn conn ->
-          Plug.Conn.resp(conn, 500, "internal error")
-        end)
-
-        assert {:ok, %{status_code: 500, body: "internal error"}} =
-                 HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
+        assert_ok_with_non_200_status(bypass)
       end
     end
 
     describe "request/5 streaming via Mint" do
       test "returns lazy stream that yields body chunks", %{bypass: bypass} do
-        Bypass.expect_once(bypass, "POST", "/stream", fn conn ->
-          conn
-          |> Plug.Conn.put_resp_header("content-type", "application/octet-stream")
-          |> Plug.Conn.resp(200, "hello world")
-        end)
-
-        assert {:ok, %{status_code: 200, body: stream}} =
-                 HttpClient.request(:post, endpoint(bypass, "/stream"), "", [], stream: true)
-
-        assert Enum.join(stream) == "hello world"
+        assert_streams_body_chunks(bypass)
       end
 
       test "returns status and headers before consuming stream", %{bypass: bypass} do
@@ -120,58 +110,35 @@ if Code.ensure_loaded?(ExAws) do
     end
 
     describe "request/5 non-streaming via Finch" do
-      setup %{bypass: bypass} do
-        finch_name = start_finch!()
-        set_finch_adapter!(finch_name)
-        {:ok, bypass: bypass, finch_name: finch_name}
+      setup do
+        set_finch_adapter!()
+        :ok
       end
 
       test "returns ok with status and body on 200", %{bypass: bypass} do
-        Bypass.expect_once(bypass, "POST", "/test", fn conn ->
-          conn
-          |> Plug.Conn.put_resp_header("content-type", "application/json")
-          |> Plug.Conn.resp(200, ~s({"result":"ok"}))
-        end)
-
-        assert {:ok, %{status_code: 200, body: ~s({"result":"ok"})}} =
-                 HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
+        assert_ok_with_status_and_body(bypass)
       end
 
       test "returns ok with non-200 status code", %{bypass: bypass} do
-        Bypass.expect_once(bypass, "POST", "/test", fn conn ->
-          Plug.Conn.resp(conn, 500, "internal error")
-        end)
-
-        assert {:ok, %{status_code: 500, body: "internal error"}} =
-                 HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
+        assert_ok_with_non_200_status(bypass)
       end
     end
 
     describe "request/5 streaming via Finch" do
-      setup %{bypass: bypass} do
-        finch_name = start_finch!()
-        set_finch_adapter!(finch_name)
-        {:ok, bypass: bypass, finch_name: finch_name}
+      setup do
+        set_finch_adapter!()
+        :ok
       end
 
       test "returns lazy stream that yields body chunks", %{bypass: bypass} do
-        Bypass.expect_once(bypass, "POST", "/stream", fn conn ->
-          conn
-          |> Plug.Conn.put_resp_header("content-type", "application/octet-stream")
-          |> Plug.Conn.resp(200, "hello world")
-        end)
-
-        assert {:ok, %{status_code: 200, body: stream}} =
-                 HttpClient.request(:post, endpoint(bypass, "/stream"), "", [], stream: true)
-
-        assert Enum.join(stream) == "hello world"
+        assert_streams_body_chunks(bypass)
       end
     end
 
-    describe "Finch path honours configured timeouts (regression coverage: the Finch path used" <>
-               " to silently ignore both of these and fall back to Finch's own hardcoded 15s)" do
-      setup %{bypass: bypass} do
-        finch_name = start_finch!()
+    describe "Finch path honours configured timeouts" do
+      # Regression coverage: the Finch path used to silently ignore both of these and fall back
+      # to Finch's own hardcoded 15s, regardless of what was configured.
+      setup do
         original_bedrock = Application.get_env(:llm_composer, :bedrock)
 
         on_exit(fn ->
@@ -182,15 +149,14 @@ if Code.ensure_loaded?(ExAws) do
           end
         end)
 
-        {:ok, bypass: bypass, finch_name: finch_name}
+        :ok
       end
 
       test "non-streaming request honours the configured bedrock receive_timeout", %{
-        bypass: bypass,
-        finch_name: finch_name
+        bypass: bypass
       } do
         Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
-        set_finch_adapter!(finch_name)
+        set_finch_adapter!()
 
         Bypass.expect_once(bypass, "POST", "/timeout", fn conn ->
           Process.sleep(500)
@@ -205,12 +171,12 @@ if Code.ensure_loaded?(ExAws) do
 
       test "non-streaming request honours a receive_timeout set directly on the adapter tuple, " <>
              "which takes precedence over :bedrock config",
-           %{bypass: bypass, finch_name: finch_name} do
+           %{bypass: bypass} do
         # A generous :bedrock timeout that must NOT be the one that applies here — if the
         # adapter-tuple value below is (still) silently ignored, this request would incorrectly
         # succeed instead of timing out.
         Application.put_env(:llm_composer, :bedrock, receive_timeout: 60_000)
-        set_finch_adapter!(finch_name, receive_timeout: 50)
+        set_finch_adapter!(receive_timeout: 50)
 
         Bypass.expect_once(bypass, "POST", "/timeout", fn conn ->
           Process.sleep(500)
@@ -226,19 +192,44 @@ if Code.ensure_loaded?(ExAws) do
 
     defp endpoint(bypass, path), do: "http://localhost:#{bypass.port}#{path}"
 
-    # A fresh, uniquely-named pool per test avoids clashing with any other test module that
-    # also starts a named Finch instance while this one (async: true) is running concurrently.
-    defp start_finch! do
-      finch_name = :"BedrockHttpClientTestFinch#{System.unique_integer([:positive])}"
-      start_supervised!({Finch, name: finch_name})
-      finch_name
+    defp assert_ok_with_status_and_body(bypass) do
+      Bypass.expect_once(bypass, "POST", "/test", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(200, ~s({"result":"ok"}))
+      end)
+
+      assert {:ok, %{status_code: 200, body: ~s({"result":"ok"})}} =
+               HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
     end
 
-    defp set_finch_adapter!(finch_name, extra_opts \\ []) do
+    defp assert_ok_with_non_200_status(bypass) do
+      Bypass.expect_once(bypass, "POST", "/test", fn conn ->
+        Plug.Conn.resp(conn, 500, "internal error")
+      end)
+
+      assert {:ok, %{status_code: 500, body: "internal error"}} =
+               HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
+    end
+
+    defp assert_streams_body_chunks(bypass) do
+      Bypass.expect_once(bypass, "POST", "/stream", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/octet-stream")
+        |> Plug.Conn.resp(200, "hello world")
+      end)
+
+      assert {:ok, %{status_code: 200, body: stream}} =
+               HttpClient.request(:post, endpoint(bypass, "/stream"), "", [], stream: true)
+
+      assert Enum.join(stream) == "hello world"
+    end
+
+    defp set_finch_adapter!(extra_opts \\ []) do
       Application.put_env(
         :llm_composer,
         :tesla_adapter,
-        {Tesla.Adapter.Finch, [name: finch_name] ++ extra_opts}
+        {Tesla.Adapter.Finch, [name: @finch_name] ++ extra_opts}
       )
 
       on_exit(fn -> Application.delete_env(:llm_composer, :tesla_adapter) end)
