@@ -367,11 +367,6 @@ if Code.ensure_loaded?(ExAws) do
       end
     end
 
-    # Only `:name` identifies the pool; everything else in the tuple is a Finch request
-    # option, forwarded as-is if present. `:receive_timeout` falls back to `receive_timeout/0`
-    # so the Finch and Mint paths agree on the effective timeout when the tuple doesn't set
-    # one itself — otherwise a bare `{Tesla.Adapter.Finch, name: ...}` would silently run
-    # requests with none of the timeout protection the Mint path always has.
     @finch_opt_keys [:pool_timeout, :receive_timeout, :request_timeout]
 
     @spec finch_request_opts() :: keyword()

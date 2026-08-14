@@ -1,18 +1,9 @@
 if Code.ensure_loaded?(ExAws) do
   defmodule LlmComposer.Providers.Bedrock.HttpClientTest do
-    # NOT async: the Finch-path tests below mutate the shared, global
-    # `:llm_composer, :tesla_adapter` config key that `LlmComposer.HttpClient.adapter/1` also
-    # reads for every non-Bedrock provider (Ollama, OpenRouter, Google, ...). Running
-    # concurrently with those providers' own async tests lets a short test-only timeout set here
-    # leak into an unrelated in-flight request and fail it — confirmed in CI, not hypothetical.
     use ExUnit.Case, async: false
 
     alias LlmComposer.Providers.Bedrock.HttpClient
 
-    # A literal atom, started once for the whole module (see setup_all) — a fresh dynamic name
-    # per test isn't needed since a Finch pool keys connections by {scheme, host, port} and
-    # every test here uses its own Bypass port, and tests within one module already run
-    # sequentially, not concurrently with each other.
     @finch_name :llm_composer_bedrock_http_client_test_finch
 
     setup_all do
@@ -141,8 +132,6 @@ if Code.ensure_loaded?(ExAws) do
     end
 
     describe "Finch path honours configured timeouts" do
-      # Regression coverage: the Finch path used to silently ignore both of these and fall back
-      # to Finch's own hardcoded 15s, regardless of what was configured.
       setup do
         original_bedrock = Application.get_env(:llm_composer, :bedrock)
 
@@ -177,9 +166,6 @@ if Code.ensure_loaded?(ExAws) do
       test "non-streaming request honours a receive_timeout set directly on the adapter tuple, " <>
              "which takes precedence over :bedrock config",
            %{bypass: bypass} do
-        # A generous :bedrock timeout that must NOT be the one that applies here — if the
-        # adapter-tuple value below is (still) silently ignored, this request would incorrectly
-        # succeed instead of timing out.
         Application.put_env(:llm_composer, :bedrock, receive_timeout: 60_000)
         set_finch_adapter!(receive_timeout: 50)
 
