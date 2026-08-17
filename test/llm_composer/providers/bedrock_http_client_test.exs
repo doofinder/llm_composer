@@ -171,9 +171,10 @@ if Code.ensure_loaded?(ExAws) do
         assert {:error, %{reason: _}} = request_against_slow_bypass(bypass, "/timeout", [])
       end
 
-      test "streaming request honours the configured bedrock receive_timeout", %{bypass: bypass} do
-        Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
-        set_finch_adapter!()
+      test "streaming request surfaces the real Finch error instead of the generic " <>
+             "status-wait fallback",
+           %{bypass: bypass} do
+        set_finch_adapter!(receive_timeout: 50)
 
         assert {:error, %{reason: reason}} =
                  request_against_slow_bypass(bypass, "/stream-timeout", stream: true)
