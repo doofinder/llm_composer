@@ -87,27 +87,31 @@ if Code.ensure_loaded?(ExAws) do
 
       {:ok, pid} =
         Task.start(fn ->
-          Finch.stream(
-            req,
-            finch_name,
-            nil,
-            fn
-              {:status, status}, _acc ->
-                send(caller, {:bedrock_stream, {:status, status}})
+          result =
+            Finch.stream(
+              req,
+              finch_name,
+              nil,
+              fn
+                {:status, status}, _acc ->
+                  send(caller, {:bedrock_stream, {:status, status}})
 
-              {:headers, resp_headers}, _acc ->
-                send(caller, {:bedrock_stream, {:headers, resp_headers}})
+                {:headers, resp_headers}, _acc ->
+                  send(caller, {:bedrock_stream, {:headers, resp_headers}})
 
-              {:data, chunk}, _acc ->
-                send(caller, {:bedrock_stream, {:data, chunk}})
+                {:data, chunk}, _acc ->
+                  send(caller, {:bedrock_stream, {:data, chunk}})
 
-              _, _acc ->
-                nil
-            end,
-            opts
-          )
+                _, _acc ->
+                  nil
+              end,
+              opts
+            )
 
-          send(caller, {:bedrock_stream, :done})
+          case result do
+            {:ok, _acc} -> send(caller, {:bedrock_stream, :done})
+            {:error, reason, _acc} -> send(caller, {:bedrock_stream, {:error, reason}})
+          end
         end)
 
       ref = Process.monitor(pid)

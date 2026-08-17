@@ -129,6 +129,13 @@ if Code.ensure_loaded?(ExAws) do
       test "returns lazy stream that yields body chunks", %{bypass: bypass} do
         assert_streams_body_chunks(bypass)
       end
+
+      test "surfaces Finch.stream/5's error instead of reporting done" do
+        assert {:error, %{reason: reason}} =
+                 HttpClient.request(:post, "http://localhost:1/test", "", [], stream: true)
+
+        refute reason == :timeout_waiting_for_status
+      end
     end
 
     describe "Finch path honours configured timeouts" do
