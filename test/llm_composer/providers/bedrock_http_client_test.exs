@@ -159,15 +159,7 @@ if Code.ensure_loaded?(ExAws) do
         Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
         set_finch_adapter!()
 
-        Bypass.expect_once(bypass, "POST", "/timeout", fn conn ->
-          Process.sleep(500)
-          Plug.Conn.send_resp(conn, 200, "")
-        end)
-
-        result = HttpClient.request(:post, endpoint(bypass, "/timeout"), "", [], [])
-        Bypass.pass(bypass)
-
-        assert {:error, %{reason: _}} = result
+        assert {:error, %{reason: _}} = request_against_slow_bypass(bypass, "/timeout", [])
       end
 
       test "non-streaming request honours a receive_timeout set directly on the adapter tuple, " <>
@@ -176,19 +168,32 @@ if Code.ensure_loaded?(ExAws) do
         Application.put_env(:llm_composer, :bedrock, receive_timeout: 60_000)
         set_finch_adapter!(receive_timeout: 50)
 
-        Bypass.expect_once(bypass, "POST", "/timeout", fn conn ->
-          Process.sleep(500)
-          Plug.Conn.send_resp(conn, 200, "")
-        end)
+        assert {:error, %{reason: _}} = request_against_slow_bypass(bypass, "/timeout", [])
+      end
 
-        result = HttpClient.request(:post, endpoint(bypass, "/timeout"), "", [], [])
-        Bypass.pass(bypass)
+      test "streaming request honours the configured bedrock receive_timeout", %{bypass: bypass} do
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
+        set_finch_adapter!()
 
-        assert {:error, %{reason: _}} = result
+        assert {:error, %{reason: reason}} =
+                 request_against_slow_bypass(bypass, "/stream-timeout", stream: true)
+
+        refute reason == :timeout_waiting_for_status
       end
     end
 
     defp endpoint(bypass, path), do: "http://localhost:#{bypass.port}#{path}"
+
+    defp request_against_slow_bypass(bypass, path, http_opts) do
+      Bypass.expect_once(bypass, "POST", path, fn conn ->
+        Process.sleep(500)
+        Plug.Conn.send_resp(conn, 200, "")
+      end)
+
+      result = HttpClient.request(:post, endpoint(bypass, path), "", [], http_opts)
+      Bypass.pass(bypass)
+      result
+    end
 
     defp assert_ok_with_status_and_body(bypass) do
       Bypass.expect_once(bypass, "POST", "/test", fn conn ->
