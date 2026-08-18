@@ -29,7 +29,8 @@ if Code.ensure_loaded?(ExAws) do
 
       @impl LlmComposer.Provider
       def run(_messages, _system_message, opts) do
-        {:ok, %LlmResponse{status: :ok, provider: :bedrock, stream: Keyword.fetch!(opts, :stream)}}
+        {:ok,
+         %LlmResponse{status: :ok, provider: :bedrock, stream: Keyword.fetch!(opts, :stream)}}
       end
     end
 
