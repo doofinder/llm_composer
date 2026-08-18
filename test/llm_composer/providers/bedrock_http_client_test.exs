@@ -105,6 +105,63 @@ if Code.ensure_loaded?(ExAws) do
       end
     end
 
+    describe "streaming error after headers were received" do
+      setup do
+        original_bedrock = Application.get_env(:llm_composer, :bedrock)
+
+        on_exit(fn ->
+          if is_nil(original_bedrock) do
+            Application.delete_env(:llm_composer, :bedrock)
+          else
+            Application.put_env(:llm_composer, :bedrock, original_bedrock)
+          end
+        end)
+
+        :ok
+      end
+
+      test "raises instead of ending cleanly when the connection stalls mid-body (Mint)", %{
+        bypass: bypass
+      } do
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
+
+        Bypass.expect_once(bypass, "POST", "/stall", fn conn ->
+          conn = Plug.Conn.send_chunked(conn, 200)
+          {:ok, conn} = Plug.Conn.chunk(conn, "first chunk")
+          Process.sleep(500)
+          conn
+        end)
+
+        assert {:ok, %{status_code: 200, body: stream}} =
+                 HttpClient.request(:post, endpoint(bypass, "/stall"), "", [], stream: true)
+
+        assert_raise HttpClient.StreamError, fn -> Enum.to_list(stream) end
+
+        Bypass.pass(bypass)
+      end
+
+      test "raises instead of ending cleanly when the connection drops mid-body without a " <>
+             "chunked terminator (Mint)" do
+        port = start_dropping_server!()
+
+        assert {:ok, %{status_code: 200, body: stream}} =
+                 HttpClient.request(:post, "http://localhost:#{port}/test", "", [], stream: true)
+
+        assert_raise HttpClient.StreamError, fn -> Enum.to_list(stream) end
+      end
+
+      test "raises instead of ending cleanly when the connection drops mid-body without a " <>
+             "chunked terminator (Finch)" do
+        set_finch_adapter!()
+        port = start_dropping_server!()
+
+        assert {:ok, %{status_code: 200, body: stream}} =
+                 HttpClient.request(:post, "http://localhost:#{port}/test", "", [], stream: true)
+
+        assert_raise HttpClient.StreamError, fn -> Enum.to_list(stream) end
+      end
+    end
+
     describe "request/5 non-streaming via Finch" do
       setup do
         set_finch_adapter!()
@@ -200,6 +257,34 @@ if Code.ensure_loaded?(ExAws) do
     end
 
     defp endpoint(bypass, path), do: "http://localhost:#{bypass.port}#{path}"
+
+    # Raw TCP server that sends a chunked response header, one chunk, and then closes the
+    # connection without the final zero-length chunk — a genuine mid-body transport error that
+    # Bypass/Cowboy can't easily simulate, since Cowboy finishes chunked responses gracefully
+    # even when the handling process crashes.
+    defp start_dropping_server! do
+      {:ok, listen_socket} =
+        :gen_tcp.listen(0, [:binary, packet: :raw, active: false, reuseaddr: true])
+
+      {:ok, port} = :inet.port(listen_socket)
+
+      Task.start(fn ->
+        {:ok, socket} = :gen_tcp.accept(listen_socket)
+        {:ok, _request} = :gen_tcp.recv(socket, 0, 1_000)
+
+        :gen_tcp.send(socket, [
+          "HTTP/1.1 200 OK\r\n",
+          "Transfer-Encoding: chunked\r\n",
+          "\r\n",
+          "5\r\nhello\r\n"
+        ])
+
+        :gen_tcp.close(socket)
+        :gen_tcp.close(listen_socket)
+      end)
+
+      port
+    end
 
     defp request_against_slow_bypass(bypass, path, http_opts) do
       Bypass.expect_once(bypass, "POST", path, fn conn ->

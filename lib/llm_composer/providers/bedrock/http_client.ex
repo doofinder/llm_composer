@@ -34,11 +34,32 @@ if Code.ensure_loaded?(ExAws) do
 
         config :llm_composer, :tesla_adapter,
           {Tesla.Adapter.Finch, name: MyFinch, receive_timeout: 60_000}
+
+    ## Streaming errors
+
+    Once the response status and headers have arrived, the lazy `Stream` returned as the
+    response body raises `LlmComposer.Providers.Bedrock.HttpClient.StreamError` if the
+    underlying connection fails, crashes, or stalls before the body is fully received —
+    callers consuming the stream (e.g. via `Enum.into/2` or `Stream.each/2`) see that error
+    instead of a silently truncated body.
     """
 
     @behaviour ExAws.Request.HttpClient
 
     require Logger
+
+    defmodule StreamError do
+      @moduledoc """
+      Raised by the lazy chunk stream from a streaming Bedrock request when the connection
+      fails, crashes, or stalls after headers were already delivered, so consumers can tell a
+      truncated body from a normal end of stream.
+      """
+
+      defexception [:reason]
+
+      @impl Exception
+      def message(%{reason: reason}), do: "Bedrock stream failed: #{inspect(reason)}"
+    end
 
     @default_receive_timeout 30_000
 
@@ -343,12 +364,19 @@ if Code.ensure_loaded?(ExAws) do
         fn -> :ok end,
         fn state ->
           receive do
-            {:bedrock_stream, {:data, chunk}} -> {[chunk], state}
-            {:bedrock_stream, :done} -> {:halt, state}
-            {:bedrock_stream, {:error, _reason}} -> {:halt, state}
-            {:DOWN, ^ref, :process, _pid, _reason} -> {:halt, state}
+            {:bedrock_stream, {:data, chunk}} ->
+              {[chunk], state}
+
+            {:bedrock_stream, :done} ->
+              {:halt, state}
+
+            {:bedrock_stream, {:error, reason}} ->
+              raise StreamError, reason: reason
+
+            {:DOWN, ^ref, :process, _pid, reason} ->
+              raise StreamError, reason: {:task_crashed, reason}
           after
-            timeout -> {:halt, state}
+            timeout -> raise StreamError, reason: :timeout
           end
         end,
         fn _state -> :ok end
