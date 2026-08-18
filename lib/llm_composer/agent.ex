@@ -18,8 +18,10 @@ defmodule LlmComposer.Agent do
   lazy `Enumerable` of `LlmComposer.StreamChunk`. The stream carries **only the final, tool-free
   answer** (token-by-token `:text_delta` chunks) followed by a terminal `:done` chunk whose `:usage`
   and `:cost_info` hold the run totals and whose `metadata.agent_result` holds the full
-  `LlmComposer.Agent.Result`. A hard failure (e.g. `:max_iterations_reached`) is delivered as a
-  terminal `:error` chunk instead.
+  `LlmComposer.Agent.Result`. A hard failure — `:max_iterations_reached`, a provider error, or the
+  underlying HTTP stream raising mid-body (as `LlmComposer.Providers.Bedrock.HttpClient` does on a
+  dropped or stalled connection) — is delivered as a terminal `:error` chunk instead, never as an
+  exception raised out of `run/3`.
 
   Intermediate progress — tool calls, per-iteration data and reasoning — is **not** placed on the
   answer stream. It is exposed via `:telemetry` (see below) so a UI can subscribe without having to
@@ -397,6 +399,9 @@ defmodule LlmComposer.Agent do
       :done ->
         handle_complete_response(state, StreamCollector.to_llm_response(collector))
     end
+  rescue
+    exception in [LlmComposer.Providers.Bedrock.HttpClient.StreamError] ->
+      terminate_error(state, {:stream_transport_error, exception.reason})
   end
 
   @spec forward_chunk(map(), StreamChunk.t()) :: {[StreamChunk.t()], map()}
