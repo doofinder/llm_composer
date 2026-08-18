@@ -201,7 +201,7 @@ if Code.ensure_loaded?(ExAws) do
           end
       after
         receive_timeout() ->
-          send(caller, {:bedrock_stream, :done})
+          send(caller, {:bedrock_stream, {:error, :timeout}})
       end
     end
 

@@ -101,6 +101,7 @@ if Code.ensure_loaded?(ExAws) do
         Bypass.pass(bypass)
 
         assert match?({:error, %{reason: :timeout_waiting_for_status}}, result) or
+                 match?({:error, %{reason: :timeout}}, result) or
                  match?({:error, %{reason: {:task_crashed, _}}}, result)
       end
     end
@@ -123,12 +124,15 @@ if Code.ensure_loaded?(ExAws) do
       test "raises instead of ending cleanly when the connection stalls mid-body (Mint)", %{
         bypass: bypass
       } do
-        Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
+        # Wide margin between the timeout and the stall below: the timeout also has to
+        # cover TCP connect + first-byte latency, which is a much noisier budget than the
+        # inactivity gap this test is actually about.
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 200)
 
         Bypass.expect_once(bypass, "POST", "/stall", fn conn ->
           conn = Plug.Conn.send_chunked(conn, 200)
           {:ok, conn} = Plug.Conn.chunk(conn, "first chunk")
-          Process.sleep(500)
+          Process.sleep(1_000)
           conn
         end)
 
