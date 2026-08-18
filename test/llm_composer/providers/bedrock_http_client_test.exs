@@ -181,6 +181,33 @@ if Code.ensure_loaded?(ExAws) do
 
         refute reason == :timeout_waiting_for_status
       end
+
+      test "streaming request honours the configured bedrock receive_timeout (no adapter " <>
+             "override)",
+           %{bypass: bypass} do
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
+        set_finch_adapter!()
+
+        assert {:error, %{reason: _}} =
+                 request_against_slow_bypass(bypass, "/stream-timeout", stream: true)
+      end
+
+      test "streaming request waits for an adapter tuple receive_timeout larger than " <>
+             ":bedrock config, instead of giving up early",
+           %{bypass: bypass} do
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
+        set_finch_adapter!(receive_timeout: 500)
+
+        Bypass.expect_once(bypass, "POST", "/slow-stream", fn conn ->
+          Process.sleep(100)
+          Plug.Conn.resp(conn, 200, "ok")
+        end)
+
+        result =
+          HttpClient.request(:post, endpoint(bypass, "/slow-stream"), "", [], stream: true)
+
+        assert {:ok, %{status_code: 200}} = result
+      end
     end
 
     defp endpoint(bypass, path), do: "http://localhost:#{bypass.port}#{path}"

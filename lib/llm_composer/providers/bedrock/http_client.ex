@@ -115,7 +115,7 @@ if Code.ensure_loaded?(ExAws) do
         end)
 
       ref = Process.monitor(pid)
-      handle_stream_response(ref)
+      handle_stream_response(ref, Keyword.fetch!(opts, :receive_timeout))
     end
 
     # ---------------------------------------------------------------------------
@@ -157,7 +157,7 @@ if Code.ensure_loaded?(ExAws) do
         end)
 
       ref = Process.monitor(pid)
-      handle_stream_response(ref)
+      handle_stream_response(ref, receive_timeout())
     end
 
     @spec stream_mint_loop(Mint.HTTP.t(), Mint.Types.request_ref(), pid()) :: :ok
@@ -281,23 +281,25 @@ if Code.ensure_loaded?(ExAws) do
       end
     end
 
-    @spec handle_stream_response(reference()) :: {:ok, map()} | {:error, map()}
-    defp handle_stream_response(ref) do
-      case await_response_metadata(ref) do
+    @spec handle_stream_response(reference(), non_neg_integer()) :: {:ok, map()} | {:error, map()}
+    defp handle_stream_response(ref, timeout) do
+      case await_response_metadata(ref, timeout) do
         {:ok, {status, resp_headers}} when status in 200..299 ->
-          {:ok, %{status_code: status, headers: resp_headers, body: build_chunk_stream(ref)}}
+          {:ok,
+           %{status_code: status, headers: resp_headers, body: build_chunk_stream(ref, timeout)}}
 
         {:ok, {status, resp_headers}} ->
-          {:ok, %{status_code: status, headers: resp_headers, body: collect_error_body(ref)}}
+          {:ok,
+           %{status_code: status, headers: resp_headers, body: collect_error_body(ref, timeout)}}
 
         {:error, reason} ->
           {:error, %{reason: reason}}
       end
     end
 
-    @spec await_response_metadata(reference()) ::
+    @spec await_response_metadata(reference(), non_neg_integer()) ::
             {:ok, {pos_integer(), list()}} | {:error, term()}
-    defp await_response_metadata(ref) do
+    defp await_response_metadata(ref, timeout) do
       receive do
         {:bedrock_stream, {:status, status}} ->
           receive do
@@ -310,7 +312,7 @@ if Code.ensure_loaded?(ExAws) do
             {:DOWN, ^ref, :process, _pid, reason} ->
               {:error, {:task_crashed, reason}}
           after
-            receive_timeout() -> {:error, :timeout_waiting_for_headers}
+            timeout -> {:error, :timeout_waiting_for_headers}
           end
 
         {:bedrock_stream, {:error, reason}} ->
@@ -319,24 +321,24 @@ if Code.ensure_loaded?(ExAws) do
         {:DOWN, ^ref, :process, _pid, reason} ->
           {:error, {:task_crashed, reason}}
       after
-        receive_timeout() -> {:error, :timeout_waiting_for_status}
+        timeout -> {:error, :timeout_waiting_for_status}
       end
     end
 
-    @spec collect_error_body(reference(), binary()) :: binary()
-    defp collect_error_body(ref, acc \\ "") do
+    @spec collect_error_body(reference(), non_neg_integer(), binary()) :: binary()
+    defp collect_error_body(ref, timeout, acc \\ "") do
       receive do
-        {:bedrock_stream, {:data, chunk}} -> collect_error_body(ref, acc <> chunk)
+        {:bedrock_stream, {:data, chunk}} -> collect_error_body(ref, timeout, acc <> chunk)
         {:bedrock_stream, :done} -> acc
         {:bedrock_stream, {:error, _reason}} -> acc
         {:DOWN, ^ref, :process, _pid, _reason} -> acc
       after
-        receive_timeout() -> acc
+        timeout -> acc
       end
     end
 
-    @spec build_chunk_stream(reference()) :: Enumerable.t()
-    defp build_chunk_stream(ref) do
+    @spec build_chunk_stream(reference(), non_neg_integer()) :: Enumerable.t()
+    defp build_chunk_stream(ref, timeout) do
       Stream.resource(
         fn -> :ok end,
         fn state ->
@@ -346,7 +348,7 @@ if Code.ensure_loaded?(ExAws) do
             {:bedrock_stream, {:error, _reason}} -> {:halt, state}
             {:DOWN, ^ref, :process, _pid, _reason} -> {:halt, state}
           after
-            receive_timeout() -> {:halt, state}
+            timeout -> {:halt, state}
           end
         end,
         fn _state -> :ok end
