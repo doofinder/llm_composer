@@ -129,15 +129,26 @@ if Code.ensure_loaded?(ExAws) do
               opts
             )
 
-          case result do
-            {:ok, _acc} -> send(caller, {:bedrock_stream, :done})
-            {:error, reason, _acc} -> send(caller, {:bedrock_stream, {:error, reason}})
-          end
+          send(caller, {:bedrock_stream, finch_stream_outcome(result)})
         end)
 
       ref = Process.monitor(pid)
       handle_stream_response(ref, Keyword.fetch!(opts, :receive_timeout))
     end
+
+    # Finch 0.18 (the floor of this library's declared `~> 0.18` requirement) returns a 2-tuple
+    # error from Finch.stream/5; 0.21 (currently locked) added the accumulator as a third
+    # element. Public and undocumented so both shapes stay covered by a test regardless of
+    # which Finch version is actually installed.
+    @doc false
+    @spec finch_stream_outcome(
+            {:ok, term()}
+            | {:error, Exception.t()}
+            | {:error, Exception.t(), term()}
+          ) :: :done | {:error, Exception.t()}
+    def finch_stream_outcome({:ok, _acc}), do: :done
+    def finch_stream_outcome({:error, reason, _acc}), do: {:error, reason}
+    def finch_stream_outcome({:error, reason}), do: {:error, reason}
 
     # ---------------------------------------------------------------------------
     # Finch regular request

@@ -199,6 +199,23 @@ if Code.ensure_loaded?(ExAws) do
       end
     end
 
+    describe "finch_stream_outcome/1" do
+      test "reports :done on the {:ok, acc} success shape" do
+        assert HttpClient.finch_stream_outcome({:ok, nil}) == :done
+      end
+
+      test "surfaces the error on Finch >= 0.19's {:error, exception, acc} shape" do
+        exception = %RuntimeError{message: "boom"}
+        assert HttpClient.finch_stream_outcome({:error, exception, nil}) == {:error, exception}
+      end
+
+      test "surfaces the error on Finch 0.18's {:error, exception} shape, allowed by this " <>
+             "library's declared `~> 0.18` requirement" do
+        exception = %RuntimeError{message: "boom"}
+        assert HttpClient.finch_stream_outcome({:error, exception}) == {:error, exception}
+      end
+    end
+
     describe "Finch path honours configured timeouts" do
       setup do
         original_bedrock = Application.get_env(:llm_composer, :bedrock)
