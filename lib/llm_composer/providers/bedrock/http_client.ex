@@ -25,11 +25,41 @@ if Code.ensure_loaded?(ExAws) do
     Finch must be started in your supervision tree:
 
         children = [{Finch, name: MyFinch}]
+
+    The Finch path honors the same `:bedrock, :receive_timeout` / `:timeout` config the Mint
+    path reads (see `receive_timeout/0`), so switching adapters doesn't change the effective
+    timeout. `:pool_timeout` and `:request_timeout` can also be set directly in the adapter
+    tuple's options and are forwarded to Finch as-is, taking precedence over the configured
+    receive timeout if both are present:
+
+        config :llm_composer, :tesla_adapter,
+          {Tesla.Adapter.Finch, name: MyFinch, receive_timeout: 60_000}
+
+    ## Streaming errors
+
+    Once the response status and headers have arrived, the lazy `Stream` returned as the
+    response body raises `LlmComposer.Providers.Bedrock.HttpClient.StreamError` if the
+    underlying connection fails, crashes, or stalls before the body is fully received —
+    callers consuming the stream (e.g. via `Enum.into/2` or `Stream.each/2`) see that error
+    instead of a silently truncated body.
     """
 
     @behaviour ExAws.Request.HttpClient
 
     require Logger
+
+    defmodule StreamError do
+      @moduledoc """
+      Raised by the lazy chunk stream from a streaming Bedrock request when the connection
+      fails, crashes, or stalls after headers were already delivered, so consumers can tell a
+      truncated body from a normal end of stream.
+      """
+
+      defexception [:reason]
+
+      @impl Exception
+      def message(%{reason: reason}), do: "Bedrock stream failed: #{inspect(reason)}"
+    end
 
     @default_receive_timeout 30_000
 
@@ -65,6 +95,20 @@ if Code.ensure_loaded?(ExAws) do
       end
     end
 
+    # Finch 0.18 (the floor of this library's declared `~> 0.18` requirement) returns a 2-tuple
+    # error from Finch.stream/5; 0.21 (currently locked) added the accumulator as a third
+    # element. Public and undocumented so both shapes stay covered by a test regardless of
+    # which Finch version is actually installed.
+    @doc false
+    @spec finch_stream_outcome(
+            {:ok, term()}
+            | {:error, Exception.t()}
+            | {:error, Exception.t(), term()}
+          ) :: :done | {:error, Exception.t()}
+    def finch_stream_outcome({:ok, _acc}), do: :done
+    def finch_stream_outcome({:error, reason, _acc}), do: {:error, reason}
+    def finch_stream_outcome({:error, reason}), do: {:error, reason}
+
     # ---------------------------------------------------------------------------
     # Finch streaming
     # ---------------------------------------------------------------------------
@@ -74,28 +118,36 @@ if Code.ensure_loaded?(ExAws) do
     defp stream_request_finch(method, url, body, headers, finch_name) do
       req = Finch.build(method, url, headers, body)
       caller = self()
+      opts = finch_request_opts()
 
       {:ok, pid} =
         Task.start(fn ->
-          Finch.stream(req, finch_name, nil, fn
-            {:status, status}, _acc ->
-              send(caller, {:bedrock_stream, {:status, status}})
+          result =
+            Finch.stream(
+              req,
+              finch_name,
+              nil,
+              fn
+                {:status, status}, _acc ->
+                  send(caller, {:bedrock_stream, {:status, status}})
 
-            {:headers, resp_headers}, _acc ->
-              send(caller, {:bedrock_stream, {:headers, resp_headers}})
+                {:headers, resp_headers}, _acc ->
+                  send(caller, {:bedrock_stream, {:headers, resp_headers}})
 
-            {:data, chunk}, _acc ->
-              send(caller, {:bedrock_stream, {:data, chunk}})
+                {:data, chunk}, _acc ->
+                  send(caller, {:bedrock_stream, {:data, chunk}})
 
-            _, _acc ->
-              nil
-          end)
+                _, _acc ->
+                  nil
+              end,
+              opts
+            )
 
-          send(caller, {:bedrock_stream, :done})
+          send(caller, {:bedrock_stream, finch_stream_outcome(result)})
         end)
 
       ref = Process.monitor(pid)
-      handle_stream_response(ref)
+      handle_stream_response(ref, Keyword.fetch!(opts, :receive_timeout))
     end
 
     # ---------------------------------------------------------------------------
@@ -107,7 +159,7 @@ if Code.ensure_loaded?(ExAws) do
     defp regular_request_finch(method, url, body, headers, finch_name) do
       req = Finch.build(method, url, headers, body)
 
-      case Finch.request(req, finch_name) do
+      case Finch.request(req, finch_name, finch_request_opts()) do
         {:ok, %Finch.Response{status: status, headers: resp_headers, body: resp_body}} ->
           {:ok, %{status_code: status, headers: resp_headers, body: resp_body}}
 
@@ -137,7 +189,7 @@ if Code.ensure_loaded?(ExAws) do
         end)
 
       ref = Process.monitor(pid)
-      handle_stream_response(ref)
+      handle_stream_response(ref, receive_timeout())
     end
 
     @spec stream_mint_loop(Mint.HTTP.t(), Mint.Types.request_ref(), pid()) :: :ok
@@ -160,7 +212,7 @@ if Code.ensure_loaded?(ExAws) do
           end
       after
         receive_timeout() ->
-          send(caller, {:bedrock_stream, :done})
+          send(caller, {:bedrock_stream, {:error, :timeout}})
       end
     end
 
@@ -261,23 +313,25 @@ if Code.ensure_loaded?(ExAws) do
       end
     end
 
-    @spec handle_stream_response(reference()) :: {:ok, map()} | {:error, map()}
-    defp handle_stream_response(ref) do
-      case await_response_metadata(ref) do
+    @spec handle_stream_response(reference(), non_neg_integer()) :: {:ok, map()} | {:error, map()}
+    defp handle_stream_response(ref, timeout) do
+      case await_response_metadata(ref, timeout) do
         {:ok, {status, resp_headers}} when status in 200..299 ->
-          {:ok, %{status_code: status, headers: resp_headers, body: build_chunk_stream(ref)}}
+          {:ok,
+           %{status_code: status, headers: resp_headers, body: build_chunk_stream(ref, timeout)}}
 
         {:ok, {status, resp_headers}} ->
-          {:ok, %{status_code: status, headers: resp_headers, body: collect_error_body(ref)}}
+          {:ok,
+           %{status_code: status, headers: resp_headers, body: collect_error_body(ref, timeout)}}
 
         {:error, reason} ->
           {:error, %{reason: reason}}
       end
     end
 
-    @spec await_response_metadata(reference()) ::
+    @spec await_response_metadata(reference(), non_neg_integer()) ::
             {:ok, {pos_integer(), list()}} | {:error, term()}
-    defp await_response_metadata(ref) do
+    defp await_response_metadata(ref, timeout) do
       receive do
         {:bedrock_stream, {:status, status}} ->
           receive do
@@ -290,7 +344,7 @@ if Code.ensure_loaded?(ExAws) do
             {:DOWN, ^ref, :process, _pid, reason} ->
               {:error, {:task_crashed, reason}}
           after
-            receive_timeout() -> {:error, :timeout_waiting_for_headers}
+            timeout -> {:error, :timeout_waiting_for_headers}
           end
 
         {:bedrock_stream, {:error, reason}} ->
@@ -299,34 +353,41 @@ if Code.ensure_loaded?(ExAws) do
         {:DOWN, ^ref, :process, _pid, reason} ->
           {:error, {:task_crashed, reason}}
       after
-        receive_timeout() -> {:error, :timeout_waiting_for_status}
+        timeout -> {:error, :timeout_waiting_for_status}
       end
     end
 
-    @spec collect_error_body(reference(), binary()) :: binary()
-    defp collect_error_body(ref, acc \\ "") do
+    @spec collect_error_body(reference(), non_neg_integer(), binary()) :: binary()
+    defp collect_error_body(ref, timeout, acc \\ "") do
       receive do
-        {:bedrock_stream, {:data, chunk}} -> collect_error_body(ref, acc <> chunk)
+        {:bedrock_stream, {:data, chunk}} -> collect_error_body(ref, timeout, acc <> chunk)
         {:bedrock_stream, :done} -> acc
         {:bedrock_stream, {:error, _reason}} -> acc
         {:DOWN, ^ref, :process, _pid, _reason} -> acc
       after
-        receive_timeout() -> acc
+        timeout -> acc
       end
     end
 
-    @spec build_chunk_stream(reference()) :: Enumerable.t()
-    defp build_chunk_stream(ref) do
+    @spec build_chunk_stream(reference(), non_neg_integer()) :: Enumerable.t()
+    defp build_chunk_stream(ref, timeout) do
       Stream.resource(
         fn -> :ok end,
         fn state ->
           receive do
-            {:bedrock_stream, {:data, chunk}} -> {[chunk], state}
-            {:bedrock_stream, :done} -> {:halt, state}
-            {:bedrock_stream, {:error, _reason}} -> {:halt, state}
-            {:DOWN, ^ref, :process, _pid, _reason} -> {:halt, state}
+            {:bedrock_stream, {:data, chunk}} ->
+              {[chunk], state}
+
+            {:bedrock_stream, :done} ->
+              {:halt, state}
+
+            {:bedrock_stream, {:error, reason}} ->
+              raise StreamError, reason: reason
+
+            {:DOWN, ^ref, :process, _pid, reason} ->
+              raise StreamError, reason: {:task_crashed, reason}
           after
-            receive_timeout() -> {:halt, state}
+            timeout -> raise StreamError, reason: :timeout
           end
         end,
         fn _state -> :ok end
@@ -345,8 +406,31 @@ if Code.ensure_loaded?(ExAws) do
 
     @spec finch_name() :: {:ok, atom()} | :error
     defp finch_name do
+      case finch_config() do
+        {:ok, opts} -> Keyword.fetch(opts, :name)
+        :error -> :error
+      end
+    end
+
+    @finch_opt_keys [:pool_timeout, :receive_timeout, :request_timeout]
+
+    @spec finch_request_opts() :: keyword()
+    defp finch_request_opts do
+      case finch_config() do
+        {:ok, opts} ->
+          opts
+          |> Keyword.take(@finch_opt_keys)
+          |> Keyword.put_new(:receive_timeout, receive_timeout())
+
+        :error ->
+          [receive_timeout: receive_timeout()]
+      end
+    end
+
+    @spec finch_config() :: {:ok, keyword()} | :error
+    defp finch_config do
       case Application.get_env(:llm_composer, :tesla_adapter) do
-        {Tesla.Adapter.Finch, opts} when is_list(opts) -> Keyword.fetch(opts, :name)
+        {Tesla.Adapter.Finch, opts} when is_list(opts) -> {:ok, opts}
         _ -> :error
       end
     end

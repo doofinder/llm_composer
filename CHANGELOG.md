@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.3] - 2026-08-20
+
+### Fixed
+- Fixed the Bedrock Finch path silently ignoring the configured receive timeout (`config :llm_composer, :bedrock, receive_timeout: ...`); Finch requests always ran on Finch's own hardcoded 15 000 ms default instead. `Finch.request/3` and `Finch.stream/5` now receive the same effective timeout as the Mint path.
+- Fixed Finch and Mint streaming reporting a clean `:done` instead of surfacing a real transport error, timeout, or task crash — including mid-body failures after headers had already arrived, which are now raised as `LlmComposer.Providers.Bedrock.HttpClient.StreamError` and rescued by `LlmComposer.Agent` into a terminal `%StreamChunk{type: :error}` instead of crashing the caller.
+- Fixed a `CaseClauseError` crash under Finch 0.18 (the floor of this library's `~> 0.18` requirement), whose `Finch.stream/5` returns a 2-tuple error instead of the 3-tuple assumed by the fix above.
+
 ## [0.20.2] - 2026-07-08
 
 ### Added
@@ -339,6 +346,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
+[0.20.3]: https://github.com/doofinder/llm_composer/compare/0.20.2...0.20.3
 [0.20.2]: https://github.com/doofinder/llm_composer/compare/0.20.1...0.20.2
 [0.20.1]: https://github.com/doofinder/llm_composer/compare/0.20.0...0.20.1
 [0.20.0]: https://github.com/doofinder/llm_composer/compare/0.19.6...0.20.0

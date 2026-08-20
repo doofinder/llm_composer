@@ -1,8 +1,15 @@
 if Code.ensure_loaded?(ExAws) do
   defmodule LlmComposer.Providers.Bedrock.HttpClientTest do
-    use ExUnit.Case, async: true
+    use ExUnit.Case, async: false
 
     alias LlmComposer.Providers.Bedrock.HttpClient
+
+    @finch_name :llm_composer_bedrock_http_client_test_finch
+
+    setup_all do
+      start_supervised!({Finch, name: @finch_name})
+      :ok
+    end
 
     setup do
       Application.delete_env(:llm_composer, :tesla_adapter)
@@ -12,38 +19,17 @@ if Code.ensure_loaded?(ExAws) do
 
     describe "request/5 non-streaming via Mint" do
       test "returns ok with status and body on 200", %{bypass: bypass} do
-        Bypass.expect_once(bypass, "POST", "/test", fn conn ->
-          conn
-          |> Plug.Conn.put_resp_header("content-type", "application/json")
-          |> Plug.Conn.resp(200, ~s({"result":"ok"}))
-        end)
-
-        assert {:ok, %{status_code: 200, body: ~s({"result":"ok"})}} =
-                 HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
+        assert_ok_with_status_and_body(bypass)
       end
 
       test "returns ok with non-200 status code", %{bypass: bypass} do
-        Bypass.expect_once(bypass, "POST", "/test", fn conn ->
-          Plug.Conn.resp(conn, 500, "internal error")
-        end)
-
-        assert {:ok, %{status_code: 500, body: "internal error"}} =
-                 HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
+        assert_ok_with_non_200_status(bypass)
       end
     end
 
     describe "request/5 streaming via Mint" do
       test "returns lazy stream that yields body chunks", %{bypass: bypass} do
-        Bypass.expect_once(bypass, "POST", "/stream", fn conn ->
-          conn
-          |> Plug.Conn.put_resp_header("content-type", "application/octet-stream")
-          |> Plug.Conn.resp(200, "hello world")
-        end)
-
-        assert {:ok, %{status_code: 200, body: stream}} =
-                 HttpClient.request(:post, endpoint(bypass, "/stream"), "", [], stream: true)
-
-        assert Enum.join(stream) == "hello world"
+        assert_streams_body_chunks(bypass)
       end
 
       test "returns status and headers before consuming stream", %{bypass: bypass} do
@@ -115,10 +101,264 @@ if Code.ensure_loaded?(ExAws) do
         Bypass.pass(bypass)
 
         assert match?({:error, %{reason: :timeout_waiting_for_status}}, result) or
+                 match?({:error, %{reason: :timeout}}, result) or
                  match?({:error, %{reason: {:task_crashed, _}}}, result)
       end
     end
 
+    describe "streaming error after headers were received" do
+      setup do
+        original_bedrock = Application.get_env(:llm_composer, :bedrock)
+
+        on_exit(fn ->
+          if is_nil(original_bedrock) do
+            Application.delete_env(:llm_composer, :bedrock)
+          else
+            Application.put_env(:llm_composer, :bedrock, original_bedrock)
+          end
+        end)
+
+        :ok
+      end
+
+      test "raises instead of ending cleanly when the connection stalls mid-body (Mint)", %{
+        bypass: bypass
+      } do
+        # Wide margin between the timeout and the stall below: the timeout also has to
+        # cover TCP connect + first-byte latency, which is a much noisier budget than the
+        # inactivity gap this test is actually about.
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 200)
+
+        Bypass.expect_once(bypass, "POST", "/stall", fn conn ->
+          conn = Plug.Conn.send_chunked(conn, 200)
+          {:ok, conn} = Plug.Conn.chunk(conn, "first chunk")
+          Process.sleep(1_000)
+          conn
+        end)
+
+        assert {:ok, %{status_code: 200, body: stream}} =
+                 HttpClient.request(:post, endpoint(bypass, "/stall"), "", [], stream: true)
+
+        assert_raise HttpClient.StreamError, fn -> Enum.to_list(stream) end
+
+        Bypass.pass(bypass)
+      end
+
+      test "raises instead of ending cleanly when the connection drops mid-body without a " <>
+             "chunked terminator (Mint)" do
+        port = start_dropping_server!()
+
+        assert {:ok, %{status_code: 200, body: stream}} =
+                 HttpClient.request(:post, "http://localhost:#{port}/test", "", [], stream: true)
+
+        assert_raise HttpClient.StreamError, fn -> Enum.to_list(stream) end
+      end
+
+      test "raises instead of ending cleanly when the connection drops mid-body without a " <>
+             "chunked terminator (Finch)" do
+        set_finch_adapter!()
+        port = start_dropping_server!()
+
+        assert {:ok, %{status_code: 200, body: stream}} =
+                 HttpClient.request(:post, "http://localhost:#{port}/test", "", [], stream: true)
+
+        assert_raise HttpClient.StreamError, fn -> Enum.to_list(stream) end
+      end
+    end
+
+    describe "request/5 non-streaming via Finch" do
+      setup do
+        set_finch_adapter!()
+        :ok
+      end
+
+      test "returns ok with status and body on 200", %{bypass: bypass} do
+        assert_ok_with_status_and_body(bypass)
+      end
+
+      test "returns ok with non-200 status code", %{bypass: bypass} do
+        assert_ok_with_non_200_status(bypass)
+      end
+    end
+
+    describe "request/5 streaming via Finch" do
+      setup do
+        set_finch_adapter!()
+        :ok
+      end
+
+      test "returns lazy stream that yields body chunks", %{bypass: bypass} do
+        assert_streams_body_chunks(bypass)
+      end
+
+      test "surfaces Finch.stream/5's error instead of reporting done" do
+        assert {:error, %{reason: reason}} =
+                 HttpClient.request(:post, "http://localhost:1/test", "", [], stream: true)
+
+        refute reason == :timeout_waiting_for_status
+      end
+    end
+
+    describe "finch_stream_outcome/1" do
+      test "reports :done on the {:ok, acc} success shape" do
+        assert HttpClient.finch_stream_outcome({:ok, nil}) == :done
+      end
+
+      test "surfaces the error on Finch >= 0.19's {:error, exception, acc} shape" do
+        exception = %RuntimeError{message: "boom"}
+        assert HttpClient.finch_stream_outcome({:error, exception, nil}) == {:error, exception}
+      end
+
+      test "surfaces the error on Finch 0.18's {:error, exception} shape, allowed by this " <>
+             "library's declared `~> 0.18` requirement" do
+        exception = %RuntimeError{message: "boom"}
+        assert HttpClient.finch_stream_outcome({:error, exception}) == {:error, exception}
+      end
+    end
+
+    describe "Finch path honours configured timeouts" do
+      setup do
+        original_bedrock = Application.get_env(:llm_composer, :bedrock)
+
+        on_exit(fn ->
+          if is_nil(original_bedrock) do
+            Application.delete_env(:llm_composer, :bedrock)
+          else
+            Application.put_env(:llm_composer, :bedrock, original_bedrock)
+          end
+        end)
+
+        :ok
+      end
+
+      test "non-streaming request honours the configured bedrock receive_timeout", %{
+        bypass: bypass
+      } do
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
+        set_finch_adapter!()
+
+        assert {:error, %{reason: _}} = request_against_slow_bypass(bypass, "/timeout", [])
+      end
+
+      test "non-streaming request honours a receive_timeout set directly on the adapter tuple, " <>
+             "which takes precedence over :bedrock config",
+           %{bypass: bypass} do
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 60_000)
+        set_finch_adapter!(receive_timeout: 50)
+
+        assert {:error, %{reason: _}} = request_against_slow_bypass(bypass, "/timeout", [])
+      end
+
+      test "streaming request honours the configured bedrock receive_timeout (no adapter " <>
+             "override)",
+           %{bypass: bypass} do
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
+        set_finch_adapter!()
+
+        assert {:error, %{reason: _}} =
+                 request_against_slow_bypass(bypass, "/stream-timeout", stream: true)
+      end
+
+      test "streaming request waits for an adapter tuple receive_timeout larger than " <>
+             ":bedrock config, instead of giving up early",
+           %{bypass: bypass} do
+        Application.put_env(:llm_composer, :bedrock, receive_timeout: 50)
+        set_finch_adapter!(receive_timeout: 500)
+
+        Bypass.expect_once(bypass, "POST", "/slow-stream", fn conn ->
+          Process.sleep(100)
+          Plug.Conn.resp(conn, 200, "ok")
+        end)
+
+        result =
+          HttpClient.request(:post, endpoint(bypass, "/slow-stream"), "", [], stream: true)
+
+        assert {:ok, %{status_code: 200}} = result
+      end
+    end
+
     defp endpoint(bypass, path), do: "http://localhost:#{bypass.port}#{path}"
+
+    # Raw TCP server that sends a chunked response header, one chunk, and then closes the
+    # connection without the final zero-length chunk — a genuine mid-body transport error that
+    # Bypass/Cowboy can't easily simulate, since Cowboy finishes chunked responses gracefully
+    # even when the handling process crashes.
+    defp start_dropping_server! do
+      {:ok, listen_socket} =
+        :gen_tcp.listen(0, [:binary, packet: :raw, active: false, reuseaddr: true])
+
+      {:ok, port} = :inet.port(listen_socket)
+
+      Task.start(fn ->
+        {:ok, socket} = :gen_tcp.accept(listen_socket)
+        {:ok, _request} = :gen_tcp.recv(socket, 0, 1_000)
+
+        :gen_tcp.send(socket, [
+          "HTTP/1.1 200 OK\r\n",
+          "Transfer-Encoding: chunked\r\n",
+          "\r\n",
+          "5\r\nhello\r\n"
+        ])
+
+        :gen_tcp.close(socket)
+        :gen_tcp.close(listen_socket)
+      end)
+
+      port
+    end
+
+    defp request_against_slow_bypass(bypass, path, http_opts) do
+      Bypass.expect_once(bypass, "POST", path, fn conn ->
+        Process.sleep(500)
+        Plug.Conn.send_resp(conn, 200, "")
+      end)
+
+      result = HttpClient.request(:post, endpoint(bypass, path), "", [], http_opts)
+      Bypass.pass(bypass)
+      result
+    end
+
+    defp assert_ok_with_status_and_body(bypass) do
+      Bypass.expect_once(bypass, "POST", "/test", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(200, ~s({"result":"ok"}))
+      end)
+
+      assert {:ok, %{status_code: 200, body: ~s({"result":"ok"})}} =
+               HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
+    end
+
+    defp assert_ok_with_non_200_status(bypass) do
+      Bypass.expect_once(bypass, "POST", "/test", fn conn ->
+        Plug.Conn.resp(conn, 500, "internal error")
+      end)
+
+      assert {:ok, %{status_code: 500, body: "internal error"}} =
+               HttpClient.request(:post, endpoint(bypass, "/test"), "", [], [])
+    end
+
+    defp assert_streams_body_chunks(bypass) do
+      Bypass.expect_once(bypass, "POST", "/stream", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/octet-stream")
+        |> Plug.Conn.resp(200, "hello world")
+      end)
+
+      assert {:ok, %{status_code: 200, body: stream}} =
+               HttpClient.request(:post, endpoint(bypass, "/stream"), "", [], stream: true)
+
+      assert Enum.join(stream) == "hello world"
+    end
+
+    defp set_finch_adapter!(extra_opts \\ []) do
+      Application.put_env(
+        :llm_composer,
+        :tesla_adapter,
+        {Tesla.Adapter.Finch, [name: @finch_name] ++ extra_opts}
+      )
+
+      on_exit(fn -> Application.delete_env(:llm_composer, :tesla_adapter) end)
+    end
   end
 end
