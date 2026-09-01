@@ -1,6 +1,6 @@
 # LlmComposer
 
-**LlmComposer** is an Elixir library that simplifies interaction with large language models (LLMs). It provides a unified interface to OpenAI (Chat Completions and Responses API), OpenRouter, Ollama, AWS Bedrock, and Google (Gemini), with support for streaming, function calls, structured outputs, cost tracking, and multi-provider failover routing.
+**LlmComposer** is an Elixir library that simplifies interaction with large language models (LLMs). It provides a unified interface to OpenAI (Chat Completions and Responses API), OpenRouter, Ollama, AWS Bedrock, Google (Gemini), and OpenAI-compatible APIs from Mistral, xAI, Groq, Together AI, Cerebras, and Fireworks AI — with streaming, function calls, structured outputs, cost tracking, and multi-provider failover routing.
 
 ## Table of Contents
 
@@ -102,6 +102,9 @@ All five providers share the same interface. Quick references:
 | Ollama | No API key — start Ollama server locally |
 | AWS Bedrock | Configure via ExAws |
 | Google | `Application.put_env(:llm_composer, :google, api_key: "...")` or Goth/Vertex |
+
+Mistral, xAI, Groq, Together AI, Cerebras, and Fireworks AI work through the existing OpenAI
+adapter with a `:url` override — no extra integration required.
 
 See the [Providers guide](https://hexdocs.pm/llm_composer/providers.html) for full examples,
 Vertex AI setup, OpenAI-compatible servers, and provider-specific options.
