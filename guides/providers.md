@@ -94,30 +94,60 @@ res.stream
 |> Enum.each(fn chunk -> IO.write(chunk.text || "") end)
 ```
 
-### OpenAI-Compatible Servers
+### OpenAI-Compatible APIs
 
-vLLM, LocalAI, LM Studio, and Ollama's OpenAI-compatible endpoint can all be used by
-overriding `:url`:
+Use `LlmComposer.Providers.OpenAI` with any provider that supports OpenAI Chat Completions.
+Use `LlmComposer.Providers.OpenAIResponses` only when the provider also supports the OpenAI
+Responses API. Set `:url` to the API base URL; LlmComposer appends `/chat/completions` or
+`/responses`.
+
+| Provider | Base URL | Supported API | Documentation |
+|---|---|---|---|
+| Mistral | `https://api.mistral.ai/v1` | Chat Completions | [Mistral Chat](https://docs.mistral.ai/api/endpoint/chat) |
+| xAI | `https://api.x.ai/v1` | Chat Completions, Responses | [xAI Chat](https://docs.x.ai/developers/model-capabilities/text/comparison) |
+| Groq | `https://api.groq.com/openai/v1` | Chat Completions, Responses | [Groq OpenAI Compatibility](https://console.groq.com/docs/openai) |
+| Together AI | `https://api.together.ai/v1` | Chat Completions | [Together AI OpenAI Compatibility](https://docs.together.ai/docs/inference/openai-compatibility) |
+| Cerebras | `https://api.cerebras.ai/v1` | Chat Completions | [Cerebras OpenAI Compatibility](https://inference-docs.cerebras.ai/resources/openai) |
+| Fireworks AI | `https://api.fireworks.ai/inference/v1` | Chat Completions, Responses | [OpenAI compatibility](https://docs.fireworks.ai/tools-sdks/openai-compatibility) · [Responses API](https://docs.fireworks.ai/guides/response-api) |
+
+For example, configure Mistral globally or per provider entry:
 
 ```elixir
-Application.put_env(:llm_composer, :open_ai, url: "http://localhost:8000/v1", api_key: "token")
+Application.put_env(:llm_composer, :open_ai,
+  api_key: "<your mistral api key>",
+  url: "https://api.mistral.ai/v1"
+)
 
-# or per-request:
-provider_opts: [
-  model: "mistral-7b",
-  api_key: "ignored",
-  url: "http://localhost:8000/v1"
-]
+{LlmComposer.Providers.OpenAI,
+ [model: "<mistral model id>", api_key: "<your mistral api key>", url: "https://api.mistral.ai/v1"]}
 ```
 
-For Ollama specifically:
+#### Fireworks AI
+
+```elixir
+Application.put_env(:llm_composer, :open_ai,
+  api_key: System.fetch_env!("FIREWORKS_API_KEY"),
+  url: "https://api.fireworks.ai/inference/v1"
+)
+
+settings = %LlmComposer.Settings{
+  providers: [
+    {LlmComposer.Providers.OpenAI, [model: "accounts/fireworks/models/deepseek-v3p1"]}
+  ],
+  system_prompt: "You are a helpful assistant."
+}
+
+{:ok, response} = LlmComposer.simple_chat(settings, "Say hello in Spanish")
+IO.inspect(response.main_response)
+```
+
+vLLM, LocalAI, LM Studio, and Ollama's OpenAI-compatible endpoint can use the same `:url`
+override. For Ollama specifically:
 
 ```elixir
 Application.put_env(:llm_composer, :open_ai, url: "http://localhost:11434/v1", api_key: "ollama")
 
 {LlmComposer.Providers.OpenAI, [model: "llama3.1"]}
-# or
-{LlmComposer.Providers.OpenAIResponses, [model: "llama3.1"]}
 ```
 
 ---
