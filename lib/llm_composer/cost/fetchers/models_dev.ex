@@ -68,7 +68,10 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
     case fetch_dataset() do
       {:ok, data} ->
         cost = Lookup.get_cost(data, provider_key, model)
-        ttl = Application.get_env(:llm_composer, :cache_ttl, @default_cache_ttl_in_hours * 60 * 60)
+
+        ttl =
+          Application.get_env(:llm_composer, :cache_ttl, @default_cache_ttl_in_hours * 60 * 60)
+
         @cache_mod.put(cache_key, cost, ttl)
         cost
 
