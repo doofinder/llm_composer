@@ -16,15 +16,26 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   ## Implementation Notes
 
   models.dev only exposes its pricing as a single consolidated dataset (api.json)
-  covering every provider and model it tracks — there is no per-model endpoint to
-  fetch instead. A caller only ever needs a handful of `{provider, model}` pairs,
-  so caching the whole response would keep that entire dataset resident for the full TTL. Instead, each fetch resolves the pricing for the requested pair right after downloading and caches only that small result, keyed by `{provider_key, model}` — the full dataset itself is discarded once used and never cached. Two different models from the same provider each cost one extra full-document download (still bounded, since a given application only ever asks about a handful of models), trading a bit of network traffic for a cache  footprint that scales with models actually used instead of models.dev's entire catalogue.
+  covering every provider and model it tracks — there is no per-model endpoint
+  to fetch instead. A caller only ever needs a handful of `{provider, model}`
+  pairs, so caching the whole response would keep that entire dataset resident
+  for the full TTL. Instead, each fetch resolves the pricing for the requested
+  pair right after downloading and caches only that small result, keyed by
+  `{provider_key, model}` — the full dataset itself is discarded once used and
+  never cached. Two different models from the same provider each cost one
+  extra full-document download (still bounded, since a given application only
+  ever asks about a handful of models), trading a bit of network traffic for a
+  cache footprint that scales with models actually used instead of models.dev's
+  entire catalogue.
 
-  See `LlmComposer.Cost.Fetchers.ModelsDev.Lookup` for the model-name fallback chain (region prefix, then date suffix) applied against the freshly fetched dataset on a cache miss.
+  See `LlmComposer.Cost.Fetchers.ModelsDev.Lookup` for the model-name fallback
+  chain (region prefix, then date suffix) applied against the freshly fetched
+  dataset on a cache miss.
   """
 
   alias LlmComposer.Cost.Fetchers.ModelsDev.Lookup
   alias LlmComposer.HttpClient
+  alias LlmComposer.Providers.Utils
 
   require Logger
 
@@ -81,7 +92,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   end
 
   defp fetch_dataset do
-    client = HttpClient.client(@models_dev_url, [])
+    client = HttpClient.client(base_url(), [])
 
     case Tesla.get(client, "/api.json") do
       {:ok, %{status: 200, body: data}} ->
@@ -140,6 +151,12 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
 
     nil
   end
+
+  # Overridable the same way OpenRouter's own base URL is (see
+  # `LlmComposer.Providers.OpenRouter.get_base_url/1`) — mainly so tests can
+  # point this at a local stub instead of the real models.dev.
+  @spec base_url() :: String.t()
+  defp base_url, do: Utils.get_config(:models_dev, :base_url, [], @models_dev_url)
 
   defp provider_key(:open_ai), do: "openai"
   defp provider_key(:open_ai_responses), do: "openai"

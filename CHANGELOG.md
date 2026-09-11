@@ -8,7 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
-- `LlmComposer.Cost.Fetchers.ModelsDev` now caches only the resolved `cost` entry for the exact `{provider, model}` pair requested, instead of models.dev's entire consolidated dataset (which covers dozens of providers and hundreds of models). Two different models from the same provider each cost one extra full-document download, but the cached footprint now scales with models actually used instead of models.dev's whole catalogue — on one production app this cut a single cache entry from ~13.6 MB down to a few bytes. The public `fetch_pricing/2` API is unchanged. The region/date model-name fallback chain moved into a new `LlmComposer.Cost.Fetchers.ModelsDev.Lookup` module (unchanged behavior, now unit-tested directly against an in-memory dataset instead of indirectly through the cache).
+- `LlmComposer.Cost.Fetchers.ModelsDev` now caches only the resolved `cost` entry for the exact `{provider, model}` pair requested, instead of models.dev's entire consolidated dataset (dozens of providers, hundreds of models) ([#123](https://github.com/doofinder/llm_composer/pull/123)).
+  - Two different models from the same provider each now cost one extra full-document download, but the cached footprint scales with models actually used instead of models.dev's whole catalogue — on one production app this cut a single cache entry from ~13.6 MB down to a few bytes.
+  - The public `fetch_pricing/2` API is unchanged.
+  - The region/date model-name fallback chain moved into a new `LlmComposer.Cost.Fetchers.ModelsDev.Lookup` module — unchanged behavior, now unit-tested directly against an in-memory dataset instead of indirectly through the cache.
 
 ## [0.20.4] - 2026-09-01
 
@@ -358,7 +361,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
-[0.20.5]: https://github.com/doofinder/llm_composer/pull/123
+[0.20.5]: https://github.com/doofinder/llm_composer/compare/0.20.4...0.20.5
 [0.20.4]: https://github.com/doofinder/llm_composer/compare/0.20.3...0.20.4
 [0.20.3]: https://github.com/doofinder/llm_composer/compare/0.20.2...0.20.3
 [0.20.2]: https://github.com/doofinder/llm_composer/compare/0.20.1...0.20.2
