@@ -19,7 +19,12 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDevTest do
 
   setup do
     bypass = Bypass.open()
-    Application.put_env(:llm_composer, :models_dev, base_url: "http://localhost:#{bypass.port}")
+
+    # 127.0.0.1, not "localhost": some CI runners resolve "localhost" to ::1
+    # first, which Bypass doesn't listen on, causing an intermittent
+    # connection failure — fetch_dataset/0 then returns :error and nothing
+    # gets cached, indistinguishable from a real network hiccup.
+    Application.put_env(:llm_composer, :models_dev, base_url: "http://127.0.0.1:#{bypass.port}")
     on_exit(fn -> Application.delete_env(:llm_composer, :models_dev) end)
     {:ok, bypass: bypass}
   end
@@ -38,7 +43,9 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDevTest do
       }
 
       Bypass.expect_once(bypass, "GET", "/api.json", fn conn ->
-        Plug.Conn.resp(conn, 200, JSON.encode!(dataset))
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(200, JSON.encode!(dataset))
       end)
 
       # The requested name is dated; only "zz-test-model" (no date) is
@@ -73,7 +80,9 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDevTest do
       # once, so calling fetch_pricing/2 twice and getting the same answer
       # both times proves the second call was served from cache.
       Bypass.expect_once(bypass, "GET", "/api.json", fn conn ->
-        Plug.Conn.resp(conn, 200, JSON.encode!(dataset))
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(200, JSON.encode!(dataset))
       end)
 
       expected = %{
@@ -91,7 +100,9 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDevTest do
       dataset = %{"openai" => %{"models" => %{}}}
 
       Bypass.expect_once(bypass, "GET", "/api.json", fn conn ->
-        Plug.Conn.resp(conn, 200, JSON.encode!(dataset))
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(200, JSON.encode!(dataset))
       end)
 
       assert ModelsDev.fetch_pricing(:open_ai, "zz-test-unknown-model") == nil
