@@ -42,20 +42,7 @@ defmodule LlmComposer.PricingTest do
     end
 
     test "returns models.dev pricing for open_ai_responses" do
-      data = %{
-        "openai" => %{
-          "models" => %{
-            "gpt-5.4-mini" => %{
-              "cost" => %{
-                "input" => "0.250",
-                "output" => "2.000"
-              }
-            }
-          }
-        }
-      }
-
-      Ets.put("models_dev_api", data, 3600)
+      Ets.put({"openai", "gpt-5.4-mini"}, %{"input" => "0.250", "output" => "2.000"}, 3600)
 
       result = Pricing.fetch_pricing(:open_ai_responses, model: "gpt-5.4-mini")
 
@@ -69,17 +56,11 @@ defmodule LlmComposer.PricingTest do
 
   describe "models_dev_fetcher/2 for bedrock" do
     test "returns pricing for bedrock provider" do
-      data = %{
-        "amazon-bedrock" => %{
-          "models" => %{
-            "amazon.nova-lite-v1:0" => %{
-              "cost" => %{"input" => 0.06, "output" => 0.24, "cache_read" => 0.015}
-            }
-          }
-        }
-      }
-
-      Ets.put("models_dev_api", data, 3600)
+      Ets.put(
+        {"amazon-bedrock", "amazon.nova-lite-v1:0"},
+        %{"input" => 0.06, "output" => 0.24, "cache_read" => 0.015},
+        3600
+      )
 
       result = Pricing.fetch_pricing(:bedrock, model: "amazon.nova-lite-v1:0")
 
@@ -87,53 +68,6 @@ defmodule LlmComposer.PricingTest do
                cache_read_price_per_million: Decimal.new("0.015"),
                input_price_per_million: Decimal.new("0.06"),
                output_price_per_million: Decimal.new("0.24"),
-               currency: "USD"
-             ]
-    end
-
-    test "strips region prefix when exact match not found" do
-      data = %{
-        "amazon-bedrock" => %{
-          "models" => %{
-            "amazon.nova-lite-v1:0" => %{
-              "cost" => %{"input" => 0.06, "output" => 0.24}
-            }
-          }
-        }
-      }
-
-      Ets.put("models_dev_api", data, 3600)
-
-      result = Pricing.fetch_pricing(:bedrock, model: "eu.amazon.nova-lite-v1:0")
-
-      assert result == [
-               input_price_per_million: Decimal.new("0.06"),
-               output_price_per_million: Decimal.new("0.24"),
-               currency: "USD"
-             ]
-    end
-
-    test "uses region-prefixed entry when available" do
-      data = %{
-        "amazon-bedrock" => %{
-          "models" => %{
-            "eu.anthropic.claude-sonnet-4-6" => %{
-              "cost" => %{"input" => 0.4, "output" => 2.0}
-            },
-            "anthropic.claude-sonnet-4-6" => %{
-              "cost" => %{"input" => 0.3, "output" => 1.5}
-            }
-          }
-        }
-      }
-
-      Ets.put("models_dev_api", data, 3600)
-
-      result = Pricing.fetch_pricing(:bedrock, model: "eu.anthropic.claude-sonnet-4-6")
-
-      assert result == [
-               input_price_per_million: Decimal.new("0.4"),
-               output_price_per_million: Decimal.new("2.0"),
                currency: "USD"
              ]
     end
@@ -154,22 +88,11 @@ defmodule LlmComposer.PricingTest do
 
   describe "models_dev_fetcher/2 with cached data" do
     test "extracts pricing correctly from cached data" do
-      data = %{
-        "openai" => %{
-          "models" => %{
-            "gpt-4" => %{
-              "cost" => %{
-                "input" => "0.001",
-                "output" => "0.002",
-                "cache_read" => "0.0005"
-              }
-            }
-          }
-        }
-      }
-
-      # Pre-populate cache
-      Ets.put("models_dev_api", data, 3600)
+      Ets.put(
+        {"openai", "gpt-4"},
+        %{"input" => "0.001", "output" => "0.002", "cache_read" => "0.0005"},
+        3600
+      )
 
       result = ModelsDev.fetch_pricing(:open_ai, "gpt-4")
 
@@ -183,20 +106,9 @@ defmodule LlmComposer.PricingTest do
     end
 
     test "extracts pricing for open_ai_responses from openai dataset" do
-      data = %{
-        "openai" => %{
-          "models" => %{
-            "gpt-5.4-mini" => %{
-              "cost" => %{
-                "input" => "0.250",
-                "output" => "2.000"
-              }
-            }
-          }
-        }
-      }
-
-      Ets.put("models_dev_api", data, 3600)
+      # :open_ai and :open_ai_responses share the "openai" provider key, so
+      # they share the same cache entries too.
+      Ets.put({"openai", "gpt-5.4-mini"}, %{"input" => "0.250", "output" => "2.000"}, 3600)
 
       result = ModelsDev.fetch_pricing(:open_ai_responses, "gpt-5.4-mini")
 
@@ -206,50 +118,18 @@ defmodule LlmComposer.PricingTest do
              }
     end
 
-    test "falls back from dated openai snapshot model names" do
-      data = %{
-        "openai" => %{
-          "models" => %{
-            "gpt-5.4-mini" => %{
-              "cost" => %{
-                "input" => "0.250",
-                "output" => "2.000"
-              }
-            }
-          }
-        }
-      }
-
-      Ets.put("models_dev_api", data, 3600)
-
-      result = ModelsDev.fetch_pricing(:open_ai_responses, "gpt-5.4-mini-2026-03-17")
-
-      assert result == %{
-               input_price_per_million: Decimal.new("0.250"),
-               output_price_per_million: Decimal.new("2.000")
-             }
-    end
-
     test "returns nil when model not found in cached data" do
-      data = %{"openai" => %{"models" => %{}}}
-      Ets.put("models_dev_api", data, 3600)
+      # A previous fetch already resolved this pair to "not found"; it's
+      # cached as `nil` so a repeat miss doesn't re-download the whole
+      # dataset every time. See LookupTest for the fallback chain itself.
+      Ets.put({"openai", "unknown-model"}, nil, 3600)
 
       result = ModelsDev.fetch_pricing(:open_ai, "unknown-model")
       assert result == nil
     end
 
     test "returns nil when cost structure is invalid in cached data" do
-      data = %{
-        "openai" => %{
-          "models" => %{
-            "gpt-4" => %{
-              "cost" => %{"invalid" => "structure"}
-            }
-          }
-        }
-      }
-
-      Ets.put("models_dev_api", data, 3600)
+      Ets.put({"openai", "gpt-4"}, %{"invalid" => "structure"}, 3600)
 
       result = ModelsDev.fetch_pricing(:open_ai, "gpt-4")
       assert result == nil
