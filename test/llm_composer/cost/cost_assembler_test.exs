@@ -147,6 +147,11 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
 
   describe "get_cost_info/3 with track_costs: true for OpenAI" do
     test "assembles cost info for OpenAI without pricing" do
+      # No pricing seeded for this pair, and none given explicitly — this must
+      # resolve to "no pricing" rather than fall through to a real network
+      # fetch (which would find real models.dev data for a real model name).
+      Ets.put({"openai", "gpt-4o-mini"}, nil, 3600)
+
       response = %{
         "model" => "gpt-4o-mini",
         "usage" => %{"prompt_tokens" => 150, "completion_tokens" => 75}
@@ -278,6 +283,10 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
         }
       }
 
+      # Not asserting on cost here, but seed a "no pricing" result anyway so
+      # this doesn't fall through to a real network fetch.
+      Ets.put({"google", "gemini-2.5-flash"}, nil, 3600)
+
       opts = [track_costs: true, model: "gemini-2.5-flash"]
 
       result = CostAssembler.get_cost_info(:google, response, opts)
@@ -333,6 +342,10 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
       response = %{
         "usage" => %{"inputTokens" => 16, "outputTokens" => 52}
       }
+
+      # Not asserting on cost here, but seed a "no pricing" result anyway so
+      # this doesn't fall through to a real network fetch.
+      Ets.put({"amazon-bedrock", "amazon.nova-lite-v1:0"}, nil, 3600)
 
       opts = [track_costs: true, model: "amazon.nova-lite-v1:0"]
 
