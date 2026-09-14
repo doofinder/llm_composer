@@ -7,11 +7,22 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev.Lookup do
   can be unit-tested directly against a small in-memory dataset, without
   needing to fetch or cache anything — `ModelsDev` only ever calls this on a
   cache miss, against the freshly downloaded dataset.
+
+  ## Region prefixes
+
+  The region-prefix fallback defaults to `eu`, `us`, `ap`, and `global`
+  (Bedrock's own regions), since that's what motivated it. It's a default, not
+  a hardcoded assumption: override it per application with
+
+      config :llm_composer, :models_dev, region_prefix_regex: ~r/^.../
+
   """
+
+  alias LlmComposer.Providers.Utils
 
   require Logger
 
-  @region_prefix_regex ~r/^(?:eu|us|ap|global)\./
+  @default_region_prefix_regex ~r/^(?:eu|us|ap|global)\./
 
   @doc """
   Looks up the raw `"cost"` map for `model` under `provider_key` in `data` (a
@@ -33,8 +44,9 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev.Lookup do
     end
   end
 
-  # Some Bedrock models have region prefixes (eu., us., ap., global.) that are not
-  # indexed in models.dev. Strip the prefix and retry before falling back further.
+  # Some Bedrock models have region prefixes (default eu., us., ap., global. —
+  # see the moduledoc for overriding this) that are not indexed in models.dev.
+  # Strip the prefix and retry before falling back further.
   defp fallback_strip_region(data, provider_key, model) do
     case strip_region_prefix(model) do
       ^model ->
@@ -69,10 +81,15 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev.Lookup do
   end
 
   defp strip_region_prefix(model) when is_binary(model) do
-    Regex.replace(@region_prefix_regex, model, "")
+    Regex.replace(region_prefix_regex(), model, "")
   end
 
   defp strip_snapshot_date_suffix(model) when is_binary(model) do
     Regex.replace(~r/-\d{4}-\d{2}-\d{2}$/, model, "")
+  end
+
+  @spec region_prefix_regex() :: Regex.t()
+  defp region_prefix_regex do
+    Utils.get_config(:models_dev, :region_prefix_regex, [], @default_region_prefix_regex)
   end
 end

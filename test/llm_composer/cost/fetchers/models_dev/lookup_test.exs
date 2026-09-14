@@ -1,5 +1,7 @@
 defmodule LlmComposer.Cost.Fetchers.ModelsDev.LookupTest do
-  use ExUnit.Case, async: true
+  # async: false: the region_prefix_regex tests below mutate the global
+  # :llm_composer, :models_dev Application env.
+  use ExUnit.Case, async: false
 
   alias LlmComposer.Cost.Fetchers.ModelsDev.Lookup
 
@@ -74,6 +76,33 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev.LookupTest do
       data = %{"openai" => %{"models" => %{}}}
 
       assert Lookup.get_cost(data, "openai", "unknown-model") == nil
+    end
+  end
+
+  describe "get_cost/3 with a configured region_prefix_regex" do
+    setup do
+      on_exit(fn -> Application.delete_env(:llm_composer, :models_dev) end)
+      :ok
+    end
+
+    test "uses the configured regex instead of the eu/us/ap/global default" do
+      Application.put_env(:llm_composer, :models_dev, region_prefix_regex: ~r/^apac\./)
+
+      data = %{
+        "amazon-bedrock" => %{
+          "models" => %{
+            "some-model" => %{"cost" => %{"input" => 0.1, "output" => 0.2}}
+          }
+        }
+      }
+
+      # The default prefix ("eu.") no longer applies once a custom regex is
+      # configured — this must NOT resolve.
+      assert Lookup.get_cost(data, "amazon-bedrock", "eu.some-model") == nil
+
+      # The configured prefix ("apac.") does.
+      assert Lookup.get_cost(data, "amazon-bedrock", "apac.some-model") ==
+               %{"input" => 0.1, "output" => 0.2}
     end
   end
 end
