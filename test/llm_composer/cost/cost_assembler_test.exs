@@ -147,6 +147,11 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
 
   describe "get_cost_info/3 with track_costs: true for OpenAI" do
     test "assembles cost info for OpenAI without pricing" do
+      # No pricing seeded for this pair, and none given explicitly — this must
+      # resolve to "no pricing" rather than fall through to a real network
+      # fetch (which would find real models.dev data for a real model name).
+      Ets.put({"openai", "gpt-4o-mini"}, nil, 3600)
+
       response = %{
         "model" => "gpt-4o-mini",
         "usage" => %{"prompt_tokens" => 150, "completion_tokens" => 75}
@@ -221,20 +226,16 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
         "usage" => %{"prompt_tokens" => 1_000_000, "completion_tokens" => 500_000}
       }
 
-      data = %{
-        "openai" => %{
-          "models" => %{
-            "gpt-5.4-mini" => %{
-              "cost" => %{
-                "input" => "0.250",
-                "output" => "2.000"
-              }
-            }
-          }
-        }
-      }
-
-      Ets.put("models_dev_api", data, 3600)
+      # models.dev only indexes "gpt-5.4-mini" (no date suffix); the fallback
+      # that resolves "gpt-5.4-mini-2026-03-17" to it is unit-tested directly
+      # in ModelsDev.Lookup's own tests. Here we seed the cache under the
+      # exact key the response's dated model name would resolve to, since
+      # only the requested {provider, model} pair is ever cached now.
+      Ets.put(
+        {"openai", "gpt-5.4-mini-2026-03-17"},
+        %{"input" => "0.250", "output" => "2.000"},
+        3600
+      )
 
       opts = [track_costs: true, model: "gpt-4.1-mini"]
 
@@ -281,6 +282,10 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
           "candidatesTokenCount" => 60
         }
       }
+
+      # Not asserting on cost here, but seed a "no pricing" result anyway so
+      # this doesn't fall through to a real network fetch.
+      Ets.put({"google", "gemini-2.5-flash"}, nil, 3600)
 
       opts = [track_costs: true, model: "gemini-2.5-flash"]
 
@@ -338,6 +343,10 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
         "usage" => %{"inputTokens" => 16, "outputTokens" => 52}
       }
 
+      # Not asserting on cost here, but seed a "no pricing" result anyway so
+      # this doesn't fall through to a real network fetch.
+      Ets.put({"amazon-bedrock", "amazon.nova-lite-v1:0"}, nil, 3600)
+
       opts = [track_costs: true, model: "amazon.nova-lite-v1:0"]
 
       result = CostAssembler.get_cost_info(:bedrock, response, opts)
@@ -370,17 +379,15 @@ defmodule LlmComposer.Cost.CostAssemblerTest do
     end
 
     test "assembles cost info for Bedrock with models.dev pricing (region prefix stripped)" do
-      data = %{
-        "amazon-bedrock" => %{
-          "models" => %{
-            "amazon.nova-lite-v1:0" => %{
-              "cost" => %{"input" => 0.06, "output" => 0.24}
-            }
-          }
-        }
-      }
-
-      Ets.put("models_dev_api", data, 3600)
+      # The region-stripping fallback itself is unit-tested directly in
+      # ModelsDev.Lookup's own tests. Here we seed the cache under the exact
+      # region-prefixed key that gets requested, since only the requested
+      # {provider, model} pair is ever cached now.
+      Ets.put(
+        {"amazon-bedrock", "eu.amazon.nova-lite-v1:0"},
+        %{"input" => 0.06, "output" => 0.24},
+        3600
+      )
 
       response = %{
         "usage" => %{"inputTokens" => 1_000_000, "outputTokens" => 500_000}

@@ -15,32 +15,43 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
 
   ## Implementation Notes
 
-  models.dev provides a single consolidated dataset (api.json) containing pricing
-  for multiple providers. The entire dataset is cached to avoid repeated downloads.
+  models.dev only exposes its pricing as a single consolidated dataset (api.json)
+  covering every provider and model it tracks — there is no per-model endpoint
+  to fetch instead. A caller only ever needs a handful of `{provider, model}`
+  pairs, so caching the whole response would keep that entire dataset resident
+  for the full TTL. Instead, each fetch resolves the pricing for the requested
+  pair right after downloading and caches only that small result, keyed by
+  `{provider_key, model}` — the full dataset itself is discarded once used and
+  never cached. Two different models from the same provider each cost one
+  extra full-document download (still bounded, since a given application only
+  ever asks about a handful of models), trading a bit of network traffic for a
+  cache footprint that scales with models actually used instead of models.dev's
+  entire catalogue.
 
-  For Bedrock, model lookup uses the following fallback chain:
-  1. Exact model name (some region-prefixed variants are indexed, e.g. `"eu.anthropic.claude-sonnet-4-6"`)
-  2. Region prefix stripped (e.g. `"eu.amazon.nova-lite-v1:0"` → `"amazon.nova-lite-v1:0"`)
-  3. Date suffix stripped (e.g. `"amazon.nova-lite-v1:0-2026-01-01"` → `"amazon.nova-lite-v1:0"`)
+  See `LlmComposer.Cost.Fetchers.ModelsDev.Lookup` for the model-name fallback
+  chain (region prefix, then date suffix) applied against the freshly fetched
+  dataset on a cache miss.
   """
 
+  alias LlmComposer.Cost.Fetchers.ModelsDev.Lookup
   alias LlmComposer.HttpClient
+  alias LlmComposer.Providers.Utils
 
   require Logger
 
   @cache_mod Application.compile_env(:llm_composer, :cache_mod, LlmComposer.Cache.Ets)
   @models_dev_url "https://models.dev/"
-  @cache_key "models_dev_api"
   @default_cache_ttl_in_hours 24
-  @region_prefix_regex ~r/^(?:eu|us|ap|global)\./
 
   @spec fetch_pricing(atom(), String.t()) :: map() | nil
   def fetch_pricing(provider, model)
       when provider in [:open_ai, :open_ai_responses, :google, :bedrock] do
-    case fetch_with_cache() do
-      {:ok, data} -> extract_pricing_from_data(data, provider, model)
-      :error -> nil
-    end
+    provider_key = provider_key(provider)
+    cache_key = {provider_key, model}
+
+    cache_key
+    |> fetch_cost(provider_key, model)
+    |> extract_pricing(provider_key, model)
   rescue
     e ->
       Logger.error(
@@ -52,27 +63,39 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
 
   def fetch_pricing(_provider, _model), do: nil
 
-  defp fetch_with_cache do
-    case @cache_mod.get(@cache_key) do
-      {:ok, cached_data} ->
-        Logger.debug("models.dev cache hit")
-        {:ok, cached_data}
+  defp fetch_cost(cache_key, provider_key, model) do
+    case @cache_mod.get(cache_key) do
+      {:ok, cost} ->
+        Logger.debug("models.dev cache hit for #{provider_key}/#{model}")
+        cost
 
       :miss ->
-        Logger.debug("models.dev cache miss")
-        fetch_and_cache_data()
+        Logger.debug("models.dev cache miss for #{provider_key}/#{model}")
+        fetch_and_cache_cost(cache_key, provider_key, model)
     end
   end
 
-  defp fetch_and_cache_data do
-    client = HttpClient.client(@models_dev_url, [])
+  defp fetch_and_cache_cost(cache_key, provider_key, model) do
+    case fetch_dataset() do
+      {:ok, data} ->
+        cost = Lookup.get_cost(data, provider_key, model)
 
-    case Tesla.get(client, "/api.json") do
-      {:ok, %{status: 200, body: data}} ->
         ttl =
           Application.get_env(:llm_composer, :cache_ttl, @default_cache_ttl_in_hours * 60 * 60)
 
-        @cache_mod.put(@cache_key, data, ttl)
+        @cache_mod.put(cache_key, cost, ttl)
+        cost
+
+      :error ->
+        nil
+    end
+  end
+
+  defp fetch_dataset do
+    client = HttpClient.client(base_url(), [])
+
+    case Tesla.get(client, "/api.json") do
+      {:ok, %{status: 200, body: data}} ->
         {:ok, data}
 
       {:ok, %{status: status}} ->
@@ -85,102 +108,52 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
     end
   end
 
-  defp extract_pricing_from_data(data, provider, model) do
-    provider_key = provider_key(provider)
+  defp extract_pricing(%{"input" => input, "output" => output} = cost, provider_key, model) do
+    Logger.debug(
+      "Extracted pricing for #{provider_key}/#{model}: input=$#{input}/M, output=$#{output}/M"
+    )
 
-    case get_cost(data, provider_key, model) do
-      %{"input" => input, "output" => output} = cost ->
-        Logger.debug(
-          "Extracted pricing for #{provider_key}/#{model}: input=$#{input}/M, output=$#{output}/M"
-        )
+    pricing = %{
+      input_price_per_million:
+        input
+        |> to_string()
+        |> Decimal.new(),
+      output_price_per_million:
+        output
+        |> to_string()
+        |> Decimal.new()
+    }
 
-        pricing = %{
-          input_price_per_million:
-            input
-            |> to_string()
-            |> Decimal.new(),
-          output_price_per_million:
-            output
-            |> to_string()
-            |> Decimal.new()
-        }
-
-        case Map.get(cost, "cache_read") do
-          nil ->
-            pricing
-
-          cache_read ->
-            Map.put(
-              pricing,
-              :cache_read_price_per_million,
-              cache_read
-              |> to_string()
-              |> Decimal.new()
-            )
-        end
-
+    case Map.get(cost, "cache_read") do
       nil ->
-        Logger.debug("No pricing found for #{provider_key}/#{model} in models.dev data")
-        nil
+        pricing
 
-      invalid_cost ->
-        Logger.warning(
-          "Invalid cost structure for #{provider_key}/#{model}: #{inspect(invalid_cost)}"
+      cache_read ->
+        Map.put(
+          pricing,
+          :cache_read_price_per_million,
+          cache_read
+          |> to_string()
+          |> Decimal.new()
         )
-
-        nil
     end
   end
 
-  defp get_cost(data, provider_key, model) do
-    case get_in(data, [provider_key, "models", model, "cost"]) do
-      nil -> fallback_strip_region(data, provider_key, model)
-      cost -> cost
-    end
+  defp extract_pricing(nil, provider_key, model) do
+    Logger.debug("No pricing found for #{provider_key}/#{model} in models.dev data")
+    nil
   end
 
-  # Some Bedrock models have region prefixes (eu., us., ap., global.) that are not
-  # indexed in models.dev. Strip the prefix and retry before falling back further.
-  defp fallback_strip_region(data, provider_key, model) do
-    case strip_region_prefix(model) do
-      ^model ->
-        fallback_strip_date(data, provider_key, model)
+  defp extract_pricing(invalid_cost, provider_key, model) do
+    Logger.warning(
+      "Invalid cost structure for #{provider_key}/#{model}: #{inspect(invalid_cost)}"
+    )
 
-      stripped_model ->
-        Logger.debug(
-          "Retrying models.dev pricing lookup for #{provider_key}/#{model} without region prefix (#{stripped_model})"
-        )
-
-        case get_in(data, [provider_key, "models", stripped_model, "cost"]) do
-          nil -> fallback_strip_date(data, provider_key, stripped_model)
-          cost -> cost
-        end
-    end
+    nil
   end
 
-  # APIs like OpenAI return snapshot model names with a date suffix (e.g. "gpt-5.4-mini-2026-03-17"),
-  # but models.dev only indexes the base name. Strip the suffix and retry.
-  defp fallback_strip_date(data, provider_key, model) do
-    case strip_snapshot_date_suffix(model) do
-      ^model ->
-        nil
-
-      fallback_model ->
-        Logger.debug(
-          "Retrying models.dev pricing lookup for #{provider_key}/#{model} with fallback #{fallback_model}"
-        )
-
-        get_in(data, [provider_key, "models", fallback_model, "cost"])
-    end
-  end
-
-  defp strip_region_prefix(model) when is_binary(model) do
-    Regex.replace(@region_prefix_regex, model, "")
-  end
-
-  defp strip_snapshot_date_suffix(model) when is_binary(model) do
-    Regex.replace(~r/-\d{4}-\d{2}-\d{2}$/, model, "")
-  end
+  @spec base_url() :: String.t()
+  defp base_url, do: Utils.get_config(:models_dev, :base_url, [], @models_dev_url)
 
   defp provider_key(:open_ai), do: "openai"
   defp provider_key(:open_ai_responses), do: "openai"
