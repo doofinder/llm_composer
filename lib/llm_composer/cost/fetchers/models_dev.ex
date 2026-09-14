@@ -152,9 +152,6 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
     nil
   end
 
-  # Overridable the same way OpenRouter's own base URL is (see
-  # `LlmComposer.Providers.OpenRouter.get_base_url/1`) — mainly so tests can
-  # point this at a local stub instead of the real models.dev.
   @spec base_url() :: String.t()
   defp base_url, do: Utils.get_config(:models_dev, :base_url, [], @models_dev_url)
 
