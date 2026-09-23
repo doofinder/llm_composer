@@ -121,4 +121,16 @@ apply for cache hits.
 
 - **OpenRouter** — pricing fetched from OpenRouter's API, includes real-time model prices.
 - **OpenAI / Google / Bedrock** — pricing fetched from [models.dev](https://models.dev) API.
+  When an OpenAI-compatible API is used through `:url` (Fireworks, Together, ...), set
+  `:models_dev_provider` to its models.dev provider key. The model name must match the
+  models.dev model id:
+
+  ```elixir
+  {LlmComposer.Providers.OpenAI,
+   [
+     model: "accounts/fireworks/models/deepseek-v4p1-flash",
+     url: "https://api.fireworks.ai/inference/v1",
+     models_dev_provider: "fireworks-ai"
+   ]}
+  ```
 - **Ollama** — cost tracking is not supported (no token usage reported).

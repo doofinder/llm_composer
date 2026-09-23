@@ -13,6 +13,9 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   - `:google` - Google Gemini models
   - `:bedrock` - Amazon Bedrock models (indexed under `"amazon-bedrock"`)
 
+  The optional third argument of `fetch_pricing/3` overrides the models.dev provider key,
+  e.g. `"fireworks-ai"` for an OpenAI-compatible API used through `:open_ai`.
+
   ## Implementation Notes
 
   models.dev only exposes its pricing as a single consolidated dataset (api.json)
@@ -43,10 +46,12 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @models_dev_url "https://models.dev/"
   @default_cache_ttl_in_hours 24
 
-  @spec fetch_pricing(atom(), String.t()) :: map() | nil
-  def fetch_pricing(provider, model)
+  @spec fetch_pricing(atom(), String.t(), String.t() | nil) :: map() | nil
+  def fetch_pricing(provider, model, models_dev_provider \\ nil)
+
+  def fetch_pricing(provider, model, models_dev_provider)
       when provider in [:open_ai, :open_ai_responses, :google, :bedrock] do
-    provider_key = provider_key(provider)
+    provider_key = models_dev_provider || provider_key(provider)
     cache_key = {provider_key, model}
 
     cache_key
@@ -61,7 +66,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
       nil
   end
 
-  def fetch_pricing(_provider, _model), do: nil
+  def fetch_pricing(_provider, _model, _models_dev_provider), do: nil
 
   defp fetch_cost(cache_key, provider_key, model) do
     case @cache_mod.get(cache_key) do

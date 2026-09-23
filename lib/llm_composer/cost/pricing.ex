@@ -72,7 +72,9 @@ defmodule LlmComposer.Cost.Pricing do
       Logger.warning("No model specified for models.dev pricing fetch")
       nil
     else
-      transform_fetcher_response(ModelsDev.fetch_pricing(provider, model))
+      transform_fetcher_response(
+        ModelsDev.fetch_pricing(provider, model, opts[:models_dev_provider])
+      )
     end
   end
 
