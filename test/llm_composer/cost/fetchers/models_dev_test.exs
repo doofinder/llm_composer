@@ -11,6 +11,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDevTest do
 
   alias LlmComposer.Cache.Ets
   alias LlmComposer.Cost.Fetchers.ModelsDev
+  alias LlmComposer.Cost.Pricing
 
   setup_all do
     Ets.start_link()
@@ -109,6 +110,43 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDevTest do
       assert Ets.get({"openai", "zz-test-unknown-model"}) == {:ok, nil}
       # Second call must not hit Bypass again (expect_once would fail it).
       assert ModelsDev.fetch_pricing(:open_ai, "zz-test-unknown-model") == nil
+    end
+  end
+
+  describe "models_dev_provider override" do
+    test "looks up and caches pricing under the given models.dev provider key", %{bypass: bypass} do
+      dataset = %{
+        "fireworks-ai" => %{
+          "models" => %{
+            "zz-test-fw-model" => %{
+              "cost" => %{"input" => 0.22, "output" => 0.66, "cache_read" => 0.007}
+            }
+          }
+        }
+      }
+
+      Bypass.expect_once(bypass, "GET", "/api.json", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "application/json")
+        |> Plug.Conn.resp(200, JSON.encode!(dataset))
+      end)
+
+      result =
+        Pricing.fetch_pricing(:open_ai,
+          model: "zz-test-fw-model",
+          models_dev_provider: :"fireworks-ai"
+        )
+
+      assert Enum.sort(result) ==
+               Enum.sort(
+                 input_price_per_million: Decimal.new("0.22"),
+                 output_price_per_million: Decimal.new("0.66"),
+                 cache_read_price_per_million: Decimal.new("0.007"),
+                 currency: "USD"
+               )
+
+      assert {:ok, _cost} = Ets.get({"fireworks-ai", "zz-test-fw-model"})
+      assert Ets.get({"openai", "zz-test-fw-model"}) == :miss
     end
   end
 end

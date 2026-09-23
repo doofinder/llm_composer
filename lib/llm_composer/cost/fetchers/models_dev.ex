@@ -1,6 +1,7 @@
 defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @moduledoc """
-  models.dev-specific pricing fetcher for OpenAI, Google, and Bedrock providers.
+  models.dev-specific pricing fetcher for the `:open_ai`, `:open_ai_responses`, `:google`
+  and `:bedrock` providers, or any models.dev provider via the `:models_dev_provider` override.
 
   Fetches pricing information from the models.dev API dataset for OpenAI, Google,
   and Amazon Bedrock models. Uses 24-hour caching to minimize API calls and improve
@@ -12,6 +13,9 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   - `:open_ai_responses` - OpenAI Responses API models (same pricing family as `:open_ai`)
   - `:google` - Google Gemini models
   - `:bedrock` - Amazon Bedrock models (indexed under `"amazon-bedrock"`)
+
+  The optional third argument of `fetch_pricing/3` overrides the models.dev provider key,
+  e.g. `"fireworks-ai"` for an OpenAI-compatible API used through `:open_ai`.
 
   ## Implementation Notes
 
@@ -43,10 +47,22 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @models_dev_url "https://models.dev/"
   @default_cache_ttl_in_hours 24
 
-  @spec fetch_pricing(atom(), String.t()) :: map() | nil
-  def fetch_pricing(provider, model)
+  @doc """
+  Fetches pricing for `model` from models.dev.
+
+  `models_dev_provider` overrides the models.dev provider key derived from `provider`
+  (e.g. `"fireworks-ai"` or `:"fireworks-ai"`). Atoms are converted to strings. Any other
+  value, or an empty one, is ignored with a warning.
+
+  Returns a map with `:input_price_per_million`, `:output_price_per_million` and, when
+  available, `:cache_read_price_per_million`, or `nil` if no pricing is found.
+  """
+  @spec fetch_pricing(atom(), String.t(), String.t() | atom()) :: map() | nil
+  def fetch_pricing(provider, model, models_dev_provider \\ nil)
+
+  def fetch_pricing(provider, model, models_dev_provider)
       when provider in [:open_ai, :open_ai_responses, :google, :bedrock] do
-    provider_key = provider_key(provider)
+    provider_key = provider_key(provider, models_dev_provider)
     cache_key = {provider_key, model}
 
     cache_key
@@ -55,13 +71,14 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   rescue
     e ->
       Logger.error(
-        "Error fetching pricing from models.dev for provider=#{provider} model=#{model}: #{Exception.message(e)}"
+        "Error fetching pricing from models.dev for provider=#{provider} " <>
+          "models_dev_provider=#{inspect(models_dev_provider)} model=#{model}: #{Exception.message(e)}"
       )
 
       nil
   end
 
-  def fetch_pricing(_provider, _model), do: nil
+  def fetch_pricing(_provider, _model, _models_dev_provider), do: nil
 
   defp fetch_cost(cache_key, provider_key, model) do
     case @cache_mod.get(cache_key) do
@@ -155,6 +172,22 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @spec base_url() :: String.t()
   defp base_url, do: Utils.get_config(:models_dev, :base_url, [], @models_dev_url)
 
+  @spec provider_key(atom(), term()) :: String.t()
+  defp provider_key(_provider, key) when is_binary(key) and key != "", do: key
+  defp provider_key(provider, nil), do: provider_key(provider)
+
+  defp provider_key(provider, key) when is_atom(key) and not is_boolean(key),
+    do: provider_key(provider, Atom.to_string(key))
+
+  defp provider_key(provider, invalid) do
+    Logger.warning(
+      "Ignoring invalid :models_dev_provider #{inspect(invalid)}, expected a non-empty string or atom"
+    )
+
+    provider_key(provider)
+  end
+
+  @spec provider_key(atom()) :: String.t()
   defp provider_key(:open_ai), do: "openai"
   defp provider_key(:open_ai_responses), do: "openai"
   defp provider_key(:google), do: "google"
