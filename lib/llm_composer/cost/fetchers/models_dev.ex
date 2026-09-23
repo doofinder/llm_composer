@@ -46,12 +46,21 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @models_dev_url "https://models.dev/"
   @default_cache_ttl_in_hours 24
 
+  @doc """
+  Fetches pricing for `model` from models.dev.
+
+  `models_dev_provider` overrides the models.dev provider key derived from `provider`
+  (e.g. `"fireworks-ai"`). An invalid value (not a non-empty string) is ignored with a warning.
+
+  Returns a map with `:input_price_per_million`, `:output_price_per_million` and, when
+  available, `:cache_read_price_per_million`, or `nil` if no pricing is found.
+  """
   @spec fetch_pricing(atom(), String.t(), String.t() | nil) :: map() | nil
   def fetch_pricing(provider, model, models_dev_provider \\ nil)
 
   def fetch_pricing(provider, model, models_dev_provider)
       when provider in [:open_ai, :open_ai_responses, :google, :bedrock] do
-    provider_key = models_dev_provider || provider_key(provider)
+    provider_key = provider_key(provider, models_dev_provider)
     cache_key = {provider_key, model}
 
     cache_key
@@ -60,7 +69,8 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   rescue
     e ->
       Logger.error(
-        "Error fetching pricing from models.dev for provider=#{provider} model=#{model}: #{Exception.message(e)}"
+        "Error fetching pricing from models.dev for provider=#{provider} " <>
+          "models_dev_provider=#{inspect(models_dev_provider)} model=#{model}: #{Exception.message(e)}"
       )
 
       nil
@@ -159,6 +169,17 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
 
   @spec base_url() :: String.t()
   defp base_url, do: Utils.get_config(:models_dev, :base_url, [], @models_dev_url)
+
+  defp provider_key(_provider, key) when is_binary(key) and key != "", do: key
+  defp provider_key(provider, nil), do: provider_key(provider)
+
+  defp provider_key(provider, invalid) do
+    Logger.warning(
+      "Ignoring invalid :models_dev_provider #{inspect(invalid)}, expected a non-empty string"
+    )
+
+    provider_key(provider)
+  end
 
   defp provider_key(:open_ai), do: "openai"
   defp provider_key(:open_ai_responses), do: "openai"

@@ -6,7 +6,8 @@ defmodule LlmComposer.Cost.Pricing do
   1. Explicit pricing from provider options (input_price_per_million, output_price_per_million)
   2. Provider-specific APIs:
     - OpenRouter API for :open_router provider
-    - models.dev API for :open_ai, :open_ai_responses, and :google providers
+    - models.dev API for :open_ai, :open_ai_responses, :google, and :bedrock providers
+      (the models.dev provider key can be overridden with the :models_dev_provider option)
   3. Fallback to nil if no pricing source available
 
   """

@@ -122,8 +122,8 @@ apply for cache hits.
 - **OpenRouter** — pricing fetched from OpenRouter's API, includes real-time model prices.
 - **OpenAI / Google / Bedrock** — pricing fetched from [models.dev](https://models.dev) API.
   When an OpenAI-compatible API is used through `:url` (Fireworks, Together, ...), set
-  `:models_dev_provider` to its models.dev provider key. The model name must match the
-  models.dev model id:
+  `:models_dev_provider` to its models.dev provider key. The model name returned in the
+  response must match the models.dev model id:
 
   ```elixir
   {LlmComposer.Providers.OpenAI,
