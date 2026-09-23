@@ -1,6 +1,7 @@
 defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @moduledoc """
-  models.dev-specific pricing fetcher for OpenAI, Google, and Bedrock providers.
+  models.dev-specific pricing fetcher for the `:open_ai`, `:open_ai_responses`, `:google`
+  and `:bedrock` providers, or any models.dev provider via the `:models_dev_provider` override.
 
   Fetches pricing information from the models.dev API dataset for OpenAI, Google,
   and Amazon Bedrock models. Uses 24-hour caching to minimize API calls and improve
@@ -50,12 +51,13 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   Fetches pricing for `model` from models.dev.
 
   `models_dev_provider` overrides the models.dev provider key derived from `provider`
-  (e.g. `"fireworks-ai"`). An invalid value (not a non-empty string) is ignored with a warning.
+  (e.g. `"fireworks-ai"` or `:"fireworks-ai"`). Atoms are converted to strings. Any other
+  value, or an empty one, is ignored with a warning.
 
   Returns a map with `:input_price_per_million`, `:output_price_per_million` and, when
   available, `:cache_read_price_per_million`, or `nil` if no pricing is found.
   """
-  @spec fetch_pricing(atom(), String.t(), String.t() | nil) :: map() | nil
+  @spec fetch_pricing(atom(), String.t(), String.t() | atom()) :: map() | nil
   def fetch_pricing(provider, model, models_dev_provider \\ nil)
 
   def fetch_pricing(provider, model, models_dev_provider)
@@ -170,17 +172,22 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDev do
   @spec base_url() :: String.t()
   defp base_url, do: Utils.get_config(:models_dev, :base_url, [], @models_dev_url)
 
+  @spec provider_key(atom(), term()) :: String.t()
   defp provider_key(_provider, key) when is_binary(key) and key != "", do: key
   defp provider_key(provider, nil), do: provider_key(provider)
 
+  defp provider_key(provider, key) when is_atom(key) and not is_boolean(key),
+    do: provider_key(provider, Atom.to_string(key))
+
   defp provider_key(provider, invalid) do
     Logger.warning(
-      "Ignoring invalid :models_dev_provider #{inspect(invalid)}, expected a non-empty string"
+      "Ignoring invalid :models_dev_provider #{inspect(invalid)}, expected a non-empty string or atom"
     )
 
     provider_key(provider)
   end
 
+  @spec provider_key(atom()) :: String.t()
   defp provider_key(:open_ai), do: "openai"
   defp provider_key(:open_ai_responses), do: "openai"
   defp provider_key(:google), do: "google"

@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
-- `:models_dev_provider` provider option to override the models.dev provider key used for pricing lookups, e.g. `"fireworks-ai"` for an OpenAI-compatible API used through `:url` ([#125](https://github.com/doofinder/llm_composer/issues/125)).
+- `:models_dev_provider` provider option to override the models.dev provider key used for pricing lookups, e.g. `"fireworks-ai"` (or `:"fireworks-ai"`) for an OpenAI-compatible API used through `:url` ([#125](https://github.com/doofinder/llm_composer/issues/125)).
 
 ## [0.20.6] - 2026-09-22
 

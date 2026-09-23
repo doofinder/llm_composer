@@ -134,7 +134,7 @@ defmodule LlmComposer.Cost.Fetchers.ModelsDevTest do
       result =
         Pricing.fetch_pricing(:open_ai,
           model: "zz-test-fw-model",
-          models_dev_provider: "fireworks-ai"
+          models_dev_provider: :"fireworks-ai"
         )
 
       assert Enum.sort(result) ==
