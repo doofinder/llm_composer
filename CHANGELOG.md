@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.20.7] - 2026-09-23
 
 ### Added
 
@@ -373,6 +373,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial release with support for basic message handling, interaction with OpenAI and Ollama models, and a foundational structure for model settings and function execution.
 
 ---
+[0.20.7]: https://github.com/doofinder/llm_composer/compare/0.20.6...0.20.7
+[0.20.6]: https://github.com/doofinder/llm_composer/compare/0.20.5...0.20.6
 [0.20.5]: https://github.com/doofinder/llm_composer/compare/0.20.4...0.20.5
 [0.20.4]: https://github.com/doofinder/llm_composer/compare/0.20.3...0.20.4
 [0.20.3]: https://github.com/doofinder/llm_composer/compare/0.20.2...0.20.3
