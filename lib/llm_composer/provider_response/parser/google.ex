@@ -5,6 +5,7 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
   alias LlmComposer.FunctionCallExtractors
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
+  require Logger
 
   @spec parse({:ok | :error, any()}, atom(), keyword()) ::
           {:ok, LlmResponse.t()} | {:error, term()}
@@ -33,44 +34,56 @@ defmodule LlmComposer.ProviderResponse.Parser.Google do
   end
 
   def parse({:ok, %{response: response}}, :google, opts) do
-    [first_candidate | _] = response["candidates"]
-    content = first_candidate["content"]
+    case response["candidates"] do
+      [first_candidate | _] ->
+        content = first_candidate["content"]
 
-    message_content =
-      content["parts"]
-      |> hd()
-      |> Map.get("text")
+        message_content =
+          content["parts"]
+          |> hd()
+          |> Map.get("text")
 
-    role =
-      case content["role"] do
-        "model" -> :assistant
-        other -> String.to_existing_atom(other)
-      end
+        role =
+          case content["role"] do
+            "model" -> :assistant
+            other -> String.to_existing_atom(other)
+          end
 
-    {input_tokens, output_tokens, cached_tokens} =
-      CostAssembler.extract_tokens(:google, response)
+        {input_tokens, output_tokens, cached_tokens} =
+          CostAssembler.extract_tokens(:google, response)
 
-    reasoning_tokens = get_in(response, ["usageMetadata", "thoughtsTokenCount"])
-    cost_info = CostAssembler.get_cost_info(:google, response, opts)
+        reasoning_tokens = get_in(response, ["usageMetadata", "thoughtsTokenCount"])
+        cost_info = CostAssembler.get_cost_info(:google, response, opts)
 
-    main_response = %{
-      Message.new(role, message_content, %{original: content})
-      | function_calls: FunctionCallExtractors.from_google_parts(content)
-    }
+        main_response = %{
+          Message.new(role, message_content, %{original: content})
+          | function_calls: FunctionCallExtractors.from_google_parts(content)
+        }
 
-    {:ok,
-     LlmResponse.new(%{
-       provider_model: Keyword.get(opts, :model),
-       provider: :google,
-       status: :ok,
-       main_response: main_response,
-       input_tokens: input_tokens,
-       output_tokens: output_tokens,
-       cached_tokens: cached_tokens,
-       cost_info: cost_info,
-       raw: response,
-       reasoning_tokens: reasoning_tokens
-     })}
+        {:ok,
+         LlmResponse.new(%{
+           provider_model: Keyword.get(opts, :model),
+           provider: :google,
+           status: :ok,
+           main_response: main_response,
+           input_tokens: input_tokens,
+           output_tokens: output_tokens,
+           cached_tokens: cached_tokens,
+           cost_info: cost_info,
+           raw: response,
+           reasoning_tokens: reasoning_tokens
+         })}
+
+      _no_candidates ->
+        Logger.warning("[google] response had no candidates: #{inspect(response)}")
+
+        {:error,
+         %{
+           reason: :missing_candidates,
+           provider: :google,
+           response: response
+         }}
+    end
   end
 
   def parse(result, provider, _opts) do

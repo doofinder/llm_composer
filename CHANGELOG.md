@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.6] - 2026-09-22
+
+### Fixed
+
+- Fixed `LlmComposer.ProviderResponse.Parser.Google` crashing with a `MatchError` when Google/Vertex returns a response with no `"candidates"` (e.g. a prompt blocked by a safety filter, which returns only `"promptFeedback"`) or an empty candidates list. It now returns `{:error, %{reason: :missing_candidates, provider: :google, response: response}}` instead, mirroring the OpenAI parser's existing `:missing_choices` handling.
+
 ## [0.20.5] - 2026-09-11
 
 ### Changed
