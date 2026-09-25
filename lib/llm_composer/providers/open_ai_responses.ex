@@ -11,7 +11,7 @@ defmodule LlmComposer.Providers.OpenAIResponses do
 
   alias LlmComposer.Helpers
   alias LlmComposer.HttpClient
-  alias LlmComposer.ProviderResponse
+  alias LlmComposer.ProviderResponse.Parser
   alias LlmComposer.Providers.OpenAIResponses.Reasoning
   alias LlmComposer.Providers.Utils
 
@@ -95,11 +95,7 @@ defmodule LlmComposer.Providers.OpenAIResponses do
 
   @spec wrap_response({:ok, map()} | {:error, term()}, keyword()) ::
           {:ok, LlmComposer.LlmResponse.t()} | {:error, term()}
-  defp wrap_response(result, opts) do
-    result
-    |> ProviderResponse.OpenAIResponses.new(opts)
-    |> ProviderResponse.to_llm_response(opts)
-  end
+  defp wrap_response(result, opts), do: Parser.OpenAI.parse(result, name(), opts)
 
   # Maps messages into the Responses API `input` format.
   @spec map_messages_to_input([LlmComposer.Message.t()]) :: list()

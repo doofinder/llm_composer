@@ -37,15 +37,11 @@ defmodule LlmComposer.Provider do
     def run(messages, system_message, opts) do
       # 1) validate required opts (for example, :model / auth)
       # 2) build provider request from messages + system_message
-      # 3) call API and map result into {:ok, %{response: body}} | {:error, reason}
-      # 4) normalize through your ProviderResponse adapter
+      # 3) call API
+      # 4) return {:ok, %LlmComposer.LlmResponse{}} | {:error, reason}
     end
   end
   ```
-
-  For consistency with built-in providers, implement a `LlmComposer.ProviderResponse.*`
-  adapter so provider-specific payloads are parsed into `LlmComposer.LlmResponse`.
-  If streaming is supported, also add a `LlmComposer.ProviderStreamChunk.*` adapter.
   """
 
   alias LlmComposer.LlmResponse

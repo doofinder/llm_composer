@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-09-25
+
+### Removed
+
+- **Breaking:** removed the `LlmComposer.ProviderResponse` and `LlmComposer.ProviderStreamChunk` protocols, their `Struct` macros and the per-provider adapter structs. Custom providers return `{:ok, %LlmComposer.LlmResponse{}}` from `run/3` directly; `LlmComposer.parse_stream_response/3` only supports built-in providers (as before).
+
+### Changed
+
+- Built-in providers and `LlmComposer.parse_stream_response/3` call the response and stream chunk parsers directly. No behaviour change.
+
 ## [0.20.7] - 2026-09-23
 
 ### Added
