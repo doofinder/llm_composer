@@ -20,7 +20,7 @@ Add `llm_composer` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:llm_composer, "~> 0.20"}
+    {:llm_composer, "~> 0.21"}
   ]
 end
 ```

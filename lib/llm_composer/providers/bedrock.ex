@@ -47,7 +47,7 @@ if Code.ensure_loaded?(ExAws) do
 
     alias LlmComposer.Helpers
     alias LlmComposer.Message
-    alias LlmComposer.ProviderResponse
+    alias LlmComposer.ProviderResponse.Parser
     alias LlmComposer.Providers.Bedrock.StreamOperation
     alias LlmComposer.Providers.Utils
 
@@ -287,11 +287,7 @@ if Code.ensure_loaded?(ExAws) do
       {:error, resp}
     end
 
-    defp wrap_response(result, opts) do
-      result
-      |> ProviderResponse.Bedrock.new(opts)
-      |> ProviderResponse.to_llm_response(opts)
-    end
+    defp wrap_response(result, opts), do: Parser.Bedrock.parse(result, name(), opts)
 
     # Extracts complete AWS Event Stream frames from a binary buffer.
     # Returns {payloads, remaining_buffer} for use with Stream.transform.
