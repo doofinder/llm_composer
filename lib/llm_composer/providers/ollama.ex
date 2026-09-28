@@ -7,7 +7,7 @@ defmodule LlmComposer.Providers.Ollama do
   @behaviour LlmComposer.Provider
 
   alias LlmComposer.HttpClient
-  alias LlmComposer.ProviderResponse
+  alias LlmComposer.ProviderResponse.Parser
   alias LlmComposer.Providers.Utils
 
   @impl LlmComposer.Provider
@@ -60,9 +60,5 @@ defmodule LlmComposer.Providers.Ollama do
 
   defp handle_response({:error, _} = resp), do: resp
 
-  defp wrap_response(result, opts) do
-    result
-    |> ProviderResponse.Ollama.new(opts)
-    |> ProviderResponse.to_llm_response(opts)
-  end
+  defp wrap_response(result, opts), do: Parser.Ollama.parse(result, name(), opts)
 end

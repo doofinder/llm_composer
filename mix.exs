@@ -4,7 +4,7 @@ defmodule LlmComposer.MixProject do
   def project do
     [
       app: :llm_composer,
-      version: "0.20.7",
+      version: "0.21.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -42,8 +42,6 @@ defmodule LlmComposer.MixProject do
             LlmComposer.Agent.Result
           ],
           Providers: ~r/LlmComposer\.Providers\./,
-          "Response Parsing": ~r/LlmComposer\.ProviderResponse/,
-          Streaming: ~r/LlmComposer\.ProviderStreamChunk/,
           "Function Calling": [
             LlmComposer.FunctionCall,
             LlmComposer.FunctionCallExtractors,

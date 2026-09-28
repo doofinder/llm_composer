@@ -7,7 +7,7 @@ defmodule LlmComposer.Providers.OpenAI do
   @behaviour LlmComposer.Provider
 
   alias LlmComposer.HttpClient
-  alias LlmComposer.ProviderResponse
+  alias LlmComposer.ProviderResponse.Parser
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -77,11 +77,7 @@ defmodule LlmComposer.Providers.OpenAI do
 
   @spec wrap_response({:ok, map()} | {:error, term()}, keyword()) ::
           {:ok, LlmComposer.LlmResponse.t()} | {:error, term()}
-  defp wrap_response(result, opts) do
-    result
-    |> ProviderResponse.OpenAI.new(opts)
-    |> ProviderResponse.to_llm_response(opts)
-  end
+  defp wrap_response(result, opts), do: Parser.OpenAI.parse(result, name(), opts)
 
   @spec maybe_structured_output(map(), keyword()) :: map()
   defp maybe_structured_output(base_request, opts) do

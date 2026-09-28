@@ -71,28 +71,7 @@ Pass your module via `:provider` (single) or `:providers` (multi-provider routin
 }
 ```
 
-## Optional: Response Normalization Adapter
+## Streaming
 
-For complex response shapes, implement a `LlmComposer.ProviderResponse.*` adapter instead of
-building the `LlmResponse` inline. See the existing provider response modules in
-`lib/llm_composer/provider_response/` for the pattern.
-
-## Optional: Streaming Support
-
-To support streaming, implement a `LlmComposer.ProviderStreamChunk.*` module using the
-`Struct` macro:
-
-```elixir
-defmodule MyApp.Providers.MyProvider.StreamChunk do
-  use LlmComposer.ProviderStreamChunk.Struct,
-    parser: MyApp.Providers.MyProvider.StreamChunk.Parser,
-    provider: :my_provider
-end
-
-defmodule MyApp.Providers.MyProvider.StreamChunk.Parser do
-  def parse(chunk_map, _provider, _opts) do
-    # Map provider-specific chunk map to LlmComposer.StreamChunk fields
-    {:ok, %LlmComposer.StreamChunk{type: :text_delta, text: chunk_map["delta"]}}
-  end
-end
-```
+`LlmComposer.parse_stream_response/3` only supports the built-in providers. A custom provider that
+streams must parse its own stream.

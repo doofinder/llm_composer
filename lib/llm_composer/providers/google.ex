@@ -196,7 +196,7 @@ defmodule LlmComposer.Providers.Google do
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
-  alias LlmComposer.ProviderResponse
+  alias LlmComposer.ProviderResponse.Parser
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -273,11 +273,7 @@ defmodule LlmComposer.Providers.Google do
     {:error, reason}
   end
 
-  defp wrap_response(result, opts) do
-    result
-    |> ProviderResponse.Google.new(opts)
-    |> ProviderResponse.to_llm_response(opts)
-  end
+  defp wrap_response(result, opts), do: Parser.Google.parse(result, name(), opts)
 
   defp get_key(opts) do
     case Utils.get_config(:google, :api_key, opts) do
