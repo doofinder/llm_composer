@@ -8,7 +8,7 @@ defmodule LlmComposer.Providers.OpenRouter do
 
   alias LlmComposer.Errors.MissingKeyError
   alias LlmComposer.HttpClient
-  alias LlmComposer.ProviderResponse
+  alias LlmComposer.ProviderResponse.Parser
   alias LlmComposer.Providers.Utils
 
   require Logger
@@ -93,11 +93,7 @@ defmodule LlmComposer.Providers.OpenRouter do
     {:error, reason}
   end
 
-  defp wrap_response(result, opts) do
-    result
-    |> ProviderResponse.OpenRouter.new(opts)
-    |> ProviderResponse.to_llm_response(opts)
-  end
+  defp wrap_response(result, opts), do: Parser.OpenAI.parse(result, name(), opts)
 
   defp get_key(opts) do
     case Utils.get_config(:open_router, :api_key, opts) do

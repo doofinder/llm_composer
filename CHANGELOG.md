@@ -4,11 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.20.8] - 2026-09-28
+## [0.21.1] - 2026-09-28
 
 ### Changed
 
 - Widened the optional `:hackney` dependency to `~> 1.21 or ~> 4.0`, so consumers can pick up hackney 4.x (e.g. for its CVE fixes, only available from 4.0.1+) through their own Tesla/ex_aws configuration without llm_composer's own requirement holding them back. Purely additive: anyone still on hackney 1.21.x resolves exactly as before, since llm_composer has no direct `hackney.` calls of its own — hackney is only ever selected as a Tesla adapter.
+
+## [0.21.0] - 2026-09-25
+
+### Removed
+
+- **Breaking:** removed the `LlmComposer.ProviderResponse` and `LlmComposer.ProviderStreamChunk` protocols, their `Struct` macros and the per-provider adapter structs. Custom providers return `{:ok, %LlmComposer.LlmResponse{}}` from `run/3` directly; `LlmComposer.parse_stream_response/3` only supports built-in providers (as before).
+
+### Changed
+
+- Built-in providers and `LlmComposer.parse_stream_response/3` call the response and stream chunk parsers directly. No behaviour change.
 
 ## [0.20.7] - 2026-09-23
 

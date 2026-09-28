@@ -43,7 +43,7 @@ defmodule LlmComposer do
   alias LlmComposer.LlmResponse
   alias LlmComposer.Message
   alias LlmComposer.ProvidersRunner
-  alias LlmComposer.ProviderStreamChunk
+  alias LlmComposer.ProviderStreamChunk.Parser
   alias LlmComposer.Settings
 
   require Logger
@@ -174,33 +174,21 @@ defmodule LlmComposer do
   end
 
   defp wrap_stream_chunk(payload, provider, opts) do
-    case provider_stream_struct(provider, payload, opts) do
+    case stream_parser(provider) do
       {:error, _} = error -> error
-      struct -> ProviderStreamChunk.to_stream_chunk(struct, opts)
+      parser -> parser.parse(payload, provider, opts)
     end
   end
 
-  defp provider_stream_struct(:open_ai, payload, opts),
-    do: ProviderStreamChunk.OpenAI.new(payload, opts)
+  @spec stream_parser(atom()) :: module() | {:error, map()}
+  defp stream_parser(provider) when provider in [:open_ai, :open_router], do: Parser.OpenAI
+  defp stream_parser(:open_ai_responses), do: Parser.OpenAIResponses
+  defp stream_parser(:google), do: Parser.Google
+  defp stream_parser(:ollama), do: Parser.Ollama
+  defp stream_parser(:bedrock), do: Parser.Bedrock
 
-  defp provider_stream_struct(:open_router, payload, opts),
-    do: ProviderStreamChunk.OpenRouter.new(payload, opts)
-
-  defp provider_stream_struct(:open_ai_responses, payload, opts),
-    do: ProviderStreamChunk.OpenAIResponses.new(payload, opts)
-
-  defp provider_stream_struct(:google, payload, opts),
-    do: ProviderStreamChunk.Google.new(payload, opts)
-
-  defp provider_stream_struct(:ollama, payload, opts),
-    do: ProviderStreamChunk.Ollama.new(payload, opts)
-
-  defp provider_stream_struct(:bedrock, payload, opts),
-    do: ProviderStreamChunk.Bedrock.new(payload, opts)
-
-  defp provider_stream_struct(provider, _payload, _opts) do
-    {:error, %{reason: :unsupported_stream_provider, provider: provider}}
-  end
+  defp stream_parser(provider),
+    do: {:error, %{reason: :unsupported_stream_provider, provider: provider}}
 
   @spec user_prompt(Settings.t(), String.t(), map()) :: String.t()
   defp user_prompt(settings, message, opts) do

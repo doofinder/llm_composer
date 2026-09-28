@@ -62,19 +62,11 @@ lib
 │   ├── message.ex
 │   ├── provider.ex
 │   ├── provider_response
-│   │   ├── bedrock.ex
-│   │   ├── google.ex
-│   │   ├── ollama.ex
-│   │   ├── open_ai.ex
-│   │   ├── open_ai_responses.ex
-│   │   ├── open_router.ex
-│   │   ├── parser
-│   │   │   ├── bedrock.ex
-│   │   │   ├── google.ex
-│   │   │   ├── ollama.ex
-│   │   │   └── open_ai.ex
-│   │   └── struct.ex
-│   ├── provider_response.ex
+│   │   └── parser
+│   │       ├── bedrock.ex
+│   │       ├── google.ex
+│   │       ├── ollama.ex
+│   │       └── open_ai.ex
 │   ├── provider_router
 │   │   └── simple.ex
 │   ├── provider_router.ex
@@ -93,20 +85,12 @@ lib
 │   │   └── utils.ex
 │   ├── providers_runner.ex
 │   ├── provider_stream_chunk
-│   │   ├── bedrock.ex
-│   │   ├── google.ex
-│   │   ├── ollama.ex
-│   │   ├── open_ai.ex
-│   │   ├── open_ai_responses.ex
-│   │   ├── open_router.ex
-│   │   ├── parser
-│   │   │   ├── bedrock.ex
-│   │   │   ├── google.ex
-│   │   │   ├── ollama.ex
-│   │   │   ├── open_ai.ex
-│   │   │   └── open_ai_responses.ex
-│   │   └── struct.ex
-│   ├── provider_stream_chunk.ex
+│   │   └── parser
+│   │       ├── bedrock.ex
+│   │       ├── google.ex
+│   │       ├── ollama.ex
+│   │       ├── open_ai.ex
+│   │       └── open_ai_responses.ex
 │   ├── settings.ex
 │   └── stream_chunk.ex
 └── llm_composer.ex
