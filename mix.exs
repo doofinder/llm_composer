@@ -4,7 +4,7 @@ defmodule LlmComposer.MixProject do
   def project do
     [
       app: :llm_composer,
-      version: "0.21.0",
+      version: "0.21.1",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -97,7 +97,7 @@ defmodule LlmComposer.MixProject do
       {:decimal, "~> 3.0 or ~> 2.3"},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_aws, "~> 2.6", optional: true},
-      {:hackney, "~> 1.21", optional: true},
+      {:hackney, "~> 1.21 or ~> 4.0", optional: true},
       {:ex_doc, "~> 0.40", only: :dev, runtime: false, warn_if_outdated: true},
       {:excoveralls, "~> 0.18", only: :test},
       {:finch, "~> 0.18", optional: true},
